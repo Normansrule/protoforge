@@ -1,0 +1,40 @@
+name: New lab idea
+description: Propose a new engineering discipline (lab) or a major lab feature.
+labels: [lab-idea]
+body:
+  - type: input
+    id: discipline
+    attributes:
+      label: Discipline
+      placeholder: "Acoustics, finite-element analysis (FEA), antennas, battery management …"
+    validations:
+      required: true
+  - type: textarea
+    id: teach
+    attributes:
+      label: What would it teach, and which equations or algorithms sit at its core?
+    validations:
+      required: true
+  - type: textarea
+    id: iris
+    attributes:
+      label: How does it tie into the Iris smart glasses (or another product)?
+      description: Which requirement could a new metric verify? e.g. `antenna.efficiency_pct ≥ 40 %`
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Proposed engine methods and metric keys
+      placeholder: |
+        antenna.pattern   { geometry, freq_hz } → gain pattern
+        metric: antenna.peak_gain_dbi
+  - type: textarea
+    id: refs
+    attributes:
+      label: References
+      description: Textbooks, papers or standards the lab should cite, and the professional tool to graduate to.
+  - type: checkboxes
+    id: conventions
+    attributes:
+      label: Conventions
+      options:
+        - label: I have read docs/CONTRIBUTING-LABS.md (no new crates in forge-core, metrics under ~20 ms, Explainer blocks with references).
