@@ -7,10 +7,31 @@
 //! * **Trade studies** – weighted-sum decision matrices with weight
 //!   sensitivity.
 //! * **FMEA** – risk priority numbers (RPN = S × O × D).
-//! * **Lint** – structural checks (dangling ids, unverifiable requirements).
+//! * **Lint** – structural checks (dangling ids, unverifiable requirements),
+//!   plus requirement-quality checks after the INCOSE *Guide to Writing
+//!   Requirements* ([`quality`]).
+//! * **Budgets** – mass, power and cost roll-ups per subsystem with margins
+//!   against the requirements that bound them ([`budgets`]).
+//! * **Architecture & coverage** – N² interface matrix with design-structure
+//!   sequencing, need → requirement coverage and V-model stage status
+//!   ([`analysis`]).
+//! * **Sensitivity** – sweep one design parameter and watch requirements
+//!   flip ([`sensitivity`]).
+//! * **Templates** – starter projects for building something new
+//!   ([`templates`]), and a full systems-engineering report ([`report`]).
 //!
 //! References: NASA Systems Engineering Handbook (SP-2016-6105 Rev 2);
-//! INCOSE Systems Engineering Handbook; AIAG & VDA FMEA Handbook.
+//! INCOSE Systems Engineering Handbook (5th ed., 2023); INCOSE Guide to
+//! Writing Requirements; ISO/IEC/IEEE 15288:2023; AIAG & VDA FMEA Handbook
+//! (2019); R. J. Lano, "The N² Chart" (TRW, 1977); T. L. Saaty, *The Analytic
+//! Hierarchy Process* (1980).
+
+pub mod analysis;
+pub mod budgets;
+pub mod quality;
+pub mod report;
+pub mod sensitivity;
+pub mod templates;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -50,8 +71,46 @@ fn system_metrics(p: &Project, m: &[Metric]) -> Vec<Metric> {
             Metric::new("mass.total_g", "Total wearable mass", frame + comp, "g", "systems")
                 .with_note(&format!("frame {frame:.1} g + components {comp:.1} g")),
         );
-    } else {
-        out.push(Metric::new("mass.components_g", "Component mass", comp, "g", "systems"));
+    }
+    out.push(
+        Metric::new("mass.components_g", "Component mass", comp, "g", "systems")
+            .with_note(&format!("{} BOM lines, quantities applied", p.components.len())),
+    );
+    let load = budgets::load_power_mw(p);
+    if load > 0.0 {
+        let eff = budgets::regulator_efficiency(p);
+        let avg = load / eff;
+        out.push(
+            Metric::new(
+                "budget.avg_power_mw",
+                "Average battery power (component roll-up)",
+                avg,
+                "mW",
+                "systems",
+            )
+            .with_note(&format!(
+                "{load:.2} mW of loads (active × duty + sleep × (1 − duty)) ÷ {eff:.2} regulator efficiency"
+            )),
+        );
+        let b = &p.design.battery;
+        let energy = b.capacity_mah * b.nominal_v * b.usable_fraction;
+        if energy > 0.0 {
+            out.push(
+                Metric::new(
+                    "budget.battery_life_h",
+                    "Battery life estimate (component roll-up)",
+                    energy / avg,
+                    "h",
+                    "systems",
+                )
+                .with_note(&format!(
+                    "{:.0} mAh × {:.2} V × {:.0} % usable = {energy:.0} mWh ÷ {avg:.2} mW",
+                    b.capacity_mah,
+                    b.nominal_v,
+                    b.usable_fraction * 100.0
+                )),
+            );
+        }
     }
     out.push(Metric::new(
         "bom.cost_usd",
@@ -305,7 +364,7 @@ pub fn metric_lab(key: &str) -> String {
     let prefix = key.split('.').next().unwrap_or("");
     match prefix {
         "thermal" => "power".into(),
-        "mass" | "fit" | "bom" => "systems".into(),
+        "mass" | "fit" | "bom" | "budget" => "systems".into(),
         other => other.into(),
     }
 }
@@ -597,6 +656,20 @@ pub fn report_markdown(p: &Project, ev: &Evaluation) -> String {
 // Dispatch
 // ---------------------------------------------------------------------------
 
+/// Input for methods that can reuse an evaluation the caller already has
+/// (the web app evaluates on every edit), falling back to evaluating here.
+#[derive(Deserialize)]
+struct WithEval {
+    project: Project,
+    #[serde(default)]
+    evaluation: Option<Evaluation>,
+}
+
+#[derive(Deserialize)]
+struct TemplateIn {
+    id: String,
+}
+
 #[derive(Deserialize)]
 struct ImpactIn {
     project: Project,
@@ -616,6 +689,39 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         "systems.report" => handle(input, |p: Project| {
             let ev = evaluate(&p);
             Ok(report_markdown(&p, &ev))
+        }),
+        "systems.report_full" => handle(input, |i: WithEval| {
+            let ev = i.evaluation.unwrap_or_else(|| evaluate(&i.project));
+            Ok(report::report_full_markdown(&i.project, &ev))
+        }),
+        "systems.budgets" => handle(input, |i: WithEval| {
+            let ev = i.evaluation.unwrap_or_else(|| evaluate(&i.project));
+            Ok(budgets::budgets(&i.project, &ev))
+        }),
+        "systems.n2" => handle(input, |p: Project| Ok(analysis::n2(&p))),
+        "systems.coverage" => handle(input, |i: WithEval| {
+            let ev = i.evaluation.unwrap_or_else(|| evaluate(&i.project));
+            Ok(analysis::coverage(&i.project, &ev))
+        }),
+        "systems.vmodel" => handle(input, |i: WithEval| {
+            let ev = i.evaluation.unwrap_or_else(|| evaluate(&i.project));
+            Ok(analysis::vmodel(&i.project, &ev))
+        }),
+        "systems.gates" => handle(input, |i: WithEval| {
+            let ev = i.evaluation.unwrap_or_else(|| evaluate(&i.project));
+            Ok(analysis::gates(&i.project, &ev))
+        }),
+        "systems.quality" => handle(input, |p: Project| Ok(quality::quality(&p))),
+        "systems.trade_detail" => handle(input, |t: TradeStudy| Ok(analysis::trade_detail(&t))),
+        "systems.studio" => handle(input, |i: WithEval| {
+            let ev = i.evaluation.unwrap_or_else(|| evaluate(&i.project));
+            Ok(analysis::studio(&i.project, &ev))
+        }),
+        "systems.parameters" => handle(input, |p: Project| Ok(sensitivity::parameters(&p))),
+        "systems.sensitivity" => handle(input, sensitivity::run),
+        "systems.templates" => handle(input, |_: Value| Ok(templates::templates())),
+        "systems.template" => handle(input, |i: TemplateIn| {
+            templates::template(&i.id).ok_or_else(|| format!("unknown template `{}`", i.id))
         }),
         _ => None,
     }
