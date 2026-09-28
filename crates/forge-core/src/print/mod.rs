@@ -53,8 +53,17 @@ pub fn slice_mesh(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings, density: f6
     let layers = slicer::slice(mesh, pp, st, None);
     let per_layer: Vec<LayerStats> = layers.iter().map(|l| motion::layer_stats(l, pp, st)).collect();
     let stats = motion::totals(&per_layer, None, density, st.cost_per_kg, mesh.volume(), pp.filament_diameter_mm);
-    let gcode = if st.gcode { gcode::write(&layers, pp, st, &stats, name) } else { String::new() };
-    SliceResult { layers, per_layer, stats, gcode }
+    let gcode = if st.gcode {
+        gcode::write(&layers, pp, st, &stats, name)
+    } else {
+        String::new()
+    };
+    SliceResult {
+        layers,
+        per_layer,
+        stats,
+        gcode,
+    }
 }
 
 /// Stratified-sample estimate: slices only ~`samples` layers (+ layer 0)
@@ -84,7 +93,14 @@ pub fn estimate_mesh(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings, density:
         let k = idx.iter().position(|&i| i == l.index).unwrap_or(0);
         w_aligned.push(weights[k]);
     }
-    motion::totals(&per, Some(&w_aligned), density, st.cost_per_kg, mesh.volume(), pp.filament_diameter_mm)
+    motion::totals(
+        &per,
+        Some(&w_aligned),
+        density,
+        st.cost_per_kg,
+        mesh.volume(),
+        pp.filament_diameter_mm,
+    )
 }
 
 /// Resolve a printable part of the project by name (frame parts, or the
@@ -101,7 +117,11 @@ pub fn project_part(p: &Project, name: &str) -> Result<Mesh, String> {
         return Ok(if name == "enclosure_lid" { b.lid_print } else { b.body_print });
     }
     let geom = crate::cad::frame_geom(p);
-    geom.parts.iter().find(|b| b.name == name).map(|b| b.print.clone()).ok_or_else(|| format!("unknown part `{name}`"))
+    geom.parts
+        .iter()
+        .find(|b| b.name == name)
+        .map(|b| b.print.clone())
+        .ok_or_else(|| format!("unknown part `{name}`"))
 }
 
 // ------------------------------------------------------------------ API
@@ -167,7 +187,10 @@ fn now_ms() -> f64 {
     #[cfg(not(target_arch = "wasm32"))]
     {
         use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs_f64() * 1e3).unwrap_or(0.0)
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs_f64() * 1e3)
+            .unwrap_or(0.0)
     }
     #[cfg(target_arch = "wasm32")]
     {
@@ -178,7 +201,11 @@ fn now_ms() -> f64 {
 fn slice_api(i: SliceIn) -> Result<SliceOut, String> {
     let t0 = now_ms();
     let (name, mesh, project) = resolve(&i)?;
-    let pp = i.params.clone().or_else(|| project.as_ref().map(|p| p.design.print.clone())).unwrap_or_default();
+    let pp = i
+        .params
+        .clone()
+        .or_else(|| project.as_ref().map(|p| p.design.print.clone()))
+        .unwrap_or_default();
     let st = i.settings.clone();
     let density = density_for(project.as_ref(), &st);
     let r = slice_mesh(&mesh, &pp, &st, density, &name);
@@ -192,7 +219,14 @@ fn slice_api(i: SliceIn) -> Result<SliceOut, String> {
             paths: l
                 .paths
                 .iter()
-                .map(|p| PathOut { k: p.kind.code(), r: p.retract, p: p.pts.iter().flat_map(|q| [(q[0] * 100.0).round() as i32, (q[1] * 100.0).round() as i32]).collect() })
+                .map(|p| PathOut {
+                    k: p.kind.code(),
+                    r: p.retract,
+                    p: p.pts
+                        .iter()
+                        .flat_map(|q| [(q[0] * 100.0).round() as i32, (q[1] * 100.0).round() as i32])
+                        .collect(),
+                })
                 .collect(),
         })
         .collect();
@@ -264,7 +298,11 @@ fn estimate_all(p: &Project, pp: &PrintParams, st: &SliceSettings, method: Metho
                 Method::Sampled(n) => estimate_mesh(&b.print, pp, &st, density, n),
                 Method::Fast => estimate::estimate_fast(&b.print, pp, &st, density),
             };
-            PartEstimate { name: b.name.clone(), stats, volume_mm3: b.print.volume() }
+            PartEstimate {
+                name: b.name.clone(),
+                stats,
+                volume_mm3: b.print.volume(),
+            }
         })
         .collect();
     let t: f64 = parts.iter().map(|x| x.stats.time_s).sum();
@@ -318,7 +356,13 @@ struct OverhangIn {
 
 impl Default for OverhangIn {
     fn default() -> Self {
-        OverhangIn { project: None, part: None, mesh: None, threshold_deg: 45.0, orientation: "print".into() }
+        OverhangIn {
+            project: None,
+            part: None,
+            mesh: None,
+            threshold_deg: 45.0,
+            orientation: "print".into(),
+        }
     }
 }
 
@@ -331,7 +375,11 @@ fn overhangs(i: OverhangIn) -> Result<overhang::OverhangReport, String> {
         if i.orientation == "assembly" {
             // As worn: stand the part on the bed without re-orienting it.
             let geom = crate::cad::frame_geom(&p);
-            let b = geom.parts.iter().find(|b| b.name == name).ok_or_else(|| format!("unknown part `{name}`"))?;
+            let b = geom
+                .parts
+                .iter()
+                .find(|b| b.name == name)
+                .ok_or_else(|| format!("unknown part `{name}`"))?;
             let (lo, hi) = b.assembly.bbox();
             b.assembly.translated(-(lo[0] + hi[0]) / 2.0, -(lo[1] + hi[1]) / 2.0, -lo[2])
         } else {
@@ -376,8 +424,10 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
             pp.print_speed_mm_s,
             e.method
         )),
-        Metric::new("print.filament_g", "Filament, full frame set", e.total_filament_g, "g", "print")
-            .with_note(&format!("{:.2} m of {:.2} mm filament", e.total_filament_m, pp.filament_diameter_mm)),
+        Metric::new("print.filament_g", "Filament, full frame set", e.total_filament_g, "g", "print").with_note(&format!(
+            "{:.2} m of {:.2} mm filament",
+            e.total_filament_m, pp.filament_diameter_mm
+        )),
         Metric::new("print.cost_usd", "Filament cost, full frame set", e.total_cost_usd, "USD", "print")
             .with_note("at 20 USD/kg (adjustable in the Print Lab)"),
     ]
@@ -425,7 +475,10 @@ mod tests {
         let m = box_mesh([-10.0, -10.0, 0.0], [10.0, 10.0, 6.0]);
         let mut p = pp();
         p.infill_pct = 100.0;
-        let st = SliceSettings { skirt: false, ..Default::default() };
+        let st = SliceSettings {
+            skirt: false,
+            ..Default::default()
+        };
         let r = slice_mesh(&m, &p, &st, 1.27, "cube");
         let ratio = r.stats.fill_ratio;
         assert!((0.9..1.1).contains(&ratio), "fill ratio {ratio}");
@@ -474,7 +527,10 @@ mod tests {
     #[test]
     fn iris_parts_slice_and_estimate_agrees() {
         let p = Project::iris();
-        let st = SliceSettings { gcode: false, ..Default::default() };
+        let st = SliceSettings {
+            gcode: false,
+            ..Default::default()
+        };
         let full = estimate_all(&p, &p.design.print, &st, Method::Full);
         let est = estimate_all(&p, &p.design.print, &st, Method::Fast);
         for (f, e) in full.parts.iter().zip(&est.parts) {
@@ -493,9 +549,17 @@ mod tests {
             );
             assert!(f.stats.filament_g > 0.0 && f.stats.time_s > 0.0);
             assert!(dt.abs() < 0.10 && dg.abs() < 0.10, "{}: Δt {dt} Δg {dg}", f.name);
-            assert!(f.stats.fill_ratio > 0.3 && f.stats.fill_ratio < 1.15, "{} fill {}", f.name, f.stats.fill_ratio);
+            assert!(
+                f.stats.fill_ratio > 0.3 && f.stats.fill_ratio < 1.15,
+                "{} fill {}",
+                f.name,
+                f.stats.fill_ratio
+            );
         }
-        eprintln!("total full {:.2} h {:.1} g, fast {:.2} h {:.1} g", full.total_time_h, full.total_filament_g, est.total_time_h, est.total_filament_g);
+        eprintln!(
+            "total full {:.2} h {:.1} g, fast {:.2} h {:.1} g",
+            full.total_time_h, full.total_filament_g, est.total_time_h, est.total_filament_g
+        );
         assert!(full.total_time_h < 8.0);
         let dt = (est.total_time_h - full.total_time_h) / full.total_time_h;
         let dg = (est.total_filament_g - full.total_filament_g) / full.total_filament_g;
@@ -532,14 +596,25 @@ mod tests {
     #[test]
     fn dispatch_slice_and_overhangs() {
         let p = serde_json::to_value(Project::iris()).unwrap();
-        let out = dispatch("print.slice", &serde_json::json!({"project": p, "part": "lid_l"})).unwrap().unwrap();
+        let out = dispatch("print.slice", &serde_json::json!({"project": p, "part": "lid_l"}))
+            .unwrap()
+            .unwrap();
         assert!(out["layers"].as_array().unwrap().len() > 5);
         assert!(out["gcode"].as_str().unwrap().contains(";LAYER:1"));
-        let o = dispatch("print.overhangs", &serde_json::json!({"project": p, "part": "front"})).unwrap().unwrap();
+        let o = dispatch("print.overhangs", &serde_json::json!({"project": p, "part": "front"}))
+            .unwrap()
+            .unwrap();
         assert!(o["overhang_area_mm2"].as_f64().unwrap() < 1.0, "print orientation is support-free");
-        let a = dispatch("print.overhangs", &serde_json::json!({"project": p, "part": "temple_r", "orientation": "assembly"})).unwrap().unwrap();
-        assert!(a["overhang_area_mm2"].as_f64().unwrap() > 50.0, "as-worn orientation needs support: {}", a["overhang_area_mm2"]);
+        let a = dispatch(
+            "print.overhangs",
+            &serde_json::json!({"project": p, "part": "temple_r", "orientation": "assembly"}),
+        )
+        .unwrap()
+        .unwrap();
+        assert!(
+            a["overhang_area_mm2"].as_f64().unwrap() > 50.0,
+            "as-worn orientation needs support: {}",
+            a["overhang_area_mm2"]
+        );
     }
 }
-
-

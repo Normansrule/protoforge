@@ -190,7 +190,11 @@ pub fn parse(s: &str) -> Result<(Expr, Vec<String>), String> {
     if toks.is_empty() {
         return Err("empty expression".into());
     }
-    let mut p = Parser { toks, pos: 0, vars: vec![] };
+    let mut p = Parser {
+        toks,
+        pos: 0,
+        vars: vec![],
+    };
     let e = p.or()?;
     if p.pos != p.toks.len() {
         return Err(format!("unexpected token {:?}", p.toks[p.pos]));
@@ -339,7 +343,10 @@ pub fn prime_implicants(n: usize, on: &[u32], dc: &[u32]) -> (Vec<Implicant>, Ve
                         if diff.count_ones() == 1 {
                             used[i] = true;
                             used[j] = true;
-                            next.insert(Implicant { value: a.value & !diff, mask: mask | diff });
+                            next.insert(Implicant {
+                                value: a.value & !diff,
+                                mask: mask | diff,
+                            });
                         }
                     }
                 }
@@ -375,7 +382,11 @@ pub fn min_cover(n: usize, on: &[u32], primes: &[Implicant]) -> (Vec<Implicant>,
             chosen.insert(cov[0]);
         }
     }
-    let remaining: Vec<u32> = on.iter().cloned().filter(|&m| !chosen.iter().any(|&i| primes[i].covers(m))).collect();
+    let remaining: Vec<u32> = on
+        .iter()
+        .cloned()
+        .filter(|&m| !chosen.iter().any(|&i| primes[i].covers(m)))
+        .collect();
     let mut method = "essential prime implicants".to_string();
     if !remaining.is_empty() {
         // Petrick: product over remaining minterms of (sum of primes covering it)
@@ -384,7 +395,12 @@ pub fn min_cover(n: usize, on: &[u32], primes: &[Implicant]) -> (Vec<Implicant>,
         let mut exploded = cands.len() > 64;
         if !exploded {
             for &m in &remaining {
-                let clause: Vec<usize> = cands.iter().enumerate().filter(|(_, &p)| primes[p].covers(m)).map(|(k, _)| k).collect();
+                let clause: Vec<usize> = cands
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, &p)| primes[p].covers(m))
+                    .map(|(k, _)| k)
+                    .collect();
                 let mut next: Vec<u64> = Vec::new();
                 for &p in &products {
                     for &k in &clause {
@@ -409,7 +425,10 @@ pub fn min_cover(n: usize, on: &[u32], primes: &[Implicant]) -> (Vec<Implicant>,
         }
         if !exploded {
             let cost = |s: u64| {
-                let lits: usize = (0..cands.len()).filter(|k| s & (1u64 << k) != 0).map(|k| primes[cands[k]].literals(n)).sum();
+                let lits: usize = (0..cands.len())
+                    .filter(|k| s & (1u64 << k) != 0)
+                    .map(|k| primes[cands[k]].literals(n))
+                    .sum();
                 (s.count_ones() as usize, lits)
             };
             let best = products.iter().cloned().min_by_key(|&s| cost(s)).unwrap_or(0);
@@ -530,7 +549,13 @@ pub fn kmap(n: usize, vars: &[String], table: &[Option<bool>], cover: &[Implican
     let cbits = n - rbits;
     let rg = gray(rbits);
     let cg = gray(cbits);
-    let fmt = |v: u32, b: usize| if b == 0 { String::new() } else { format!("{:0width$b}", v, width = b) };
+    let fmt = |v: u32, b: usize| {
+        if b == 0 {
+            String::new()
+        } else {
+            format!("{:0width$b}", v, width = b)
+        }
+    };
     let mut cells = Vec::new();
     for (r, &rv) in rg.iter().enumerate() {
         for (c, &cv) in cg.iter().enumerate() {
@@ -540,21 +565,41 @@ pub fn kmap(n: usize, vars: &[String], table: &[Option<bool>], cover: &[Implican
                 Some(false) => "0",
                 None => "x",
             };
-            cells.push(KCell { row: r, col: c, minterm: m, value: value.into() });
+            cells.push(KCell {
+                row: r,
+                col: c,
+                minterm: m,
+                value: value.into(),
+            });
         }
     }
     let groups = cover
         .iter()
         .map(|imp| {
-            let rset: Vec<usize> = rg.iter().enumerate().filter(|(_, &rv)| rows_ok(imp, rv, cbits)).map(|(i, _)| i).collect();
-            let cset: Vec<usize> = cg.iter().enumerate().filter(|(_, &cv)| col_ok(imp, cv, cbits)).map(|(i, _)| i).collect();
+            let rset: Vec<usize> = rg
+                .iter()
+                .enumerate()
+                .filter(|(_, &rv)| rows_ok(imp, rv, cbits))
+                .map(|(i, _)| i)
+                .collect();
+            let cset: Vec<usize> = cg
+                .iter()
+                .enumerate()
+                .filter(|(_, &cv)| col_ok(imp, cv, cbits))
+                .map(|(i, _)| i)
+                .collect();
             let mut rects = Vec::new();
             for (r0, r1) in runs(&rset, rg.len()) {
                 for (c0, c1) in runs(&cset, cg.len()) {
                     rects.push(KRect { r0, r1, c0, c1 });
                 }
             }
-            KGroup { term: imp.product(vars, Style::Math), pattern: imp.pattern(n), rects, essential: essential.contains(imp) }
+            KGroup {
+                term: imp.product(vars, Style::Math),
+                pattern: imp.pattern(n),
+                rects,
+                essential: essential.contains(imp),
+            }
         })
         .collect();
     Some(KMap {
@@ -611,7 +656,14 @@ pub fn sop_netlist(vars: &[String], cover: &[Implicant], out: &str) -> Vec<Gate>
         }
     }
     for (row, &i) in needed_not.iter().enumerate() {
-        gates.push(Gate { id: format!("inv_{}", vars[i]), kind: "NOT".into(), inputs: vec![vars[i].clone()], output: format!("{}_n", vars[i]), col: 0, row });
+        gates.push(Gate {
+            id: format!("inv_{}", vars[i]),
+            kind: "NOT".into(),
+            inputs: vec![vars[i].clone()],
+            output: format!("{}_n", vars[i]),
+            col: 0,
+            row,
+        });
     }
     let mut terms = Vec::new();
     for (k, imp) in cover.iter().enumerate() {
@@ -628,16 +680,44 @@ pub fn sop_netlist(vars: &[String], cover: &[Implicant], out: &str) -> Vec<Gate>
             terms.push("1'b1".into());
         } else {
             let o = format!("p{k}");
-            gates.push(Gate { id: format!("and{k}"), kind: "AND".into(), inputs: ins, output: o.clone(), col: 1, row: k });
+            gates.push(Gate {
+                id: format!("and{k}"),
+                kind: "AND".into(),
+                inputs: ins,
+                output: o.clone(),
+                col: 1,
+                row: k,
+            });
             terms.push(o);
         }
     }
     if terms.len() > 1 {
-        gates.push(Gate { id: "or0".into(), kind: "OR".into(), inputs: terms, output: out.into(), col: 2, row: 0 });
+        gates.push(Gate {
+            id: "or0".into(),
+            kind: "OR".into(),
+            inputs: terms,
+            output: out.into(),
+            col: 2,
+            row: 0,
+        });
     } else if let Some(t) = terms.first() {
-        gates.push(Gate { id: "buf0".into(), kind: "BUF".into(), inputs: vec![t.clone()], output: out.into(), col: 2, row: 0 });
+        gates.push(Gate {
+            id: "buf0".into(),
+            kind: "BUF".into(),
+            inputs: vec![t.clone()],
+            output: out.into(),
+            col: 2,
+            row: 0,
+        });
     } else {
-        gates.push(Gate { id: "tie0".into(), kind: "TIE0".into(), inputs: vec![], output: out.into(), col: 2, row: 0 });
+        gates.push(Gate {
+            id: "tie0".into(),
+            kind: "TIE0".into(),
+            inputs: vec![],
+            output: out.into(),
+            col: 2,
+            row: 0,
+        });
     }
     gates
 }
@@ -658,7 +738,13 @@ pub struct MinimizeInput {
 
 impl Default for MinimizeInput {
     fn default() -> Self {
-        MinimizeInput { expr: "A'B'C' + A'B'C + A'BC' + AB'C + ABC' + ABC".into(), minterms: vec![], dont_cares: vec![], vars: vec![], num_vars: 0 }
+        MinimizeInput {
+            expr: "A'B'C' + A'B'C + A'BC' + AB'C + ABC' + ABC".into(),
+            minterms: vec![],
+            dont_cares: vec![],
+            vars: vec![],
+            num_vars: 0,
+        }
     }
 }
 
@@ -703,7 +789,11 @@ pub fn minimize(inp: &MinimizeInput) -> Result<MinimizeResult, String> {
             n += 1;
         }
         let n = n.clamp(1, 8);
-        let vars: Vec<String> = if inp.vars.len() == n { inp.vars.clone() } else { (0..n).map(|i| ((b'A' + i as u8) as char).to_string()).collect() };
+        let vars: Vec<String> = if inp.vars.len() == n {
+            inp.vars.clone()
+        } else {
+            (0..n).map(|i| ((b'A' + i as u8) as char).to_string()).collect()
+        };
         let mut t = vec![Some(false); 1 << n];
         for &m in &inp.dont_cares {
             if (m as usize) < t.len() {
@@ -748,23 +838,41 @@ pub fn minimize(inp: &MinimizeInput) -> Result<MinimizeResult, String> {
     let sop_v = if on.is_empty() {
         "1'b0".to_string()
     } else {
-        cover.iter().map(|i| format!("({})", i.product(&vars, Style::Verilog))).collect::<Vec<_>>().join(" | ")
+        cover
+            .iter()
+            .map(|i| format!("({})", i.product(&vars, Style::Verilog)))
+            .collect::<Vec<_>>()
+            .join(" | ")
     };
     let pos = if off.is_empty() {
         "1".to_string()
     } else {
-        cover_c.iter().map(|i| i.sum_of_complement(&vars, Style::Math)).collect::<Vec<_>>().join("")
+        cover_c
+            .iter()
+            .map(|i| i.sum_of_complement(&vars, Style::Math))
+            .collect::<Vec<_>>()
+            .join("")
     };
     let pos_v = if off.is_empty() {
         "1'b1".to_string()
     } else {
-        cover_c.iter().map(|i| i.sum_of_complement(&vars, Style::Verilog)).collect::<Vec<_>>().join(" & ")
+        cover_c
+            .iter()
+            .map(|i| i.sum_of_complement(&vars, Style::Verilog))
+            .collect::<Vec<_>>()
+            .join(" & ")
     };
     let essential: Vec<Implicant> = primes.iter().zip(&ess).filter(|(_, e)| **e).map(|(p, _)| *p).collect();
     let prime_info = primes
         .iter()
         .zip(&ess)
-        .map(|(p, e)| PrimeInfo { pattern: p.pattern(n), term: p.product(&vars, Style::Math), minterms: p.minterms(n).into_iter().filter(|m| on.contains(m)).collect(), essential: *e, chosen: cover.contains(p) })
+        .map(|(p, e)| PrimeInfo {
+            pattern: p.pattern(n),
+            term: p.product(&vars, Style::Math),
+            minterms: p.minterms(n).into_iter().filter(|m| on.contains(m)).collect(),
+            essential: *e,
+            chosen: cover.contains(p),
+        })
         .collect();
     let netlist = sop_netlist(&vars, &cover, "F");
     let verilog = format!(
@@ -773,8 +881,26 @@ pub fn minimize(inp: &MinimizeInput) -> Result<MinimizeResult, String> {
         sop_v
     );
     Ok(MinimizeResult {
-        table: table.iter().map(|v| match v { Some(true) => "1", Some(false) => "0", None => "x" }.to_string()).collect(),
-        sigma: format!("Σm({}){}", on.iter().map(|m| m.to_string()).collect::<Vec<_>>().join(","), if dc.is_empty() { String::new() } else { format!(" + d({})", dc.iter().map(|m| m.to_string()).collect::<Vec<_>>().join(",")) }),
+        table: table
+            .iter()
+            .map(|v| {
+                match v {
+                    Some(true) => "1",
+                    Some(false) => "0",
+                    None => "x",
+                }
+                .to_string()
+            })
+            .collect(),
+        sigma: format!(
+            "Σm({}){}",
+            on.iter().map(|m| m.to_string()).collect::<Vec<_>>().join(","),
+            if dc.is_empty() {
+                String::new()
+            } else {
+                format!(" + d({})", dc.iter().map(|m| m.to_string()).collect::<Vec<_>>().join(","))
+            }
+        ),
         pi: format!("ΠM({})", off.iter().map(|m| m.to_string()).collect::<Vec<_>>().join(",")),
         minterms: on,
         dont_cares: dc,
@@ -801,17 +927,25 @@ mod tests {
     fn eval_cover(cover_sop: &str, vars: &[String], m: u32) -> bool {
         let (e, v2) = parse(cover_sop).unwrap();
         let n = vars.len();
-        let vals: Vec<bool> = v2.iter().map(|name| {
-            let i = vars.iter().position(|x| x == name).unwrap();
-            m & (1 << (n - 1 - i)) != 0
-        }).collect();
+        let vals: Vec<bool> = v2
+            .iter()
+            .map(|name| {
+                let i = vars.iter().position(|x| x == name).unwrap();
+                m & (1 << (n - 1 - i)) != 0
+            })
+            .collect();
         e.eval(&vals)
     }
 
     #[test]
     fn classic_cyclic_example_needs_petrick() {
         // Σm(0,1,2,5,6,7): six primes, no essentials, two minimum covers of 3 terms
-        let r = minimize(&MinimizeInput { expr: String::new(), minterms: vec![0, 1, 2, 5, 6, 7], ..Default::default() }).unwrap();
+        let r = minimize(&MinimizeInput {
+            expr: String::new(),
+            minterms: vec![0, 1, 2, 5, 6, 7],
+            ..Default::default()
+        })
+        .unwrap();
         assert_eq!(r.primes.len(), 6);
         assert!(r.primes.iter().all(|p| !p.essential));
         assert_eq!(r.sop.split(" + ").count(), 3);
@@ -824,7 +958,11 @@ mod tests {
 
     #[test]
     fn majority_function() {
-        let r = minimize(&MinimizeInput { expr: "a&b | a&c | b&c | a&b&c".into(), ..Default::default() }).unwrap();
+        let r = minimize(&MinimizeInput {
+            expr: "a&b | a&c | b&c | a&b&c".into(),
+            ..Default::default()
+        })
+        .unwrap();
         assert_eq!(r.minterms, vec![3, 5, 6, 7]);
         assert_eq!(r.sop, "ab + ac + bc");
         assert!(r.primes.iter().all(|p| p.essential));
@@ -851,18 +989,35 @@ mod tests {
     #[test]
     fn dont_cares_and_kmap_wraparound() {
         // Σm(0,2,8,10) = B'D' — the four corners of a 4-variable map
-        let r = minimize(&MinimizeInput { expr: String::new(), minterms: vec![0, 2, 8, 10], num_vars: 4, ..Default::default() }).unwrap();
+        let r = minimize(&MinimizeInput {
+            expr: String::new(),
+            minterms: vec![0, 2, 8, 10],
+            num_vars: 4,
+            ..Default::default()
+        })
+        .unwrap();
         assert_eq!(r.sop, "B'D'");
         let k = r.kmap.unwrap();
         assert_eq!(k.groups[0].rects.len(), 4, "corners split into four rectangles");
         // with don't cares: Σm(1,3,7,11,15) + d(0,2,5) = CD + A'B' (classic textbook)
-        let r = minimize(&MinimizeInput { expr: String::new(), minterms: vec![1, 3, 7, 11, 15], dont_cares: vec![0, 2, 5], num_vars: 4, ..Default::default() }).unwrap();
+        let r = minimize(&MinimizeInput {
+            expr: String::new(),
+            minterms: vec![1, 3, 7, 11, 15],
+            dont_cares: vec![0, 2, 5],
+            num_vars: 4,
+            ..Default::default()
+        })
+        .unwrap();
         assert_eq!(r.sop_literals, 4, "{}", r.sop);
     }
 
     #[test]
     fn eight_variables_parity_is_handled() {
-        let r = minimize(&MinimizeInput { expr: "a^b^c^d^e^f^g^h".into(), ..Default::default() }).unwrap();
+        let r = minimize(&MinimizeInput {
+            expr: "a^b^c^d^e^f^g^h".into(),
+            ..Default::default()
+        })
+        .unwrap();
         assert_eq!(r.minterms.len(), 128);
         assert_eq!(r.primes.len(), 128); // parity has no adjacencies
         assert!(r.kmap.is_none());

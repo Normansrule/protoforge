@@ -49,13 +49,23 @@ pub struct PlantSel {
 
 impl Default for PlantSel {
     fn default() -> Self {
-        PlantSel { id: "mass_spring_damper".into(), params: BTreeMap::new(), num: vec![1.0], den: vec![1.0, 1.0], delay: 0.0 }
+        PlantSel {
+            id: "mass_spring_damper".into(),
+            params: BTreeMap::new(),
+            num: vec![1.0],
+            den: vec![1.0, 1.0],
+            delay: 0.0,
+        }
     }
 }
 
 impl PlantSel {
     pub fn build(&self, p: Option<&Project>) -> Result<Tf, String> {
-        let custom = Tf { num: self.num.clone(), den: self.den.clone(), delay: self.delay.max(0.0) };
+        let custom = Tf {
+            num: self.num.clone(),
+            den: self.den.clone(),
+            delay: self.delay.max(0.0),
+        };
         plants::build(&self.id, &self.params, Some(&custom), p)
     }
 }
@@ -118,12 +128,20 @@ pub fn analyze(i: &AnalyzeIn) -> Result<AnalyzeOut, String> {
     let stable = closed_poles.iter().all(|p| p.re < -1e-9);
     // time horizon: closed-loop dynamics if stable, else plant dynamics
     let t_end = i.sim.t_end.filter(|t| *t > 0.0).unwrap_or_else(|| {
-        let base = if stable { lti::horizon_from_poles(&closed_poles) } else { plant.natural_horizon() };
+        let base = if stable {
+            lti::horizon_from_poles(&closed_poles)
+        } else {
+            plant.natural_horizon()
+        };
         (base + 3.0 * plant.delay).clamp(1e-3, 1e5)
     });
     let sim = lti::simulate_pid_loop(&plant, &pid, &i.sim, t_end)?;
     let metrics = lti::step_metrics(&sim.t, &sim.y, i.sim.setpoint);
-    let open_t = if plant.poles().iter().any(|p| p.re > 1e-9) { t_end.min(plant.natural_horizon()) } else { plant.natural_horizon() };
+    let open_t = if plant.poles().iter().any(|p| p.re > 1e-9) {
+        t_end.min(plant.natural_horizon())
+    } else {
+        plant.natural_horizon()
+    };
     let open_step = lti::simulate(&plant, InputKind::Step, open_t, 600, 0.0)?;
     let open_metrics = lti::step_metrics(&open_step.t, &open_step.y, plant.dc_gain());
     let w = lti::auto_grid(&[&plant, &l], 400);
@@ -209,7 +227,15 @@ struct ResponseIn {
 
 impl Default for ResponseIn {
     fn default() -> Self {
-        ResponseIn { num: vec![1.0], den: vec![1.0, 1.0], delay: 0.0, input: InputKind::Step, t_end: None, samples: 1000, freq_hz: 1.0 }
+        ResponseIn {
+            num: vec![1.0],
+            den: vec![1.0, 1.0],
+            delay: 0.0,
+            input: InputKind::Step,
+            t_end: None,
+            samples: 1000,
+            freq_hz: 1.0,
+        }
     }
 }
 
@@ -227,7 +253,13 @@ fn response(i: ResponseIn) -> Result<ResponseOut, String> {
     let t_end = i.t_end.unwrap_or_else(|| tf.natural_horizon());
     let r = lti::simulate(&tf, i.input, t_end, i.samples, i.freq_hz)?;
     let metrics = lti::step_metrics(&r.t, &r.y, tf.dc_gain());
-    Ok(ResponseOut { metrics, poles: tf.poles(), zeros: tf.zeros(), dc_gain: tf.dc_gain(), response: r })
+    Ok(ResponseOut {
+        metrics,
+        poles: tf.poles(),
+        zeros: tf.zeros(),
+        dc_gain: tf.dc_gain(),
+        response: r,
+    })
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -255,7 +287,11 @@ fn freq(i: FreqIn) -> Result<FreqOut, String> {
         (Some(a), Some(b)) if a > 0.0 && b > a => crate::math::logspace(a, b, n),
         _ => lti::auto_grid(&[&tf], n),
     };
-    Ok(FreqOut { bode: lti::bode(&tf, &w), margins: lti::margins(&tf), nyquist: lti::nyquist(&tf, &w) })
+    Ok(FreqOut {
+        bode: lti::bode(&tf, &w),
+        margins: lti::margins(&tf),
+        nyquist: lti::nyquist(&tf, &w),
+    })
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -287,7 +323,12 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         "control.frequency" => handle(input, freq),
         "control.root_locus" => handle(input, |i: RlIn| {
             let tf = Tf::new(i.num, i.den).with_delay(i.delay);
-            Ok(lti::root_locus(&tf, i.k_min.unwrap_or(1e-3), i.k_max.unwrap_or(1e3), i.points.unwrap_or(240).clamp(10, 2000)))
+            Ok(lti::root_locus(
+                &tf,
+                i.k_min.unwrap_or(1e-3),
+                i.k_max.unwrap_or(1e3),
+                i.points.unwrap_or(240).clamp(10, 2000),
+            ))
         }),
         "control.cartpole" => handle(input, |i: lqr::CartPoleInput| lqr::simulate_cartpole(&i)),
         "control.head_tracking" => handle(input, |i: HeadIn| {
@@ -329,9 +370,22 @@ mod tests {
     fn analyze_every_catalog_plant() {
         let p = Project::iris();
         for info in plants::catalog(Some(&p)) {
-            let out = analyze(&AnalyzeIn { plant: PlantSel { id: info.id.clone(), ..Default::default() }, pid: info.pid, project: Some(p.clone()), ..Default::default() }).unwrap();
+            let out = analyze(&AnalyzeIn {
+                plant: PlantSel {
+                    id: info.id.clone(),
+                    ..Default::default()
+                },
+                pid: info.pid,
+                project: Some(p.clone()),
+                ..Default::default()
+            })
+            .unwrap();
             assert!(!out.sim.t.is_empty(), "{}", info.id);
-            assert!(out.stable, "default PID should stabilise {} (poles {:?})", info.id, out.closed_poles);
+            assert!(
+                out.stable,
+                "default PID should stabilise {} (poles {:?})",
+                info.id, out.closed_poles
+            );
         }
     }
 
@@ -339,9 +393,15 @@ mod tests {
     #[test]
     #[ignore]
     fn summary() {
-        let r = imu::head_tracking(&imu::HeadInput { sweep: true, ..Default::default() });
+        let r = imu::head_tracking(&imu::HeadInput {
+            sweep: true,
+            ..Default::default()
+        });
         for e in &r.estimates {
-            println!("{:28} roll {:7.3} pitch {:7.3} tilt {:7.3} max {:7.3} yaw_end {:7.2}", e.name, e.rms_roll, e.rms_pitch, e.rms_tilt, e.max_tilt_err, e.final_yaw_err);
+            println!(
+                "{:28} roll {:7.3} pitch {:7.3} tilt {:7.3} max {:7.3} yaw_end {:7.2}",
+                e.name, e.rms_roll, e.rms_pitch, e.rms_tilt, e.max_tilt_err, e.final_yaw_err
+            );
         }
         println!("sweep {:?}", r.sweep);
         println!("kf bias {:?}", r.kf_bias_est);
@@ -351,10 +411,36 @@ mod tests {
         let p = Project::iris();
         for info in plants::catalog(Some(&p)) {
             let t0 = std::time::Instant::now();
-            let out = analyze(&AnalyzeIn { plant: PlantSel { id: info.id.clone(), ..Default::default() }, pid: info.pid, project: Some(p.clone()), ..Default::default() }).unwrap();
-            println!("{:20} t_end {:8.3} os {:6.1}% ts {:?} pm {:?} gm {:?} {:?}", info.id, out.t_end, out.metrics.overshoot_pct, out.metrics.settling_time, out.margins.pm_deg, out.margins.gm_db, t0.elapsed());
+            let out = analyze(&AnalyzeIn {
+                plant: PlantSel {
+                    id: info.id.clone(),
+                    ..Default::default()
+                },
+                pid: info.pid,
+                project: Some(p.clone()),
+                ..Default::default()
+            })
+            .unwrap();
+            println!(
+                "{:20} t_end {:8.3} os {:6.1}% ts {:?} pm {:?} gm {:?} {:?}",
+                info.id,
+                out.t_end,
+                out.metrics.overshoot_pct,
+                out.metrics.settling_time,
+                out.margins.pm_deg,
+                out.margins.gm_db,
+                t0.elapsed()
+            );
             for m in ["zn_pid", "simc_pi", "simc_pid"] {
-                let t = tune(TuneIn { plant: PlantSel { id: info.id.clone(), ..Default::default() }, method: m.into(), project: Some(p.clone()), ..Default::default() });
+                let t = tune(TuneIn {
+                    plant: PlantSel {
+                        id: info.id.clone(),
+                        ..Default::default()
+                    },
+                    method: m.into(),
+                    project: Some(p.clone()),
+                    ..Default::default()
+                });
                 match t {
                     Ok(t) => println!("   {m}: kp {:.4} ki {:.4} kd {:.4}", t.pid.kp, t.pid.ki, t.pid.kd),
                     Err(e) => println!("   {m}: {e}"),

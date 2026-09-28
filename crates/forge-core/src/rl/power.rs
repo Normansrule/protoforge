@@ -145,18 +145,30 @@ fn avg_mw(c: &Component) -> f64 {
 }
 
 pub fn model(p: &Project, cfg: &PowerConfig) -> PowerModel {
-    let mut m = PowerModel { buck_efficiency: p.design.power_rails.buck_efficiency.clamp(0.3, 1.0), ..Default::default() };
+    let mut m = PowerModel {
+        buck_efficiency: p.design.power_rails.buck_efficiency.clamp(0.3, 1.0),
+        ..Default::default()
+    };
     let disp = find(p, &["display"], "U2");
     let soc = find(p, &["system-on-chip", "soc", "mcu", "microcontroller"], "U1");
-    let (d_act, d_sleep, d_duty) = disp.map(|c| (c.power.active_mw * c.qty, c.power.sleep_mw * c.qty, c.power.duty)).unwrap_or((140.0, 0.05, 0.3));
-    let (s_act, s_sleep, s_duty) = soc.map(|c| (c.power.active_mw * c.qty, c.power.sleep_mw * c.qty, c.power.duty)).unwrap_or((21.0, 0.006, 0.25));
+    let (d_act, d_sleep, d_duty) = disp
+        .map(|c| (c.power.active_mw * c.qty, c.power.sleep_mw * c.qty, c.power.duty))
+        .unwrap_or((140.0, 0.05, 0.3));
+    let (s_act, s_sleep, s_duty) = soc
+        .map(|c| (c.power.active_mw * c.qty, c.power.sleep_mw * c.qty, c.power.duty))
+        .unwrap_or((21.0, 0.006, 0.25));
     m.display_ref = disp.map(|c| c.refdes.clone()).unwrap_or_else(|| "(default)".into());
     m.soc_ref = soc.map(|c| c.refdes.clone()).unwrap_or_else(|| "(default)".into());
     m.display_mw = [d_sleep, d_act * cfg.low_refresh_factor.clamp(0.0, 1.0), d_act];
     // user model: stationary non-idle share = display duty
     let active = d_duty.clamp(0.01, 0.9);
     let split_sum: f64 = cfg.active_split.iter().sum::<f64>().max(1e-9);
-    m.shares = [1.0 - active, active * cfg.active_split[0] / split_sum, active * cfg.active_split[1] / split_sum, active * cfg.active_split[2] / split_sum];
+    m.shares = [
+        1.0 - active,
+        active * cfg.active_split[0] / split_sum,
+        active * cfg.active_split[1] / split_sum,
+        active * cfg.active_split[2] / split_sum,
+    ];
     let step = cfg.step_min.clamp(0.1, 60.0);
     let mut trans = [[0.0; 4]; 4];
     let mut out_of_idle = 0.0;
@@ -190,7 +202,12 @@ pub fn model(p: &Project, cfg: &PowerConfig) -> PowerModel {
         }
     }
     let skip = [disp.map(|c| c.refdes.clone()), soc.map(|c| c.refdes.clone())];
-    m.const_mw = p.components.iter().filter(|c| !skip.contains(&Some(c.refdes.clone()))).map(avg_mw).sum::<f64>()
+    m.const_mw = p
+        .components
+        .iter()
+        .filter(|c| !skip.contains(&Some(c.refdes.clone())))
+        .map(avg_mw)
+        .sum::<f64>()
         + p.design.power_rails.quiescent_ua * 1e-3 * p.design.battery.nominal_v;
     let b = &p.design.battery;
     m.battery_mwh = b.capacity_mah * b.nominal_v * b.usable_fraction;
@@ -289,7 +306,10 @@ pub struct EvalSummary {
 fn evaluate(cfg: &PowerConfig, m: &PowerModel, name: &str, policy: &dyn Fn(f64, usize) -> usize) -> EvalSummary {
     let dt_h = cfg.step_min.clamp(0.1, 60.0) / 60.0;
     let runs = cfg.eval_runs.clamp(1, 50);
-    let mut out = EvalSummary { name: name.into(), ..Default::default() };
+    let mut out = EvalSummary {
+        name: name.into(),
+        ..Default::default()
+    };
     let day_steps = (16.0 / dt_h) as usize;
     let max_steps = (72.0 / dt_h) as usize;
     let mut steps_total = 0.0;
@@ -465,7 +485,15 @@ pub fn train(p: &Project, cfg: &PowerConfig) -> PowerResult {
         curve.push(total / steps.max(1) as f64);
     }
     // unvisited states fall back to the fixed policy's action
-    let policy: Vec<u8> = (0..ns).map(|s| if visits[s] == 0 { (fixed_display(s % 4) * 2) as u8 } else { argmax(&q[s]) as u8 }).collect();
+    let policy: Vec<u8> = (0..ns)
+        .map(|s| {
+            if visits[s] == 0 {
+                (fixed_display(s % 4) * 2) as u8
+            } else {
+                argmax(&q[s]) as u8
+            }
+        })
+        .collect();
     let fixed = evaluate(cfg, &m, "Fixed (BOM duty cycle)", &|_, c| fixed_display(c) * 2);
     let pol = policy.clone();
     let learned = evaluate(cfg, &m, "Learned (Q-learning)", &|soc, c| pol[state_index(cfg, soc, c)] as usize);
@@ -541,7 +569,11 @@ fn value_iteration(cfg: &PowerConfig, m: &PowerModel) -> Vec<u8> {
                             continue;
                         }
                         let stay = v[b * 4 + c2];
-                        let drop = if b == 0 { -cfg.empty_penalty / cfg.gamma } else { v[(b - 1) * 4 + c2] };
+                        let drop = if b == 0 {
+                            -cfg.empty_penalty / cfg.gamma
+                        } else {
+                            v[(b - 1) * 4 + c2]
+                        };
                         ev += pc * ((1.0 - pdrop) * stay + pdrop * drop);
                     }
                     let qv = r + cfg.gamma * ev;
@@ -594,7 +626,13 @@ mod tests {
     #[test]
     fn learned_policy_keeps_utility_and_saves_energy() {
         let p = Project::iris();
-        let r = train(&p, &PowerConfig { with_dp: true, ..Default::default() });
+        let r = train(
+            &p,
+            &PowerConfig {
+                with_dp: true,
+                ..Default::default()
+            },
+        );
         assert!(r.utility_ok, "served learned {} fixed {}", r.learned.served, r.fixed.served);
         assert!(r.gain_pct >= 5.0, "gain {}", r.gain_pct);
         // fixed-policy life ≈ battery energy / BOM average power
@@ -623,21 +661,29 @@ mod debug {
     #[ignore]
     fn dump() {
         let p = Project::iris();
-        let cfg = PowerConfig { with_dp: true, ..Default::default() };
+        let cfg = PowerConfig {
+            with_dp: true,
+            ..Default::default()
+        };
         let r = train(&p, &cfg);
         println!("model {:?}", r.model);
         for (name, pol) in [("learned", &r.policy), ("dp", &r.dp_policy)] {
             println!("== {name}");
             for c in 0..4 {
-                let row: Vec<String> = (0..r.soc_buckets).map(|b| {
-                    let a = pol[b * 4 + c] as usize;
-                    format!("{}{}", &DISPLAY[a / 2][..1], &RADIO[a % 2][..1])
-                }).collect();
+                let row: Vec<String> = (0..r.soc_buckets)
+                    .map(|b| {
+                        let a = pol[b * 4 + c] as usize;
+                        format!("{}{}", &DISPLAY[a / 2][..1], &RADIO[a % 2][..1])
+                    })
+                    .collect();
                 println!("{:9}: {}", CONTEXTS[c], row.join(" "));
             }
         }
         for e in [&r.fixed, &r.learned, r.dp.as_ref().unwrap()] {
-            println!("{:30.30} life {:.2} served {:.4} day {:.3} P {:.2} disp {:?} slow {:.3}", e.name, e.life_h, e.served, e.day_utility, e.avg_power_mw, e.display_frac, e.slow_radio_frac);
+            println!(
+                "{:30.30} life {:.2} served {:.4} day {:.3} P {:.2} disp {:?} slow {:.3}",
+                e.name, e.life_h, e.served, e.day_utility, e.avg_power_mw, e.display_frac, e.slow_radio_frac
+            );
         }
         println!("agreement {:?}", r.dp_agreement);
     }

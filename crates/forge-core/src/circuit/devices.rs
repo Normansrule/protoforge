@@ -32,7 +32,15 @@ pub fn vt() -> f64 {
 /// EXP tau1/tau2 default to `tstep`, td2 to td1 + tstep.
 pub fn resolve_wave(w: &Wave, tstep: f64, tstop: f64) -> Wave {
     match w {
-        Wave::Pulse { v1, v2, td, tr, tf, pw, per } => Wave::Pulse {
+        Wave::Pulse {
+            v1,
+            v2,
+            td,
+            tr,
+            tf,
+            pw,
+            per,
+        } => Wave::Pulse {
             v1: *v1,
             v2: *v2,
             td: *td,
@@ -41,8 +49,29 @@ pub fn resolve_wave(w: &Wave, tstep: f64, tstop: f64) -> Wave {
             pw: Some(pw.unwrap_or(tstop)),
             per: Some(per.unwrap_or(f64::INFINITY)),
         },
-        Wave::Sin { vo, va, freq, td, theta, phase_deg } => Wave::Sin { vo: *vo, va: *va, freq: Some(freq.unwrap_or(1.0 / tstop)), td: *td, theta: *theta, phase_deg: *phase_deg },
-        Wave::Exp { v1, v2, td1, tau1, td2, tau2 } => Wave::Exp {
+        Wave::Sin {
+            vo,
+            va,
+            freq,
+            td,
+            theta,
+            phase_deg,
+        } => Wave::Sin {
+            vo: *vo,
+            va: *va,
+            freq: Some(freq.unwrap_or(1.0 / tstop)),
+            td: *td,
+            theta: *theta,
+            phase_deg: *phase_deg,
+        },
+        Wave::Exp {
+            v1,
+            v2,
+            td1,
+            tau1,
+            td2,
+            tau2,
+        } => Wave::Exp {
             v1: *v1,
             v2: *v2,
             td1: *td1,
@@ -58,8 +87,21 @@ pub fn resolve_wave(w: &Wave, tstep: f64, tstop: f64) -> Wave {
 pub fn wave_value(w: &Wave, dc: f64, t: f64) -> f64 {
     match w {
         Wave::None => dc,
-        Wave::Pulse { v1, v2, td, tr, tf, pw, per } => {
-            let (tr, tf, pw, per) = (tr.unwrap_or(0.0), tf.unwrap_or(0.0), pw.unwrap_or(f64::INFINITY), per.unwrap_or(f64::INFINITY));
+        Wave::Pulse {
+            v1,
+            v2,
+            td,
+            tr,
+            tf,
+            pw,
+            per,
+        } => {
+            let (tr, tf, pw, per) = (
+                tr.unwrap_or(0.0),
+                tf.unwrap_or(0.0),
+                pw.unwrap_or(f64::INFINITY),
+                per.unwrap_or(f64::INFINITY),
+            );
             if t < *td {
                 return *v1;
             }
@@ -77,7 +119,14 @@ pub fn wave_value(w: &Wave, dc: f64, t: f64) -> f64 {
                 *v1
             }
         }
-        Wave::Sin { vo, va, freq, td, theta, phase_deg } => {
+        Wave::Sin {
+            vo,
+            va,
+            freq,
+            td,
+            theta,
+            phase_deg,
+        } => {
             let ph = phase_deg.to_radians();
             if t < *td {
                 vo + va * ph.sin()
@@ -87,7 +136,14 @@ pub fn wave_value(w: &Wave, dc: f64, t: f64) -> f64 {
                 vo + va * (-x * theta).exp() * (2.0 * std::f64::consts::PI * f * x + ph).sin()
             }
         }
-        Wave::Exp { v1, v2, td1, tau1, td2, tau2 } => {
+        Wave::Exp {
+            v1,
+            v2,
+            td1,
+            tau1,
+            td2,
+            tau2,
+        } => {
             let (tau1, td2, tau2) = (tau1.unwrap_or(1e-12), td2.unwrap_or(f64::INFINITY), tau2.unwrap_or(1e-12));
             if t < *td1 {
                 *v1
@@ -125,7 +181,12 @@ pub fn source_value(s: &Source, t: f64) -> f64 {
 pub fn breakpoints(w: &Wave, tstop: f64, out: &mut Vec<f64>, limit: usize) {
     match w {
         Wave::Pulse { td, tr, tf, pw, per, .. } => {
-            let (tr, tf, pw, per) = (tr.unwrap_or(0.0), tf.unwrap_or(0.0), pw.unwrap_or(f64::INFINITY), per.unwrap_or(f64::INFINITY));
+            let (tr, tf, pw, per) = (
+                tr.unwrap_or(0.0),
+                tf.unwrap_or(0.0),
+                pw.unwrap_or(f64::INFINITY),
+                per.unwrap_or(f64::INFINITY),
+            );
             let mut base = *td;
             loop {
                 for c in [0.0, tr, tr + pw, tr + pw + tf] {
@@ -380,7 +441,19 @@ mod tests {
 
     #[test]
     fn pulse_waveform() {
-        let w = resolve_wave(&Wave::Pulse { v1: 0.0, v2: 1.0, td: 1.0, tr: Some(1.0), tf: Some(1.0), pw: Some(2.0), per: Some(10.0) }, 0.1, 100.0);
+        let w = resolve_wave(
+            &Wave::Pulse {
+                v1: 0.0,
+                v2: 1.0,
+                td: 1.0,
+                tr: Some(1.0),
+                tf: Some(1.0),
+                pw: Some(2.0),
+                per: Some(10.0),
+            },
+            0.1,
+            100.0,
+        );
         assert_eq!(wave_value(&w, 0.0, 0.5), 0.0);
         assert!((wave_value(&w, 0.0, 1.5) - 0.5).abs() < 1e-12);
         assert_eq!(wave_value(&w, 0.0, 3.0), 1.0);
@@ -405,7 +478,11 @@ mod tests {
 
     #[test]
     fn mos_square_law_and_symmetry() {
-        let m = MosModel { vto: 0.5, kp: 100e-6, ..Default::default() };
+        let m = MosModel {
+            vto: 0.5,
+            kp: 100e-6,
+            ..Default::default()
+        };
         let op = mos_eval(&m, 10e-6, 1e-6, 1.0, [2.0, 1.5, 0.0, 0.0]);
         // saturation: Id = β/2 (Vgs−Vt)² = 1e-3/2 · 1 = 0.5 mA
         assert!((op.id - 0.5e-3).abs() < 1e-12);
@@ -413,7 +490,12 @@ mod tests {
         let rev = mos_eval(&m, 10e-6, 1e-6, 1.0, [0.0, 1.5, 2.0, 2.0]);
         assert!(rev.id < 0.0);
         // PMOS mirror
-        let pm = MosModel { pmos: true, vto: -0.5, kp: 100e-6, ..Default::default() };
+        let pm = MosModel {
+            pmos: true,
+            vto: -0.5,
+            kp: 100e-6,
+            ..Default::default()
+        };
         let pop = mos_eval(&pm, 10e-6, 1e-6, 1.0, [-2.0, -1.5, 0.0, 0.0]);
         assert!((pop.id + 0.5e-3).abs() < 1e-12);
         // numerical Jacobian check

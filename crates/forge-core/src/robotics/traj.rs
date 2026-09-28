@@ -36,7 +36,10 @@ impl Trapezoid {
     pub fn min_time(distance: f64, vmax: f64, amax: f64) -> Trapezoid {
         let d = distance.abs();
         if d < 1e-15 || vmax <= 0.0 || amax <= 0.0 {
-            return Trapezoid { distance, ..Default::default() };
+            return Trapezoid {
+                distance,
+                ..Default::default()
+            };
         }
         let (v, ta) = if d < vmax * vmax / amax {
             let v = (amax * d).sqrt();
@@ -44,7 +47,13 @@ impl Trapezoid {
         } else {
             (vmax, vmax / amax)
         };
-        Trapezoid { distance, v, a: amax, t_acc: ta, t_total: d / v + ta }
+        Trapezoid {
+            distance,
+            v,
+            a: amax,
+            t_acc: ta,
+            t_total: d / v + ta,
+        }
     }
 
     /// Profile with a prescribed duration `t` (≥ the minimum time) using
@@ -52,11 +61,21 @@ impl Trapezoid {
     pub fn with_duration(distance: f64, t: f64, amax: f64) -> Trapezoid {
         let d = distance.abs();
         if d < 1e-15 || t <= 0.0 {
-            return Trapezoid { distance, t_total: t.max(0.0), ..Default::default() };
+            return Trapezoid {
+                distance,
+                t_total: t.max(0.0),
+                ..Default::default()
+            };
         }
         let disc = (amax * amax * t * t - 4.0 * amax * d).max(0.0);
         let v = (amax * t - disc.sqrt()) / 2.0;
-        Trapezoid { distance, v, a: amax, t_acc: v / amax, t_total: t }
+        Trapezoid {
+            distance,
+            v,
+            a: amax,
+            t_acc: v / amax,
+            t_total: t,
+        }
     }
 
     /// (position, velocity, acceleration) at time t (position from 0).
@@ -83,7 +102,12 @@ impl Trapezoid {
 /// Synchronise several joints: each moves `d[i]` with limits (v[i], a[i])
 /// and all finish together at T = max minimum time.
 pub fn synchronized(d: &[f64], vmax: &[f64], amax: &[f64]) -> (f64, Vec<Trapezoid>) {
-    let t = d.iter().zip(vmax).zip(amax).map(|((d, v), a)| Trapezoid::min_time(*d, *v, *a).t_total).fold(0.0, f64::max);
+    let t = d
+        .iter()
+        .zip(vmax)
+        .zip(amax)
+        .map(|((d, v), a)| Trapezoid::min_time(*d, *v, *a).t_total)
+        .fold(0.0, f64::max);
     let profs = d.iter().zip(amax).map(|(d, a)| Trapezoid::with_duration(*d, t, *a)).collect();
     (t, profs)
 }
@@ -92,7 +116,12 @@ pub fn synchronized(d: &[f64], vmax: &[f64], amax: &[f64]) -> (f64, Vec<Trapezoi
 pub fn cubic(d: f64, t_total: f64, t: f64) -> (f64, f64, f64, f64) {
     let tt = t_total.max(1e-12);
     let s = (t / tt).clamp(0.0, 1.0);
-    (d * (3.0 * s * s - 2.0 * s * s * s), d * (6.0 * s - 6.0 * s * s) / tt, d * (6.0 - 12.0 * s) / (tt * tt), -12.0 * d / (tt * tt * tt))
+    (
+        d * (3.0 * s * s - 2.0 * s * s * s),
+        d * (6.0 * s - 6.0 * s * s) / tt,
+        d * (6.0 - 12.0 * s) / (tt * tt),
+        -12.0 * d / (tt * tt * tt),
+    )
 }
 
 /// Quintic rest-to-rest polynomial: (p, v, a, jerk).
@@ -144,18 +173,32 @@ pub struct ProfilesIn {
 
 impl Default for ProfilesIn {
     fn default() -> Self {
-        ProfilesIn { distance: 90.0, v_max: 120.0, a_max: 400.0, samples: 300, same_duration: false }
+        ProfilesIn {
+            distance: 90.0,
+            v_max: 120.0,
+            a_max: 400.0,
+            samples: 300,
+            same_duration: false,
+        }
     }
 }
 
 pub fn profiles(i: &ProfilesIn) -> Vec<ProfileSamples> {
     let tr = Trapezoid::min_time(i.distance, i.v_max, i.a_max);
-    let (tc, tq) = if i.same_duration { (tr.t_total, tr.t_total) } else { poly_min_time(i.distance, i.v_max, i.a_max) };
+    let (tc, tq) = if i.same_duration {
+        (tr.t_total, tr.t_total)
+    } else {
+        poly_min_time(i.distance, i.v_max, i.a_max)
+    };
     let horizon = tr.t_total.max(tc).max(tq);
     let n = i.samples.clamp(20, 5000);
     let mut out = Vec::new();
     for (name, dur) in [("Trapezoid", tr.t_total), ("Cubic", tc), ("Quintic", tq)] {
-        let mut s = ProfileSamples { name: name.into(), duration: dur, ..Default::default() };
+        let mut s = ProfileSamples {
+            name: name.into(),
+            duration: dur,
+            ..Default::default()
+        };
         let mut prev_a = 0.0;
         let dt = horizon / (n - 1) as f64;
         for k in 0..n {

@@ -46,7 +46,13 @@ pub struct Track {
 
 impl Track {
     pub fn shape(&self) -> Shape {
-        Shape::Capsule { ax: self.x0, ay: self.y0, bx: self.x1, by: self.y1, r: self.width / 2.0 }
+        Shape::Capsule {
+            ax: self.x0,
+            ay: self.y0,
+            bx: self.x1,
+            by: self.y1,
+            r: self.width / 2.0,
+        }
     }
     pub fn length(&self) -> f64 {
         (self.x1 - self.x0).hypot(self.y1 - self.y0)
@@ -133,7 +139,6 @@ pub struct WaveTrace {
     pub grid_mm: f64,
     pub waves: Vec<Wave>,
 }
-
 
 pub struct Router<'a> {
     pub b: &'a Board,
@@ -417,15 +422,42 @@ impl<'a> Router<'a> {
                 Some(k) => self.pool_base + k as u16,
                 None => pd.net_id,
             };
-            objs.push(Obj { shape: pd.shape_geom(), top: pd.top, bot: pd.bottom, net: owner, kind: Kind::Copper });
+            objs.push(Obj {
+                shape: pd.shape_geom(),
+                top: pd.top,
+                bot: pd.bottom,
+                net: owner,
+                kind: Kind::Copper,
+            });
         }
         for k in &b.keepouts {
-            let net = if k.allow_net.is_empty() { FREE } else { b.nets.iter().position(|n| n.name == k.allow_net).map(|i| i as u16).unwrap_or(FREE) };
-            let shape = Shape::Rect { cx: (k.rect[0] + k.rect[2]) / 2.0, cy: (k.rect[1] + k.rect[3]) / 2.0, hw: (k.rect[2] - k.rect[0]) / 2.0, hh: (k.rect[3] - k.rect[1]) / 2.0 };
-            objs.push(Obj { shape, top: k.top, bot: k.bottom, net, kind: Kind::Keep });
+            let net = if k.allow_net.is_empty() {
+                FREE
+            } else {
+                b.nets.iter().position(|n| n.name == k.allow_net).map(|i| i as u16).unwrap_or(FREE)
+            };
+            let shape = Shape::Rect {
+                cx: (k.rect[0] + k.rect[2]) / 2.0,
+                cy: (k.rect[1] + k.rect[3]) / 2.0,
+                hw: (k.rect[2] - k.rect[0]) / 2.0,
+                hh: (k.rect[3] - k.rect[1]) / 2.0,
+            };
+            objs.push(Obj {
+                shape,
+                top: k.top,
+                bot: k.bottom,
+                net,
+                kind: Kind::Keep,
+            });
         }
         for h in &b.holes {
-            objs.push(Obj { shape: Shape::circle(h.x, h.y, h.d / 2.0), top: true, bot: true, net: BLOCK, kind: Kind::Hole });
+            objs.push(Obj {
+                shape: Shape::circle(h.x, h.y, h.d / 2.0),
+                top: true,
+                bot: true,
+                net: BLOCK,
+                kind: Kind::Hole,
+            });
         }
         for (i, o) in objs.iter().enumerate() {
             self.s_hash.insert(i, o.shape.bbox());
@@ -525,10 +557,22 @@ impl<'a> Router<'a> {
     }
 
     fn obj_of_track(t: &Track) -> Obj {
-        Obj { shape: t.shape(), top: t.layer == 0, bot: t.layer == 1, net: t.net_id, kind: Kind::Copper }
+        Obj {
+            shape: t.shape(),
+            top: t.layer == 0,
+            bot: t.layer == 1,
+            net: t.net_id,
+            kind: Kind::Copper,
+        }
     }
     fn obj_of_via(v: &Via) -> Obj {
-        Obj { shape: v.shape(), top: true, bot: true, net: v.net_id, kind: Kind::Copper }
+        Obj {
+            shape: v.shape(),
+            top: true,
+            bot: true,
+            net: v.net_id,
+            kind: Kind::Copper,
+        }
     }
 
     fn push_dyn(&mut self, o: Obj) {
@@ -588,10 +632,24 @@ impl<'a> Router<'a> {
         let mut vs = self.vias.clone();
         // plated pad drills and non-plated holes also keep new drills away
         for p in self.b.pads.iter().filter(|p| p.drill > 0.0) {
-            vs.push(Via { net: String::new(), net_id: BLOCK, x: p.x, y: p.y, drill: (p.drill + self.b.rules.via_drill_mm) / 2.0, pad: 0.0 });
+            vs.push(Via {
+                net: String::new(),
+                net_id: BLOCK,
+                x: p.x,
+                y: p.y,
+                drill: (p.drill + self.b.rules.via_drill_mm) / 2.0,
+                pad: 0.0,
+            });
         }
         for h in &self.b.holes {
-            vs.push(Via { net: String::new(), net_id: BLOCK, x: h.x, y: h.y, drill: (h.d + self.b.rules.via_drill_mm) / 2.0, pad: 0.0 });
+            vs.push(Via {
+                net: String::new(),
+                net_id: BLOCK,
+                x: h.x,
+                y: h.y,
+                drill: (h.d + self.b.rules.via_drill_mm) / 2.0,
+                pad: 0.0,
+            });
         }
         for v in &vs {
             self.note_via(v, true);
@@ -620,7 +678,12 @@ impl<'a> Router<'a> {
         self.via.copy_from_slice(&self.l_via);
         self.dobjs.clear();
         self.d_hash = SpatialHash::new(0.0, 0.0, self.b.width, self.b.height, 1.0);
-        let objs: Vec<Obj> = self.tracks.iter().map(Self::obj_of_track).chain(self.vias.iter().map(Self::obj_of_via)).collect();
+        let objs: Vec<Obj> = self
+            .tracks
+            .iter()
+            .map(Self::obj_of_track)
+            .chain(self.vias.iter().map(Self::obj_of_via))
+            .collect();
         let n_locked_t = self.locked_tracks;
         let n_t = self.tracks.len();
         let n_locked_v = self.locked_vias;
@@ -664,7 +727,12 @@ impl<'a> Router<'a> {
     /// Is a zero-width segment on `layer` at least trace-clearance away from
     /// every object `net` must avoid?
     fn seg_clear(&self, layer: u8, net: u16, s: Stub, include_dynamic: bool) -> bool {
-        let bb = [s.x0.min(s.x1) - 1.0, s.y0.min(s.y1) - 1.0, s.x0.max(s.x1) + 1.0, s.y0.max(s.y1) + 1.0];
+        let bb = [
+            s.x0.min(s.x1) - 1.0,
+            s.y0.min(s.y1) - 1.0,
+            s.x0.max(s.x1) + 1.0,
+            s.y0.max(s.y1) + 1.0,
+        ];
         let mut ids = Vec::new();
         self.s_hash.query(bb, &mut ids);
         for &i in &ids {
@@ -682,7 +750,11 @@ impl<'a> Router<'a> {
                 return false;
             }
         }
-        let dyn_limit = if include_dynamic { self.dobjs.len() } else { self.locked_tracks.min(self.dobjs.len()) };
+        let dyn_limit = if include_dynamic {
+            self.dobjs.len()
+        } else {
+            self.locked_tracks.min(self.dobjs.len())
+        };
         self.d_hash.query(bb, &mut ids);
         for &i in &ids {
             if !include_dynamic && !self.is_locked_obj(i) {
@@ -769,10 +841,19 @@ impl<'a> Router<'a> {
         }
         // keep drills apart (hole-to-hole spacing), any net
         let d = self.b.rules.via_drill_mm;
-        if self.vias.iter().any(|v| (v.x - x).hypot(v.y - y) < (v.drill + d) / 2.0 + 0.2 - 1e-6) {
+        if self
+            .vias
+            .iter()
+            .any(|v| (v.x - x).hypot(v.y - y) < (v.drill + d) / 2.0 + 0.2 - 1e-6)
+        {
             return false;
         }
-        if self.b.pads.iter().any(|p| p.drill > 0.0 && (p.x - x).hypot(p.y - y) < (p.drill + d) / 2.0 + 0.2 - 1e-6) {
+        if self
+            .b
+            .pads
+            .iter()
+            .any(|p| p.drill > 0.0 && (p.x - x).hypot(p.y - y) < (p.drill + d) / 2.0 + 0.2 - 1e-6)
+        {
             return false;
         }
         if self.b.holes.iter().any(|h| (h.x - x).hypot(h.y - y) < (h.d + d) / 2.0 + 0.2 - 1e-6) {
@@ -828,12 +909,21 @@ impl<'a> Router<'a> {
                         }
                         Shape::Capsule { ax, ay, .. } => (ax, ay),
                     };
-                    let stub = Stub { x0: qx, y0: qy, x1: x, y1: y };
+                    let stub = Stub {
+                        x0: qx,
+                        y0: qy,
+                        x1: x,
+                        y1: y,
+                    };
                     if !self.seg_clear(layer, net, stub, mode == Mode::Normal) {
                         continue;
                     }
                     let len = (x - qx).hypot(y - qy);
-                    out.push(Access { node, cost: 2 + (len / g * STEP_TOP as f64) as u32, stub: Some(stub) });
+                    out.push(Access {
+                        node,
+                        cost: 2 + (len / g * STEP_TOP as f64) as u32,
+                        stub: Some(stub),
+                    });
                 }
             }
         }
@@ -845,12 +935,30 @@ impl<'a> Router<'a> {
     // -----------------------------------------------------------------
 
     #[allow(clippy::too_many_arguments)]
-    fn search(&mut self, net: u16, sources: &[Access], targets: &HashMap<usize, Option<Stub>>, mode: Mode, allow_via: bool, astar: bool, rec: Option<&mut Wave>) -> Option<Vec<usize>> {
+    fn search(
+        &mut self,
+        net: u16,
+        sources: &[Access],
+        targets: &HashMap<usize, Option<Stub>>,
+        mode: Mode,
+        allow_via: bool,
+        astar: bool,
+        rec: Option<&mut Wave>,
+    ) -> Option<Vec<usize>> {
         self.search_w(net, sources, targets, mode, allow_via, astar, rec)
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn search_w(&mut self, net: u16, sources: &[Access], targets: &HashMap<usize, Option<Stub>>, mode: Mode, allow_via: bool, astar: bool, rec: Option<&mut Wave>) -> Option<Vec<usize>> {
+    fn search_w(
+        &mut self,
+        net: u16,
+        sources: &[Access],
+        targets: &HashMap<usize, Option<Stub>>,
+        mode: Mode,
+        allow_via: bool,
+        astar: bool,
+        rec: Option<&mut Wave>,
+    ) -> Option<Vec<usize>> {
         if rec.is_none() && self.target_layer.is_none() {
             self.window_mm = 3.0;
             let r = self.search_once(net, sources, targets, mode, allow_via, astar, None);
@@ -863,7 +971,16 @@ impl<'a> Router<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn search_once(&mut self, net: u16, sources: &[Access], targets: &HashMap<usize, Option<Stub>>, mode: Mode, allow_via: bool, astar: bool, rec: Option<&mut Wave>) -> Option<Vec<usize>> {
+    fn search_once(
+        &mut self,
+        net: u16,
+        sources: &[Access],
+        targets: &HashMap<usize, Option<Stub>>,
+        mode: Mode,
+        allow_via: bool,
+        astar: bool,
+        rec: Option<&mut Wave>,
+    ) -> Option<Vec<usize>> {
         let tl = self.target_layer;
         if sources.is_empty() || (targets.is_empty() && tl.is_none()) {
             return None;
@@ -1011,7 +1128,8 @@ impl<'a> Router<'a> {
                 if seen[node] != gen && r.expanded.len() < 160_000 {
                     seen[node] = gen;
                     let c = node % n;
-                    r.expanded.extend_from_slice(&[(node / n) as u32, (c % nx) as u32, (c / nx) as u32, gcost]);
+                    r.expanded
+                        .extend_from_slice(&[(node / n) as u32, (c % nx) as u32, (c / nx) as u32, gcost]);
                 }
             }
             if tgt_stamp[node] == gen || tl.map(|l| node / n == l).unwrap_or(false) {
@@ -1059,7 +1177,13 @@ impl<'a> Router<'a> {
             if allow_via {
                 let other = (1 - layer) * n + c;
                 let reuse = via_at[c] == net;
-                let via_gate = if reuse { Some(0) } else if via_near[c] > 0 { None } else { gate(2, c) };
+                let via_gate = if reuse {
+                    Some(0)
+                } else if via_near[c] > 0 {
+                    None
+                } else {
+                    gate(2, c)
+                };
                 if let (Some(pv), Some(po)) = (via_gate, gate(0, other)) {
                     let ng = gcost + if reuse { 4 } else { VIA_COST } + pv + po;
                     let ns = other;
@@ -1118,7 +1242,14 @@ impl<'a> Router<'a> {
             if a % n == b % n {
                 let (x, y) = self.xy(a % n);
                 if self.via_at[a % n] != net {
-                    self.add_via(Via { net: name.clone(), net_id: net, x, y, drill: self.b.rules.via_drill_mm, pad: self.b.rules.via_pad_mm });
+                    self.add_via(Via {
+                        net: name.clone(),
+                        net_id: net,
+                        x,
+                        y,
+                        drill: self.b.rules.via_drill_mm,
+                        pad: self.b.rules.via_pad_mm,
+                    });
                 }
                 k += 1;
                 continue;
@@ -1142,14 +1273,32 @@ impl<'a> Router<'a> {
                 e += 1;
             }
             let (x1, y1) = self.xy(path[e] % n);
-            self.add_track(Track { net: name.clone(), net_id: net, layer: layer as u8, x0, y0, x1, y1, width: self.w });
+            self.add_track(Track {
+                net: name.clone(),
+                net_id: net,
+                layer: layer as u8,
+                x0,
+                y0,
+                x1,
+                y1,
+                width: self.w,
+            });
             k = e;
         }
     }
 
     fn commit_stub(&mut self, net: u16, layer: u8, s: Stub) {
         let name = self.b.nets[net as usize].name.clone();
-        self.add_track(Track { net: name, net_id: net, layer, x0: s.x0, y0: s.y0, x1: s.x1, y1: s.y1, width: self.w });
+        self.add_track(Track {
+            net: name,
+            net_id: net,
+            layer,
+            x0: s.x0,
+            y0: s.y0,
+            x1: s.x1,
+            y1: s.y1,
+            width: self.w,
+        });
     }
 
     // -----------------------------------------------------------------
@@ -1157,7 +1306,13 @@ impl<'a> Router<'a> {
     // -----------------------------------------------------------------
 
     fn net_pads(&self, net: u16) -> Vec<usize> {
-        self.b.pads.iter().enumerate().filter(|(_, p)| p.net_id == net).map(|(i, _)| i).collect()
+        self.b
+            .pads
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.net_id == net)
+            .map(|(i, _)| i)
+            .collect()
     }
 
     /// Prim order of pads by Manhattan distance.
@@ -1218,7 +1373,10 @@ impl<'a> Router<'a> {
         let (srcs, tag) = self.pool_access(net);
         let mode = if self.nc_mode { Mode::Negotiated } else { Mode::Normal };
         self.swap_search = true;
-        let mut wave = self.recording.as_ref().map(|_| Wave { from_pin: "U1 (any free GPIO)".into(), ..Default::default() });
+        let mut wave = self.recording.as_ref().map(|_| Wave {
+            from_pin: "U1 (any free GPIO)".into(),
+            ..Default::default()
+        });
         let astar = wave.is_none();
         let path = self.search(net, &srcs, &tree, mode, true, astar, wave.as_mut());
         self.swap_search = false;
@@ -1294,7 +1452,11 @@ impl<'a> Router<'a> {
     fn route_pad_tree(&mut self, net: u16, pads: &[usize]) -> NetRoute {
         let name = self.b.nets[net as usize].name.clone();
         let pads = pads.to_vec();
-        let mut st = NetRoute { net: name, pins: pads.len(), ..Default::default() };
+        let mut st = NetRoute {
+            net: name,
+            pins: pads.len(),
+            ..Default::default()
+        };
         if pads.len() < 2 {
             st.connected_pins = pads.len();
             return st;
@@ -1305,7 +1467,11 @@ impl<'a> Router<'a> {
         let mut started = false;
         let mode = if self.nc_mode { Mode::Negotiated } else { Mode::Normal };
         for &pi in &order {
-            let srcs = if self.nc_mode { self.nc_access(pi) } else { self.access(pi, Mode::Normal) };
+            let srcs = if self.nc_mode {
+                self.nc_access(pi)
+            } else {
+                self.access(pi, Mode::Normal)
+            };
             if srcs.is_empty() {
                 st.failed_pins.push(self.pin_label(pi));
                 continue;
@@ -1318,7 +1484,10 @@ impl<'a> Router<'a> {
                 st.connected_pins += 1;
                 continue;
             }
-            let mut wave = self.recording.as_ref().map(|_| Wave { from_pin: self.pin_label(pi), ..Default::default() });
+            let mut wave = self.recording.as_ref().map(|_| Wave {
+                from_pin: self.pin_label(pi),
+                ..Default::default()
+            });
             let astar = wave.is_none();
             let path = self.search(net, &srcs, &tree, mode, allow_via, astar, wave.as_mut());
             if let (Some(w), Some(rec)) = (wave, self.recording.as_mut()) {
@@ -1367,7 +1536,9 @@ impl<'a> Router<'a> {
             let srcs = self.access(w[1], Mode::Relaxed);
             let tg: HashMap<usize, Option<Stub>> = self.access(w[0], Mode::Relaxed).into_iter().map(|a| (a.node, a.stub)).collect();
             let allow_via = self.b.nets[net as usize].class != NetClass::Rf;
-            let Some(path) = self.search(net, &srcs, &tg, Mode::Relaxed, allow_via, true, None) else { continue };
+            let Some(path) = self.search(net, &srcs, &tg, Mode::Relaxed, allow_via, true, None) else {
+                continue;
+            };
             let mut ids = Vec::new();
             for &node in &path {
                 if ok(self.trk[node], net) {
@@ -1398,7 +1569,11 @@ impl<'a> Router<'a> {
         if gnd == u16::MAX {
             return;
         }
-        let mut pads: Vec<usize> = self.net_pads(gnd).into_iter().filter(|&i| self.b.pads[i].is_smd() && self.b.pads[i].top).collect();
+        let mut pads: Vec<usize> = self
+            .net_pads(gnd)
+            .into_iter()
+            .filter(|&i| self.b.pads[i].is_smd() && self.b.pads[i].top)
+            .collect();
         pads.sort_by(|&a, &b| {
             let pa = &self.b.pads[a];
             let pb = &self.b.pads[b];
@@ -1421,7 +1596,14 @@ impl<'a> Router<'a> {
                         let x = pd.x + (a as f64 - (k as f64 - 1.0) / 2.0) * pitch;
                         let y = pd.y + (c as f64 - (k as f64 - 1.0) / 2.0) * pitch;
                         if self.via_clear(x, y, gnd, Some(pi)) {
-                            self.add_via(Via { net: "GND".into(), net_id: gnd, x, y, drill, pad: vpad });
+                            self.add_via(Via {
+                                net: "GND".into(),
+                                net_id: gnd,
+                                x,
+                                y,
+                                drill,
+                                pad: vpad,
+                            });
                             placed += 1;
                         }
                     }
@@ -1455,7 +1637,12 @@ impl<'a> Router<'a> {
                     continue;
                 }
                 let (qx, qy) = clamp_in(tx, ty);
-                let s = Stub { x0: qx, y0: qy, x1: tx, y1: ty };
+                let s = Stub {
+                    x0: qx,
+                    y0: qy,
+                    x1: tx,
+                    y1: ty,
+                };
                 let len = (tx - qx).hypot(ty - qy);
                 if self.seg_clear(0, gnd, s, true) && best.as_ref().map(|b| len - 0.6 < b.0).unwrap_or(true) {
                     best = Some((len - 0.6, s, None));
@@ -1466,7 +1653,12 @@ impl<'a> Router<'a> {
                     continue;
                 }
                 let (qx, qy) = clamp_in(v.x, v.y);
-                let s = Stub { x0: qx, y0: qy, x1: v.x, y1: v.y };
+                let s = Stub {
+                    x0: qx,
+                    y0: qy,
+                    x1: v.x,
+                    y1: v.y,
+                };
                 let len = (v.x - qx).hypot(v.y - qy);
                 if self.seg_clear(0, gnd, s, true) && best.as_ref().map(|b| len - 0.3 < b.0).unwrap_or(true) {
                     best = Some((len - 0.3, s, None));
@@ -1492,7 +1684,12 @@ impl<'a> Router<'a> {
                         continue;
                     }
                     let (qx, qy) = clamp_in(x, y);
-                    let s = Stub { x0: qx, y0: qy, x1: x, y1: y };
+                    let s = Stub {
+                        x0: qx,
+                        y0: qy,
+                        x1: x,
+                        y1: y,
+                    };
                     let len = (x - qx).hypot(y - qy);
                     // penalise vias that sit in front of other nets' pads (they block escapes)
                     let mut crowd = 0.0;
@@ -1506,7 +1703,10 @@ impl<'a> Router<'a> {
                         }
                     }
                     let score = len + 1.5 * crowd;
-                    if best.as_ref().map(|b| score < b.0).unwrap_or(true) && self.seg_clear(0, gnd, s, true) && self.via_clear(x, y, gnd, None) {
+                    if best.as_ref().map(|b| score < b.0).unwrap_or(true)
+                        && self.seg_clear(0, gnd, s, true)
+                        && self.via_clear(x, y, gnd, None)
+                    {
                         best = Some((score, s, Some((x, y))));
                     }
                 }
@@ -1517,7 +1717,14 @@ impl<'a> Router<'a> {
                         self.commit_stub(gnd, 0, s);
                     }
                     if let Some((x, y)) = v {
-                        self.add_via(Via { net: "GND".into(), net_id: gnd, x, y, drill, pad: vpad });
+                        self.add_via(Via {
+                            net: "GND".into(),
+                            net_id: gnd,
+                            x,
+                            y,
+                            drill,
+                            pad: vpad,
+                        });
                     }
                     done.push(pi);
                 }
@@ -1595,7 +1802,11 @@ impl<'a> Router<'a> {
     /// to any node of the target set on the GND net and commit the path.
     pub fn stitch(&mut self, src: &[usize], tgt: &[usize]) -> bool {
         let gnd = self.b.gnd;
-        let sources: Vec<Access> = src.iter().filter(|&&n| ok(self.trk[n], gnd)).map(|&node| Access { node, cost: 0, stub: None }).collect();
+        let sources: Vec<Access> = src
+            .iter()
+            .filter(|&&n| ok(self.trk[n], gnd))
+            .map(|&node| Access { node, cost: 0, stub: None })
+            .collect();
         let targets: HashMap<usize, Option<Stub>> = tgt.iter().filter(|&&n| ok(self.trk[n], gnd)).map(|&n| (n, None)).collect();
         match self.search(gnd, &sources, &targets, Mode::Normal, true, true, None) {
             Some(path) if path.len() >= 2 => {
@@ -1609,7 +1820,11 @@ impl<'a> Router<'a> {
     /// Grid nodes that belong to a pad (access points without stubs are
     /// used directly; stubbed ones are committed when chosen).
     pub fn pad_nodes(&self, pi: usize) -> Vec<usize> {
-        self.access(pi, Mode::Normal).into_iter().filter(|a| a.stub.is_none()).map(|a| a.node).collect()
+        self.access(pi, Mode::Normal)
+            .into_iter()
+            .filter(|a| a.stub.is_none())
+            .map(|a| a.node)
+            .collect()
     }
 
     pub fn grid_n(&self) -> usize {
@@ -1626,7 +1841,14 @@ impl<'a> Router<'a> {
         if !self.via_clear(x, y, gnd, None) {
             return false;
         }
-        self.add_via(Via { net: self.b.nets[gnd as usize].name.clone(), net_id: gnd, x, y, drill: self.b.rules.via_drill_mm, pad: self.b.rules.via_pad_mm });
+        self.add_via(Via {
+            net: self.b.nets[gnd as usize].name.clone(),
+            net_id: gnd,
+            x,
+            y,
+            drill: self.b.rules.via_drill_mm,
+            pad: self.b.rules.via_pad_mm,
+        });
         true
     }
 
@@ -1768,7 +1990,11 @@ impl<'a> Router<'a> {
             let pi = self.pool_pad[k];
             let prev = self.claim[k];
             self.claim[k] = net; // the pad is ours while we look at it
-            let mut acc = if self.nc_mode { self.relaxed_access(pi, net) } else { self.access_as(pi, mode, net) };
+            let mut acc = if self.nc_mode {
+                self.relaxed_access(pi, net)
+            } else {
+                self.access_as(pi, mode, net)
+            };
             if self.nc_mode {
                 for a in acc.iter_mut() {
                     a.cost += self.pres * self.occ_trk[a.node].others(net) + self.hist_trk[a.node];
@@ -1807,7 +2033,20 @@ impl<'a> Router<'a> {
     fn nc_rip_inner(&mut self, net: u16) {
         let lt = self.locked_tracks;
         let lv = self.locked_vias;
-        let objs: Vec<Obj> = self.tracks.iter().enumerate().filter(|(k, t)| *k >= lt && t.net_id == net).map(|(_, t)| Self::obj_of_track(t)).chain(self.vias.iter().enumerate().filter(|(k, v)| *k >= lv && v.net_id == net).map(|(_, v)| Self::obj_of_via(v))).collect();
+        let objs: Vec<Obj> = self
+            .tracks
+            .iter()
+            .enumerate()
+            .filter(|(k, t)| *k >= lt && t.net_id == net)
+            .map(|(_, t)| Self::obj_of_track(t))
+            .chain(
+                self.vias
+                    .iter()
+                    .enumerate()
+                    .filter(|(k, v)| *k >= lv && v.net_id == net)
+                    .map(|(_, v)| Self::obj_of_via(v)),
+            )
+            .collect();
         for o in &objs {
             self.occ_apply(o, false);
         }
@@ -1816,7 +2055,12 @@ impl<'a> Router<'a> {
     }
 
     fn refresh_dyn_index(&mut self) {
-        self.dobjs = self.tracks.iter().map(Self::obj_of_track).chain(self.vias.iter().map(Self::obj_of_via)).collect();
+        self.dobjs = self
+            .tracks
+            .iter()
+            .map(Self::obj_of_track)
+            .chain(self.vias.iter().map(Self::obj_of_via))
+            .collect();
         self.d_hash = SpatialHash::new(0.0, 0.0, self.b.width, self.b.height, 1.0);
         for (i, o) in self.dobjs.iter().enumerate() {
             self.d_hash.insert(i, o.shape.bbox());
@@ -1854,7 +2098,9 @@ impl<'a> Router<'a> {
                     let c = j as usize * self.nx + i as usize;
                     let node = layer * n + c;
                     if self.occ_trk[node].others(net) > 0 {
-                        if bump { self.hist_trk[node] += HIST_INC; }
+                        if bump {
+                            self.hist_trk[node] += HIST_INC;
+                        }
                         conflict = true;
                     }
                     if s < steps {
@@ -1868,13 +2114,20 @@ impl<'a> Router<'a> {
                             (layer * n + c - self.nx) * 2 + 1
                         };
                         if self.occ_edg[e].others(net) > 0 {
-                            if bump { self.hist_edg[e] += HIST_INC; }
+                            if bump {
+                                self.hist_edg[e] += HIST_INC;
+                            }
                             conflict = true;
                         }
                     }
                 }
             } else {
-                let s = Stub { x0: t.x0, y0: t.y0, x1: t.x1, y1: t.y1 };
+                let s = Stub {
+                    x0: t.x0,
+                    y0: t.y0,
+                    x1: t.x1,
+                    y1: t.y1,
+                };
                 if !self.seg_clear(t.layer, net, s, true) {
                     conflict = true;
                     let (i, j) = ((t.x1 / g).round() as usize, (t.y1 / g).round() as usize);
@@ -1898,7 +2151,9 @@ impl<'a> Router<'a> {
             }
             let c = j * self.nx + i;
             if self.occ_via[c].others(v.net_id) > 0 || self.occ_trk[c].others(v.net_id) > 0 || self.occ_trk[n + c].others(v.net_id) > 0 {
-                if bump { self.hist_via[c] += HIST_INC; }
+                if bump {
+                    self.hist_via[c] += HIST_INC;
+                }
                 if !bad.contains(&v.net_id) {
                     bad.push(v.net_id);
                 }
@@ -1924,14 +2179,33 @@ impl<'a> Router<'a> {
                 backbone.push(pi);
             }
         }
-        let bb = if backbone.len() >= 2 { Some(self.route_pad_tree(gnd, &backbone)) } else { None };
-        let pads: Vec<usize> = self.b.pads.iter().enumerate().filter(|(i, p)| p.net_id == gnd && p.is_smd() && p.top && !p.bottom && !self.gnd_done.contains(i)).map(|(i, _)| i).collect();
-        let mut st = NetRoute { net: self.b.nets[gnd as usize].name.clone(), pins: pads.len(), ..Default::default() };
+        let bb = if backbone.len() >= 2 {
+            Some(self.route_pad_tree(gnd, &backbone))
+        } else {
+            None
+        };
+        let pads: Vec<usize> = self
+            .b
+            .pads
+            .iter()
+            .enumerate()
+            .filter(|(i, p)| p.net_id == gnd && p.is_smd() && p.top && !p.bottom && !self.gnd_done.contains(i))
+            .map(|(i, _)| i)
+            .collect();
+        let mut st = NetRoute {
+            net: self.b.nets[gnd as usize].name.clone(),
+            pins: pads.len(),
+            ..Default::default()
+        };
         self.target_layer = Some(1);
         let mode = if self.nc_mode { Mode::Negotiated } else { Mode::Normal };
         let empty: HashMap<usize, Option<Stub>> = HashMap::new();
         for pi in pads {
-            let srcs = if self.nc_mode { self.nc_access(pi) } else { self.access(pi, Mode::Normal) };
+            let srcs = if self.nc_mode {
+                self.nc_access(pi)
+            } else {
+                self.access(pi, Mode::Normal)
+            };
             match self.search(gnd, &srcs, &empty, mode, true, false, None) {
                 Some(path) => {
                     let first = path[0];
@@ -1966,10 +2240,19 @@ impl<'a> Router<'a> {
         // occupancy from the locked copper is already in the l_* arrays.
         self.nc_mode = true;
         self.pres = 3;
-        self.dobjs = self.tracks.iter().map(Self::obj_of_track).chain(self.vias.iter().map(Self::obj_of_via)).collect();
+        self.dobjs = self
+            .tracks
+            .iter()
+            .map(Self::obj_of_track)
+            .chain(self.vias.iter().map(Self::obj_of_via))
+            .collect();
         let mut status: HashMap<u16, NetRoute> = HashMap::new();
         let gnd = self.b.gnd;
-        let with_gnd: Vec<u16> = if gnd != u16::MAX { std::iter::once(gnd).chain(order.iter().copied()).collect() } else { order.to_vec() };
+        let with_gnd: Vec<u16> = if gnd != u16::MAX {
+            std::iter::once(gnd).chain(order.iter().copied()).collect()
+        } else {
+            order.to_vec()
+        };
         let order: &[u16] = &with_gnd;
         let mut todo: Vec<u16> = order.to_vec();
         let mut best: Option<NcSnapshot> = None;
@@ -1982,7 +2265,13 @@ impl<'a> Router<'a> {
             let bad = self.nc_conflicts();
             self.nc_history.push(bad.len());
             if best.as_ref().map(|b| bad.len() < b.0).unwrap_or(true) {
-                best = Some((bad.len(), self.tracks.clone(), self.vias.clone(), self.claim.clone(), status.clone()));
+                best = Some((
+                    bad.len(),
+                    self.tracks.clone(),
+                    self.vias.clone(),
+                    self.claim.clone(),
+                    status.clone(),
+                ));
             }
             if bad.is_empty() {
                 break;
@@ -2009,7 +2298,11 @@ impl<'a> Router<'a> {
                 for o in self.occ_via.iter_mut() {
                     *o = Occ::default();
                 }
-                let objs: Vec<Obj> = self.tracks[self.locked_tracks..].iter().map(Self::obj_of_track).chain(self.vias[self.locked_vias..].iter().map(Self::obj_of_via)).collect();
+                let objs: Vec<Obj> = self.tracks[self.locked_tracks..]
+                    .iter()
+                    .map(Self::obj_of_track)
+                    .chain(self.vias[self.locked_vias..].iter().map(Self::obj_of_via))
+                    .collect();
                 for o in &objs {
                     self.occ_apply(o, true);
                 }
@@ -2049,7 +2342,15 @@ impl<'a> Router<'a> {
         }
         self.status = st;
         // final rip-up & re-route for whatever is still open
-        let open: Vec<u16> = order.iter().copied().filter(|n| self.status.iter().any(|s| s.net == self.b.nets[*n as usize].name && !s.failed_pins.is_empty())).collect();
+        let open: Vec<u16> = order
+            .iter()
+            .copied()
+            .filter(|n| {
+                self.status
+                    .iter()
+                    .any(|s| s.net == self.b.nets[*n as usize].name && !s.failed_pins.is_empty())
+            })
+            .collect();
         if !open.is_empty() {
             let prev = std::mem::take(&mut self.status);
             self.repair(order, &open, prev);
@@ -2063,11 +2364,21 @@ impl<'a> Router<'a> {
             status.insert(net, prev.get(k).cloned().unwrap_or_default());
         }
         let score = |st: &HashMap<u16, NetRoute>| st.values().map(|s| s.connected_pins.min(s.pins)).sum::<usize>();
-        let mut best = (score(&status), self.tracks.clone(), self.vias.clone(), status.clone(), self.claim.clone());
+        let mut best = (
+            score(&status),
+            self.tracks.clone(),
+            self.vias.clone(),
+            status.clone(),
+            self.claim.clone(),
+        );
         let mut ripped: HashMap<u16, u32> = HashMap::new();
         let _ = open;
         for _pass in 0..4 {
-            let failed: Vec<u16> = order.iter().copied().filter(|n| *n != self.b.gnd && !status[n].failed_pins.is_empty()).collect();
+            let failed: Vec<u16> = order
+                .iter()
+                .copied()
+                .filter(|n| *n != self.b.gnd && !status[n].failed_pins.is_empty())
+                .collect();
             if failed.is_empty() {
                 break;
             }
@@ -2119,6 +2430,12 @@ impl<'a> Router<'a> {
         self.recording = Some(Vec::new());
         let _ = self.route_net(net);
         let waves = self.recording.take().unwrap_or_default();
-        WaveTrace { net: self.b.nets[net as usize].name.clone(), nx: self.nx, ny: self.ny, grid_mm: self.g, waves }
+        WaveTrace {
+            net: self.b.nets[net as usize].name.clone(),
+            nx: self.nx,
+            ny: self.ny,
+            grid_mm: self.g,
+            waves,
+        }
     }
 }

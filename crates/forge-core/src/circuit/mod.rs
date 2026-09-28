@@ -119,7 +119,18 @@ pub fn fmt_si(v: f64, unit: &str) -> String {
         return format!("0 {unit}");
     }
     let a = v.abs();
-    const P: [(f64, &str); 10] = [(1e12, "T"), (1e9, "G"), (1e6, "M"), (1e3, "k"), (1.0, ""), (1e-3, "m"), (1e-6, "µ"), (1e-9, "n"), (1e-12, "p"), (1e-15, "f")];
+    const P: [(f64, &str); 10] = [
+        (1e12, "T"),
+        (1e9, "G"),
+        (1e6, "M"),
+        (1e3, "k"),
+        (1.0, ""),
+        (1e-3, "m"),
+        (1e-6, "µ"),
+        (1e-9, "n"),
+        (1e-12, "p"),
+        (1e-15, "f"),
+    ];
     let (s, p) = P.iter().find(|(s, _)| a >= *s * 0.9995).copied().unwrap_or((1e-15, "f"));
     let m = v / s;
     let txt = if m.abs() >= 99.95 {
@@ -129,7 +140,11 @@ pub fn fmt_si(v: f64, unit: &str) -> String {
     } else {
         format!("{m:.2}")
     };
-    let txt = if txt.contains('.') { txt.trim_end_matches('0').trim_end_matches('.').to_string() } else { txt };
+    let txt = if txt.contains('.') {
+        txt.trim_end_matches('0').trim_end_matches('.').to_string()
+    } else {
+        txt
+    };
     format!("{txt} {p}{unit}")
 }
 
@@ -166,7 +181,14 @@ pub struct Measurement {
 
 impl Measurement {
     pub fn new(key: &str, label: &str, value: f64, unit: &str) -> Self {
-        Measurement { key: key.into(), label: label.into(), value, unit: unit.into(), note: String::new(), pass: None }
+        Measurement {
+            key: key.into(),
+            label: label.into(),
+            value,
+            unit: unit.into(),
+            note: String::new(),
+            pass: None,
+        }
     }
     pub fn note(mut self, n: impl Into<String>) -> Self {
         self.note = n.into();
@@ -269,7 +291,11 @@ fn wave_desc(w: &Wave, dc: f64, unit: &str) -> (String, &'static str) {
         }
         Wave::Sin { vo, va, freq, .. } => {
             let f = freq.map(|f| format!(" @ {}", fmt_si(f, "Hz"))).unwrap_or_default();
-            let off = if *vo != 0.0 { format!("{} + ", fmt_si(*vo, unit)) } else { String::new() };
+            let off = if *vo != 0.0 {
+                format!("{} + ", fmt_si(*vo, unit))
+            } else {
+                String::new()
+            };
             (format!("SIN {off}{} pk{f}", fmt_si(*va, unit)), "sin")
         }
         Wave::Exp { v1, v2, .. } => (format!("EXP {} → {}", fmt_si(*v1, unit), fmt_si(*v2, unit)), "exp"),
@@ -284,8 +310,22 @@ pub fn element_infos(nl: &Netlist) -> Vec<ElementInfo> {
         .map(|e| {
             let (value, wave) = match &e.dev {
                 Device::Resistor { r } => (fmt_si(*r, "Ω"), ""),
-                Device::Capacitor { c, ic } => (format!("{}{}", fmt_si(*c, "F"), ic.map(|v| format!(" (IC {})", fmt_si(v, "V"))).unwrap_or_default()), ""),
-                Device::Inductor { l, ic } => (format!("{}{}", fmt_si(*l, "H"), ic.map(|v| format!(" (IC {})", fmt_si(v, "A"))).unwrap_or_default()), ""),
+                Device::Capacitor { c, ic } => (
+                    format!(
+                        "{}{}",
+                        fmt_si(*c, "F"),
+                        ic.map(|v| format!(" (IC {})", fmt_si(v, "V"))).unwrap_or_default()
+                    ),
+                    "",
+                ),
+                Device::Inductor { l, ic } => (
+                    format!(
+                        "{}{}",
+                        fmt_si(*l, "H"),
+                        ic.map(|v| format!(" (IC {})", fmt_si(v, "A"))).unwrap_or_default()
+                    ),
+                    "",
+                ),
                 Device::Vsource { src } | Device::Isource { src } => {
                     let unit = if matches!(e.dev, Device::Vsource { .. }) { "V" } else { "A" };
                     let (mut s, w) = wave_desc(&src.wave, src.dc, unit);
@@ -294,9 +334,26 @@ pub fn element_infos(nl: &Netlist) -> Vec<ElementInfo> {
                     }
                     (s, w)
                 }
-                Device::Diode { model_name, area, .. } => (if *area != 1.0 { format!("{model_name} ×{area}") } else { model_name.clone() }, ""),
+                Device::Diode { model_name, area, .. } => (
+                    if *area != 1.0 {
+                        format!("{model_name} ×{area}")
+                    } else {
+                        model_name.clone()
+                    },
+                    "",
+                ),
                 Device::Mosfet { model_name, w, l, .. } => (format!("{model_name} W/L {}/{}", fmt_si(*w, "m"), fmt_si(*l, "m")), ""),
-                Device::Vcvs { gain } => (format!("gain {}", if gain.abs() >= 1e4 { format!("{gain:.0e}") } else { format!("{gain}") }), ""),
+                Device::Vcvs { gain } => (
+                    format!(
+                        "gain {}",
+                        if gain.abs() >= 1e4 {
+                            format!("{gain:.0e}")
+                        } else {
+                            format!("{gain}")
+                        }
+                    ),
+                    "",
+                ),
                 Device::Vccs { gm } => (format!("gm {}", fmt_si(*gm, "S")), ""),
                 Device::Switch { model, model_name, .. } => (format!("{model_name} Ron {}", fmt_si(model.ron, "Ω")), ""),
             };
@@ -321,7 +378,13 @@ fn analysis_card(a: &Analysis) -> String {
     match a {
         Analysis::Op => ".op".into(),
         Analysis::Dc { src, start, stop, step } => format!(".dc {src} {} {} {}", f(*start), f(*stop), f(*step)),
-        Analysis::Tran { tstep, tstop, tstart, tmax, uic } => {
+        Analysis::Tran {
+            tstep,
+            tstop,
+            tstart,
+            tmax,
+            uic,
+        } => {
             let mut s = format!(".tran {} {}", f(*tstep), f(*tstop));
             if *tstart > 0.0 || tmax.is_some() {
                 s.push_str(&format!(" {}", f(*tstart)));
@@ -353,7 +416,12 @@ pub fn simulate(text: &str, params: &BTreeMap<String, f64>) -> Result<SimResult,
 pub fn run_netlist(nl: &Netlist, text: &str, params: &BTreeMap<String, f64>) -> Result<SimResult, String> {
     let ckt = Ckt::compile(nl);
     let mut warnings = nl.warnings.clone();
-    let mut stats = SolverStats { unknowns: ckt.size, nodes: ckt.nn - 1, branches: ckt.nbr, ..Default::default() };
+    let mut stats = SolverStats {
+        unknowns: ckt.size,
+        nodes: ckt.nn - 1,
+        branches: ckt.nbr,
+        ..Default::default()
+    };
     let mut res = SimResult {
         title: nl.title.clone(),
         nodes: nl.nodes[1..].to_vec(),
@@ -364,7 +432,11 @@ pub fn run_netlist(nl: &Netlist, text: &str, params: &BTreeMap<String, f64>) -> 
         ..Default::default()
     };
     // The DC operating point is always useful (op table, AC bias point).
-    let dc_mode = Mode::Dc { t: None, uic_init: false, force_ic: false };
+    let dc_mode = Mode::Dc {
+        t: None,
+        uic_init: false,
+        force_ic: false,
+    };
     let wants_op = nl.analyses.iter().any(|a| matches!(a, Analysis::Op | Analysis::Ac { .. }));
     let op_sol = match analysis::operating_point(&ckt, dc_mode, &mut stats, &mut warnings) {
         Ok(s) => Some(s),
@@ -388,11 +460,27 @@ pub fn run_netlist(nl: &Netlist, text: &str, params: &BTreeMap<String, f64>) -> 
                 }
                 res.dc = Some(analysis::dc_sweep(&ckt, nl, src, *start, *stop, *step, &mut stats, &mut warnings)?);
             }
-            Analysis::Tran { tstep, tstop, tstart, tmax, uic } => {
+            Analysis::Tran {
+                tstep,
+                tstop,
+                tstart,
+                tmax,
+                uic,
+            } => {
                 if res.tran.is_some() {
                     warnings.push("more than one .tran: keeping the last".into());
                 }
-                res.tran = Some(analysis::transient(&ckt, nl, *tstep, *tstop, *tstart, *tmax, *uic, &mut stats, &mut warnings)?);
+                res.tran = Some(analysis::transient(
+                    &ckt,
+                    nl,
+                    *tstep,
+                    *tstop,
+                    *tstart,
+                    *tmax,
+                    *uic,
+                    &mut stats,
+                    &mut warnings,
+                )?);
             }
             Analysis::Ac { sweep, n, fstart, fstop } => {
                 let op = op_sol.as_ref().ok_or("AC analysis needs a DC operating point")?;
@@ -472,7 +560,16 @@ fn parse_api(i: ParseIn) -> ParseOut {
             analyses: nl.analyses.iter().map(analysis_card).collect(),
             params: nl.params.clone(),
         },
-        Err(errors) => ParseOut { ok: false, errors, warnings: vec![], title: String::new(), nodes: vec![], elements: vec![], analyses: vec![], params: BTreeMap::new() },
+        Err(errors) => ParseOut {
+            ok: false,
+            errors,
+            warnings: vec![],
+            title: String::new(),
+            nodes: vec![],
+            elements: vec![],
+            analyses: vec![],
+            params: BTreeMap::new(),
+        },
     }
 }
 
@@ -501,7 +598,9 @@ fn dispatch_inner(method: &str, input: &Value) -> Option<ApiResult> {
         "circuit.presets" => handle(input, |i: PresetsIn| Ok(presets::list(i.project.as_ref()))),
         "circuit.parse" => handle(input, |i: ParseIn| Ok(parse_api(i))),
         "circuit.simulate" => handle(input, |i: SimulateIn| simulate(&i.netlist, &i.params)),
-        "circuit.run_preset" => handle(input, |i: RunPresetIn| presets::run(&i.id, &i.params, i.netlist.as_deref(), i.project.as_ref())),
+        "circuit.run_preset" => handle(input, |i: RunPresetIn| {
+            presets::run(&i.id, &i.params, i.netlist.as_deref(), i.project.as_ref())
+        }),
         _ => None,
     }
 }

@@ -98,12 +98,7 @@ pub fn speed(kind: Kind, layer: usize, pp: &PrintParams, st: &SliceSettings) -> 
         Kind::Perimeter | Kind::Skirt | Kind::SolidInfill => base,
         Kind::SparseInfill => base * st.infill_speed_pct / 100.0,
     };
-    if layer == 0 {
-        v * st.first_layer_speed_pct / 100.0
-    } else {
-        v
-    }
-    .max(1.0)
+    if layer == 0 { v * st.first_layer_speed_pct / 100.0 } else { v }.max(1.0)
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -125,7 +120,13 @@ pub struct LayerStats {
 }
 
 pub fn layer_stats(layer: &Layer, pp: &PrintParams, st: &SliceSettings) -> LayerStats {
-    let mut s = LayerStats { index: layer.index, z: layer.z, height: layer.height, area_mm2: layer.area_mm2, ..Default::default() };
+    let mut s = LayerStats {
+        index: layer.index,
+        z: layer.z,
+        height: layer.height,
+        area_mm2: layer.area_mm2,
+        ..Default::default()
+    };
     let w = pp.line_width_mm;
     let epm = e_per_mm(w, layer.height, pp.filament_diameter_mm);
     let area = bead_area(w, layer.height);
@@ -188,8 +189,19 @@ pub fn fmt_duration(s: f64) -> String {
     }
 }
 
-pub fn totals(per_layer: &[LayerStats], weights: Option<&[f64]>, density: f64, cost_per_kg: f64, part_volume: f64, filament_d: f64) -> SliceStats {
-    let mut s = SliceStats { density_g_cm3: density, part_volume_mm3: part_volume, ..Default::default() };
+pub fn totals(
+    per_layer: &[LayerStats],
+    weights: Option<&[f64]>,
+    density: f64,
+    cost_per_kg: f64,
+    part_volume: f64,
+    filament_d: f64,
+) -> SliceStats {
+    let mut s = SliceStats {
+        density_g_cm3: density,
+        part_volume_mm3: part_volume,
+        ..Default::default()
+    };
     let mut vol = 0.0;
     for (i, l) in per_layer.iter().enumerate() {
         let wgt = weights.map(|w| w[i]).unwrap_or(1.0);

@@ -117,15 +117,21 @@ pub fn operating_point(ckt: &Ckt, mode: Mode, stats: &mut SolverStats, warnings:
     }
     let maxit = ckt.opts.itl1;
     let mut ws = Work::new(ckt.size);
-    let mut attempt = |gshunt: f64, srcfac: f64, x0: &[f64], mem: &mut Vec<IterMem>, stats: &mut SolverStats| -> Result<(Vec<f64>, usize), NrErr> {
-        let ld = Load { mode, st: &st, srcfac, gshunt };
-        let before = ws.solves;
-        let r = newton(ckt, x0, &ld, mem, maxit, &mut ws);
-        stats.lu_solves += ws.solves - before;
-        let r = r?;
-        stats.nr_iterations += r.iters;
-        Ok((r.x, r.iters))
-    };
+    let mut attempt =
+        |gshunt: f64, srcfac: f64, x0: &[f64], mem: &mut Vec<IterMem>, stats: &mut SolverStats| -> Result<(Vec<f64>, usize), NrErr> {
+            let ld = Load {
+                mode,
+                st: &st,
+                srcfac,
+                gshunt,
+            };
+            let before = ws.solves;
+            let r = newton(ckt, x0, &ld, mem, maxit, &mut ws);
+            stats.lu_solves += ws.solves - before;
+            let r = r?;
+            stats.nr_iterations += r.iters;
+            Ok((r.x, r.iters))
+        };
 
     // 1. plain Newton–Raphson
     let mut singular = false;
@@ -136,7 +142,13 @@ pub fn operating_point(ckt: &Ckt, mode: Mode, stats: &mut SolverStats, warnings:
                 if gshunt > 0.0 {
                     warnings.push("matrix was singular (a node has no DC path to ground, e.g. only capacitors); added 1 pS shunts to every node — ngspice will report \"singular matrix\" for this deck".into());
                 }
-                return Ok(OpSolution { x, mem, iters, method: "newton".into(), gshunt });
+                return Ok(OpSolution {
+                    x,
+                    mem,
+                    iters,
+                    method: "newton".into(),
+                    gshunt,
+                });
             }
             Err(NrErr::Singular) => singular = true,
             Err(NrErr::NoConvergence) => break,
@@ -166,7 +178,13 @@ pub fn operating_point(ckt: &Ckt, mode: Mode, stats: &mut SolverStats, warnings:
         }
         if ok {
             if let Ok((xn, it)) = attempt(gbase, 1.0, &x, &mut mem, stats) {
-                return Ok(OpSolution { x: xn, mem, iters: total + it, method: "gmin stepping".into(), gshunt: gbase });
+                return Ok(OpSolution {
+                    x: xn,
+                    mem,
+                    iters: total + it,
+                    method: "gmin stepping".into(),
+                    gshunt: gbase,
+                });
             }
         }
     }
@@ -200,7 +218,13 @@ pub fn operating_point(ckt: &Ckt, mode: Mode, stats: &mut SolverStats, warnings:
             }
         }
         if f >= 1.0 {
-            return Ok(OpSolution { x, mem, iters: total, method: "source stepping".into(), gshunt: gbase });
+            return Ok(OpSolution {
+                x,
+                mem,
+                iters: total,
+                method: "source stepping".into(),
+                gshunt: gbase,
+            });
         }
     }
     Err(if singular {
@@ -217,7 +241,12 @@ fn fmt_si(v: f64, unit: &str) -> String {
 /// Build the operating-point table from a solution.
 pub fn op_result(ckt: &Ckt, nl: &Netlist, sol: &OpSolution, mode: Mode) -> OpResult {
     let st = zero_states(ckt.el.len());
-    let ld = Load { mode, st: &st, srcfac: 1.0, gshunt: sol.gshunt };
+    let ld = Load {
+        mode,
+        st: &st,
+        srcfac: 1.0,
+        gshunt: sol.gshunt,
+    };
     let x = &sol.x;
     let i = ckt.element_currents(x, &ld, &sol.mem);
     let node_v: Vec<f64> = (1..ckt.n_user).map(|n| vx(x, n)).collect();
@@ -228,17 +257,39 @@ pub fn op_result(ckt: &Ckt, nl: &Netlist, sol: &OpSolution, mode: Mode) -> OpRes
         let n = &e.nodes;
         let v = vx(x, n[0]) - vx(x, n[1]);
         let (vv, p, note) = match &ckt.el[k] {
-            CDev::M { d, g, s, b, m, w, l, mult, .. } => {
+            CDev::M {
+                d, g, s, b, m, w, l, mult, ..
+            } => {
                 let op = mos_eval(m, *w, *l, *mult, [vx(x, *d), vx(x, *g), vx(x, *s), vx(x, *b)]);
                 let region = ["cutoff", "triode", "saturation"][op.region as usize];
                 let vgs = vx(x, *g) - vx(x, *s);
-                (v, v * i[k], format!("{region} · Vgs {} · Vth {} · gm {} · gds {}", fmt_si(vgs, "V"), fmt_si(op.vth, "V"), fmt_si(op.gm, "S"), fmt_si(op.gds, "S")))
+                (
+                    v,
+                    v * i[k],
+                    format!(
+                        "{region} · Vgs {} · Vth {} · gm {} · gds {}",
+                        fmt_si(vgs, "V"),
+                        fmt_si(op.vth, "V"),
+                        fmt_si(op.gm, "S"),
+                        fmt_si(op.gds, "S")
+                    ),
+                )
             }
             CDev::D { ai, k: kk, m, area, .. } => {
                 let vd = vx(x, *ai) - vx(x, *kk);
                 let op = diode_eval(m, *area, vd);
-                let state = if vd > 0.3 { "forward" } else if vd < -0.1 { "reverse" } else { "off" };
-                (v, v * i[k], format!("{state} · Vd {} · rd {}", fmt_si(vd, "V"), fmt_si(1.0 / op.gd.max(1e-30), "Ω")))
+                let state = if vd > 0.3 {
+                    "forward"
+                } else if vd < -0.1 {
+                    "reverse"
+                } else {
+                    "off"
+                };
+                (
+                    v,
+                    v * i[k],
+                    format!("{state} · Vd {} · rd {}", fmt_si(vd, "V"), fmt_si(1.0 / op.gd.max(1e-30), "Ω")),
+                )
             }
             CDev::S { .. } => (v, v * i[k], if sol.mem[k].on { "on".into() } else { "off".into() }),
             CDev::E { .. } | CDev::G { .. } => (v, v * i[k], String::new()),
@@ -248,12 +299,29 @@ pub fn op_result(ckt: &Ckt, nl: &Netlist, sol: &OpSolution, mode: Mode) -> OpRes
         ep.push(p);
         notes.push(note);
     }
-    OpResult { node_v, elem_i: i, elem_v: ev, elem_p: ep, elem_note: notes, iterations: sol.iters, method: sol.method.clone() }
+    OpResult {
+        node_v,
+        elem_i: i,
+        elem_v: ev,
+        elem_p: ep,
+        elem_note: notes,
+        iterations: sol.iters,
+        method: sol.method.clone(),
+    }
 }
 
 /// DC sweep of one independent source.
 #[allow(clippy::too_many_arguments)]
-pub fn dc_sweep(ckt: &Ckt, nl: &Netlist, src: &str, start: f64, stop: f64, step: f64, stats: &mut SolverStats, warnings: &mut Vec<String>) -> Result<DcResult, String> {
+pub fn dc_sweep(
+    ckt: &Ckt,
+    nl: &Netlist,
+    src: &str,
+    start: f64,
+    stop: f64,
+    step: f64,
+    stats: &mut SolverStats,
+    warnings: &mut Vec<String>,
+) -> Result<DcResult, String> {
     let idx = nl.element_index(src).ok_or_else(|| format!(".dc: unknown source `{src}`"))?;
     let n = (((stop - start) / step) + 1e-9).floor() as usize + 1;
     let mut c = ckt.clone();
@@ -263,7 +331,11 @@ pub fn dc_sweep(ckt: &Ckt, nl: &Netlist, src: &str, start: f64, stop: f64, step:
     let st = zero_states(ckt.el.len());
     let mut prev: Option<(Vec<f64>, Vec<IterMem>, f64)> = None;
     let mut ws = Work::new(ckt.size);
-    let mode = Mode::Dc { t: None, uic_init: false, force_ic: false };
+    let mode = Mode::Dc {
+        t: None,
+        uic_init: false,
+        force_ic: false,
+    };
     for k in 0..n {
         let val = start + step * k as f64;
         match &mut c.el[idx] {
@@ -273,7 +345,12 @@ pub fn dc_sweep(ckt: &Ckt, nl: &Netlist, src: &str, start: f64, stop: f64, step:
         let sol = match &prev {
             Some((x0, mem0, gshunt)) => {
                 let mut mem = mem0.clone();
-                let ld = Load { mode, st: &st, srcfac: 1.0, gshunt: *gshunt };
+                let ld = Load {
+                    mode,
+                    st: &st,
+                    srcfac: 1.0,
+                    gshunt: *gshunt,
+                };
                 let before = ws.solves;
                 let res = newton(&c, x0, &ld, &mut mem, c.opts.itl1, &mut ws);
                 stats.lu_solves += ws.solves - before;
@@ -294,7 +371,12 @@ pub fn dc_sweep(ckt: &Ckt, nl: &Netlist, src: &str, start: f64, stop: f64, step:
                 (o.x, o.mem, o.gshunt)
             }
         };
-        let ld = Load { mode, st: &st, srcfac: 1.0, gshunt: sol.2 };
+        let ld = Load {
+            mode,
+            st: &st,
+            srcfac: 1.0,
+            gshunt: sol.2,
+        };
         let cur = c.element_currents(&sol.0, &ld, &sol.1);
         for (nidx, col) in v.iter_mut().enumerate() {
             col.push(vx(&sol.0, nidx + 1) as f32);
@@ -305,7 +387,12 @@ pub fn dc_sweep(ckt: &Ckt, nl: &Netlist, src: &str, start: f64, stop: f64, step:
         sweep.push(val);
         prev = Some(sol);
     }
-    Ok(DcResult { source: nl.elements[idx].name.clone(), sweep, v, i })
+    Ok(DcResult {
+        source: nl.elements[idx].name.clone(),
+        sweep,
+        v,
+        i,
+    })
 }
 
 /// AC frequency grid (ngspice conventions).
@@ -360,12 +447,26 @@ pub fn ac(ckt: &Ckt, op: &OpSolution, freqs: &[f64], stats: &mut SolverStats) ->
             phase[n].push(ph as f32);
         }
     }
-    Ok(AcResult { freq: freqs.to_vec(), mag, phase })
+    Ok(AcResult {
+        freq: freqs.to_vec(),
+        mag,
+        phase,
+    })
 }
 
 /// Transient analysis.
 #[allow(clippy::too_many_arguments)]
-pub fn transient(ckt0: &Ckt, _nl: &Netlist, tstep: f64, tstop: f64, tstart: f64, tmax_in: Option<f64>, uic: bool, stats: &mut SolverStats, warnings: &mut Vec<String>) -> Result<TranResult, String> {
+pub fn transient(
+    ckt0: &Ckt,
+    _nl: &Netlist,
+    tstep: f64,
+    tstop: f64,
+    tstart: f64,
+    tmax_in: Option<f64>,
+    uic: bool,
+    stats: &mut SolverStats,
+    warnings: &mut Vec<String>,
+) -> Result<TranResult, String> {
     // resolve source defaults for this run and collect breakpoints
     let mut ckt = ckt0.clone();
     let mut bps: Vec<f64> = Vec::new();
@@ -390,9 +491,18 @@ pub fn transient(ckt0: &Ckt, _nl: &Netlist, tstep: f64, tstop: f64, tstart: f64,
     // ---- initial point ----
     let (mut x, mut mem, gshunt) = if uic {
         let st = zero_states(nel);
-        let mode = Mode::Dc { t: Some(0.0), uic_init: true, force_ic: true };
+        let mode = Mode::Dc {
+            t: Some(0.0),
+            uic_init: true,
+            force_ic: true,
+        };
         let mut mem = vec![IterMem::default(); nel];
-        let ld = Load { mode, st: &st, srcfac: 1.0, gshunt: 1e-12 };
+        let ld = Load {
+            mode,
+            st: &st,
+            srcfac: 1.0,
+            gshunt: 1e-12,
+        };
         let mut ws0 = Work::new(ckt.size);
         let r0 = newton(&ckt, &vec![0.0; ckt.size], &ld, &mut mem, o.itl1, &mut ws0);
         stats.lu_solves += ws0.solves;
@@ -404,24 +514,49 @@ pub fn transient(ckt0: &Ckt, _nl: &Netlist, tstep: f64, tstop: f64, tstart: f64,
             }
         }
     } else {
-        let sol = operating_point(&ckt, Mode::Dc { t: Some(0.0), uic_init: false, force_ic: true }, stats, warnings).map_err(|e| format!("transient initial operating point: {e}"))?;
+        let sol = operating_point(
+            &ckt,
+            Mode::Dc {
+                t: Some(0.0),
+                uic_init: false,
+                force_ic: true,
+            },
+            stats,
+            warnings,
+        )
+        .map_err(|e| format!("transient initial operating point: {e}"))?;
         (sol.x, sol.mem, sol.gshunt)
     };
     // initial reactive states
     let mut st = zero_states(nel);
     let q0 = ckt.charges(&x);
     for (k, d) in ckt.el.iter().enumerate() {
-        st[k].dy = [Dyn { q: q0[k][0], i: 0.0 }, Dyn { q: q0[k][1], i: 0.0 }, Dyn { q: q0[k][2], i: 0.0 }, Dyn { q: q0[k][3], i: 0.0 }];
+        st[k].dy = [
+            Dyn { q: q0[k][0], i: 0.0 },
+            Dyn { q: q0[k][1], i: 0.0 },
+            Dyn { q: q0[k][2], i: 0.0 },
+            Dyn { q: q0[k][3], i: 0.0 },
+        ];
         match d {
             CDev::C { a, b, c, ic } if uic => st[k].dy[0].q = c * ckt.uic_cap_v(*a, *b, *ic),
             CDev::L { l, ic, .. } if uic => st[k].dy[0].q = l * ic.unwrap_or(0.0),
-            CDev::S { init_on, .. } => st[k].on = if uic { mem[k].init && mem[k].on || (!mem[k].init && *init_on) } else { mem[k].on },
+            CDev::S { init_on, .. } => {
+                st[k].on = if uic {
+                    mem[k].init && mem[k].on || (!mem[k].init && *init_on)
+                } else {
+                    mem[k].on
+                }
+            }
             _ => {}
         }
     }
 
     let nu = ckt.n_user - 1;
-    let mut out = TranResult { tstep, tstop, ..Default::default() };
+    let mut out = TranResult {
+        tstep,
+        tstop,
+        ..Default::default()
+    };
     out.v = vec![Vec::new(); nu];
     out.i = vec![Vec::new(); nel];
     out.stats.uic = uic;
@@ -437,8 +572,17 @@ pub fn transient(ckt0: &Ckt, _nl: &Netlist, tstep: f64, tstop: f64, tstart: f64,
         }
     };
     {
-        let mode = Mode::Dc { t: Some(0.0), uic_init: false, force_ic: false };
-        let ld = Load { mode, st: &st, srcfac: 1.0, gshunt };
+        let mode = Mode::Dc {
+            t: Some(0.0),
+            uic_init: false,
+            force_ic: false,
+        };
+        let ld = Load {
+            mode,
+            st: &st,
+            srcfac: 1.0,
+            gshunt,
+        };
         let mut cur = ckt.element_currents(&x, &ld, &mem);
         if uic {
             for (k, d) in ckt.el.iter().enumerate() {
@@ -485,7 +629,12 @@ pub fn transient(ckt0: &Ckt, _nl: &Netlist, tstep: f64, tstop: f64, tstart: f64,
         for m in trial_mem.iter_mut() {
             m.flips = 0;
         }
-        let ld = Load { mode, st: &st, srcfac: 1.0, gshunt };
+        let ld = Load {
+            mode,
+            st: &st,
+            srcfac: 1.0,
+            gshunt,
+        };
         // predictor for the Newton initial guess: linear extrapolation
         let guess: Vec<f64> = if histq.len() >= 2 {
             let (t1, x1) = &histq[histq.len() - 2];
@@ -500,7 +649,10 @@ pub fn transient(ckt0: &Ckt, _nl: &Netlist, tstep: f64, tstop: f64, tstart: f64,
         lu_guard += ws.solves - before;
         stats.lu_solves += ws.solves - before;
         if lu_guard > MAX_LU {
-            return Err(format!("transient aborted at t = {}: too much work (more than {MAX_LU} matrix solves) — increase tstep or shorten tstop", fmt_si(t, "s")));
+            return Err(format!(
+                "transient aborted at t = {}: too much work (more than {MAX_LU} matrix solves) — increase tstep or shorten tstop",
+                fmt_si(t, "s")
+            ));
         }
         let xn = match res {
             Ok(r) => {
@@ -526,7 +678,11 @@ pub fn transient(ckt0: &Ckt, _nl: &Netlist, tstep: f64, tstop: f64, tstart: f64,
             }
         };
         // switch events act like breakpoints
-        let switched = ckt.el.iter().enumerate().any(|(k, d)| matches!(d, CDev::S { .. }) && trial_mem[k].on != st[k].on);
+        let switched = ckt
+            .el
+            .iter()
+            .enumerate()
+            .any(|(k, d)| matches!(d, CDev::S { .. }) && trial_mem[k].on != st[k].on);
 
         // local truncation error estimate (trapezoidal, predictor–corrector)
         let mut hfactor = 2.0;
@@ -585,7 +741,9 @@ pub fn transient(ckt0: &Ckt, _nl: &Netlist, tstep: f64, tstop: f64, tstart: f64,
             record(&mut out, t, &x, &cur);
         }
         if out.time.len() > MAX_TRAN_POINTS {
-            return Err(format!("transient aborted: more than {MAX_TRAN_POINTS} time points — increase tstep/tmax or shorten tstop"));
+            return Err(format!(
+                "transient aborted: more than {MAX_TRAN_POINTS} time points — increase tstep/tmax or shorten tstop"
+            ));
         }
         if hit_bp || switched {
             histq.clear();

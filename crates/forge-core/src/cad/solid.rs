@@ -28,7 +28,10 @@ pub struct Region {
 
 impl Region {
     pub fn new(outer: Vec<P2>, holes: Vec<Vec<P2>>) -> Region {
-        Region { outer: g::oriented(outer, true), holes: holes.into_iter().map(|h| g::oriented(h, false)).collect() }
+        Region {
+            outer: g::oriented(outer, true),
+            holes: holes.into_iter().map(|h| g::oriented(h, false)).collect(),
+        }
     }
     pub fn simple(outer: Vec<P2>) -> Region {
         Region::new(outer, vec![])
@@ -238,7 +241,11 @@ pub fn sweep(profile: &[P2], path: &[P3]) -> Mesh {
                 let t_l = v_sub(t_prev, v_scale(v1, 2.0 / c1 * v_dot(v1, t_prev)));
                 let v2 = v_sub(ti, t_l);
                 let c2 = v_dot(v2, v2);
-                nrm = if c2 > 1e-18 { v_sub(r_l, v_scale(v2, 2.0 / c2 * v_dot(v2, r_l))) } else { r_l };
+                nrm = if c2 > 1e-18 {
+                    v_sub(r_l, v_scale(v2, 2.0 / c2 * v_dot(v2, r_l)))
+                } else {
+                    r_l
+                };
                 nrm = v_norm(v_sub(nrm, v_scale(ti, v_dot(nrm, ti))));
             }
         }
@@ -375,10 +382,12 @@ mod tests {
         check(&m);
         assert!((m.volume() - a * 50.0).abs() / (a * 50.0) < 1e-9);
         // Quarter arc of radius 30: Pappus V = A · (π/2 · 30).
-        let path: Vec<P3> = (0..=48).map(|i| {
-            let t = PI / 2.0 * i as f64 / 48.0;
-            [0.0, 30.0 * t.sin(), 30.0 * (1.0 - t.cos())]
-        }).collect();
+        let path: Vec<P3> = (0..=48)
+            .map(|i| {
+                let t = PI / 2.0 * i as f64 / 48.0;
+                [0.0, 30.0 * t.sin(), 30.0 * (1.0 - t.cos())]
+            })
+            .collect();
         let m = sweep(&prof, &path);
         check(&m);
         let exact = a * PI / 2.0 * 30.0;

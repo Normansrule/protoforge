@@ -199,7 +199,11 @@ impl CostInputs {
             }
         }
         let o = crate::molding::ProcessOptions::from_project(p);
-        let molded: Vec<crate::molding::PartProcess> = parts.iter().filter(|x| x.mesh.triangle_count() > 0).map(|x| crate::molding::process_part(x, &o, 300)).collect();
+        let molded: Vec<crate::molding::PartProcess> = parts
+            .iter()
+            .filter(|x| x.mesh.triangle_count() > 0)
+            .map(|x| crate::molding::process_part(x, &o, 300))
+            .collect();
         CostInputs {
             frame_volume_cm3: vol,
             frame_density: p.design.frame.density_g_cm3.max(0.5),
@@ -223,16 +227,35 @@ fn frame_costs(p: &Project, inp: &CostInputs, a: &Assumptions, q: f64) -> Vec<(S
     let labour = p.design.manufacturing.labor_rate_usd_h;
     let vol = inp.frame_volume_cm3;
     let mass = vol * inp.frame_density;
-    let fil_g = if a.filament_g > 0.0 { a.filament_g } else { mass * (1.0 + a.fdm_waste_pct / 100.0) };
-    let hours = if a.print_time_h > 0.0 { a.print_time_h } else { vol / a.fdm_rate_cm3_h.max(0.1) + 0.25 };
+    let fil_g = if a.filament_g > 0.0 {
+        a.filament_g
+    } else {
+        mass * (1.0 + a.fdm_waste_pct / 100.0)
+    };
+    let hours = if a.print_time_h > 0.0 {
+        a.print_time_h
+    } else {
+        vol / a.fdm_rate_cm3_h.max(0.1) + 0.25
+    };
     let fdm = fil_g / 1000.0 * a.fdm_filament_usd_kg + hours * a.fdm_machine_usd_h + a.fdm_post_min / 60.0 * labour;
     let mjf = vol * a.mjf_usd_cm3 + a.mjf_order_usd / q;
     // master pattern + first silicone mould, then a new mould (≈30 % of the
     // master cost) every `urethane_mold_life` castings, amortised smoothly
     let extra_molds = (q / a.urethane_mold_life.max(1.0) - 1.0).max(0.0);
-    let ure = (a.urethane_master_usd + extra_molds * 0.3 * a.urethane_master_usd) / q + vol * a.urethane_usd_cm3 + a.urethane_labour_min / 60.0 * labour;
-    let molding = if inp.molded.is_empty() { f64::INFINITY } else { crate::molding::unit_cost_at(&inp.molded, q) + a.mold_setup_usd * inp.molded.len() as f64 / q };
-    vec![("FDM (in-house)".into(), fdm), ("MJF/SLS service".into(), mjf), ("Urethane casting".into(), ure), ("Injection molding".into(), molding)]
+    let ure = (a.urethane_master_usd + extra_molds * 0.3 * a.urethane_master_usd) / q
+        + vol * a.urethane_usd_cm3
+        + a.urethane_labour_min / 60.0 * labour;
+    let molding = if inp.molded.is_empty() {
+        f64::INFINITY
+    } else {
+        crate::molding::unit_cost_at(&inp.molded, q) + a.mold_setup_usd * inp.molded.len() as f64 / q
+    };
+    vec![
+        ("FDM (in-house)".into(), fdm),
+        ("MJF/SLS service".into(), mjf),
+        ("Urethane casting".into(), ure),
+        ("Injection molding".into(), molding),
+    ]
 }
 
 fn choose_frame(opts: &[(String, f64)], a: &Assumptions) -> (String, f64) {
@@ -254,10 +277,22 @@ pub type Breakdown = (Vec<(String, f64)>, String, Vec<(String, f64)>);
 /// Cost of one unit at quantity q, by category.
 pub fn unit_cost_breakdown(p: &Project, inp: &CostInputs, a: &Assumptions, q: f64) -> Breakdown {
     let q = q.max(1.0);
-    let onboard: f64 = p.components.iter().filter(|c| c.on_pcb).map(|c| price_at(c.unit_cost_usd, q * c.qty, a) * c.qty).sum();
-    let offboard: f64 = p.components.iter().filter(|c| !c.on_pcb && !is_bare_pcb(c)).map(|c| price_at(c.unit_cost_usd, q * c.qty, a) * c.qty).sum();
+    let onboard: f64 = p
+        .components
+        .iter()
+        .filter(|c| c.on_pcb)
+        .map(|c| price_at(c.unit_cost_usd, q * c.qty, a) * c.qty)
+        .sum();
+    let offboard: f64 = p
+        .components
+        .iter()
+        .filter(|c| !c.on_pcb && !is_bare_pcb(c))
+        .map(|c| price_at(c.unit_cost_usd, q * c.qty, a) * c.qty)
+        .sum();
     let pcb = a.pcb_setup_usd / q + inp.pcb_area_cm2 * a.pcb_usd_per_cm2 / a.panel_efficiency.clamp(0.1, 1.0);
-    let pcba = (a.pcba_setup_usd + a.stencil_usd + a.usd_per_unique_part * inp.unique_parts as f64) / q + inp.smd_joints as f64 * a.usd_per_smd_joint + inp.tht_joints as f64 * a.usd_per_tht_joint;
+    let pcba = (a.pcba_setup_usd + a.stencil_usd + a.usd_per_unique_part * inp.unique_parts as f64) / q
+        + inp.smd_joints as f64 * a.usd_per_smd_joint
+        + inp.tht_joints as f64 * a.usd_per_tht_joint;
     let fopts = frame_costs(p, inp, a, q);
     let (fname, fcost) = choose_frame(&fopts, a);
     let m = &p.design.manufacturing;
@@ -283,8 +318,16 @@ pub fn unit_cost_breakdown(p: &Project, inp: &CostInputs, a: &Assumptions, q: f6
 pub fn crossover(p: &Project, inp: &CostInputs, a: &Assumptions) -> Option<f64> {
     let diff = |q: f64| {
         let o = frame_costs(p, inp, a, q);
-        let print = o.iter().filter(|x| x.0.starts_with("FDM") || x.0.starts_with("MJF")).map(|x| x.1).fold(f64::INFINITY, f64::min);
-        let mold = o.iter().find(|x| x.0.starts_with("Injection")).map(|x| x.1).unwrap_or(f64::INFINITY);
+        let print = o
+            .iter()
+            .filter(|x| x.0.starts_with("FDM") || x.0.starts_with("MJF"))
+            .map(|x| x.1)
+            .fold(f64::INFINITY, f64::min);
+        let mold = o
+            .iter()
+            .find(|x| x.0.starts_with("Injection"))
+            .map(|x| x.1)
+            .unwrap_or(f64::INFINITY);
         mold - print
     };
     let (mut lo, mut hi) = (0.0f64, 7.0f64); // log10 q
@@ -321,14 +364,33 @@ pub fn cost_curve_with(p: &Project, inp: &CostInputs, a: &Assumptions) -> CostCu
     grid.push(p.design.manufacturing.target_quantity.max(1.0));
     grid.sort_by(|x, y| x.partial_cmp(y).unwrap());
     grid.dedup_by(|x, y| (*x - *y).abs() < 0.5);
-    let mut c = CostCurve { quantities: grid.clone(), assumptions: a.clone(), ..Default::default() };
+    let mut c = CostCurve {
+        quantities: grid.clone(),
+        assumptions: a.clone(),
+        ..Default::default()
+    };
     let mut fopts: Vec<FrameOption> = Vec::new();
     for (k, &q) in grid.iter().enumerate() {
         let (cats, fname, fo) = unit_cost_breakdown(p, inp, a, q);
         if k == 0 {
-            c.categories = cats.iter().map(|x| if x.0.starts_with("Frame") { "Frame".to_string() } else { x.0.clone() }).collect();
+            c.categories = cats
+                .iter()
+                .map(|x| {
+                    if x.0.starts_with("Frame") {
+                        "Frame".to_string()
+                    } else {
+                        x.0.clone()
+                    }
+                })
+                .collect();
             c.per_unit = vec![Vec::new(); cats.len()];
-            fopts = fo.iter().map(|x| FrameOption { process: x.0.clone(), unit_usd: Vec::new() }).collect();
+            fopts = fo
+                .iter()
+                .map(|x| FrameOption {
+                    process: x.0.clone(),
+                    unit_usd: Vec::new(),
+                })
+                .collect();
         }
         for (i, x) in cats.iter().enumerate() {
             c.per_unit[i].push(x.1);
@@ -458,15 +520,74 @@ pub struct Stage {
 }
 
 /// (id, title, goal, checklist, milestone keywords)
-type StageDef = (&'static str, &'static str, &'static str, &'static [&'static str], &'static [&'static str]);
+type StageDef = (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'static [&'static str],
+    &'static [&'static str],
+);
 
 pub fn stages(p: &Project) -> Vec<Stage> {
     let defs: [StageDef; 5] = [
-        ("proto", "Prototype", "Prove the concept works at all", &["Breadboard / dev-kit electronics", "3-D printed frame", "Requirements with metrics (Systems Studio)"], &["concept", "requirements", "design"]),
-        ("evt", "EVT — engineering validation", "Does the design meet its requirements?", &["Order 5–10 assembled boards (PCBA)", "Printed or MJF frames", "Bring-up, firmware, power and thermal measurements", "Fix schematic / layout issues"], &["prototype", "evt"]),
-        ("dvt", "DVT — design validation", "Does the product survive the real world?", &["Soft (aluminium) tools, parts in the final material", "Drop, fold, sweat, thermal and battery-safety tests", "Pre-compliance EMC / radio scan", "Freeze the design"], &["validation", "dvt"]),
-        ("pvt", "PVT — production validation", "Can the factory build it repeatably?", &["Hardened production tools (T1 → T2 samples)", "Line fixtures, test jigs, work instructions", "First pilot run (e.g. 100 units), yield tracking", "Certifications (FCC / CE / Bluetooth listing)"], &["production", "pvt"]),
-        ("mp", "Mass production", "Ship at volume", &["Ramp plan and supplier contracts", "Incoming inspection and SPC", "Field-return analysis loop"], &["mp", "mass"]),
+        (
+            "proto",
+            "Prototype",
+            "Prove the concept works at all",
+            &[
+                "Breadboard / dev-kit electronics",
+                "3-D printed frame",
+                "Requirements with metrics (Systems Studio)",
+            ],
+            &["concept", "requirements", "design"],
+        ),
+        (
+            "evt",
+            "EVT — engineering validation",
+            "Does the design meet its requirements?",
+            &[
+                "Order 5–10 assembled boards (PCBA)",
+                "Printed or MJF frames",
+                "Bring-up, firmware, power and thermal measurements",
+                "Fix schematic / layout issues",
+            ],
+            &["prototype", "evt"],
+        ),
+        (
+            "dvt",
+            "DVT — design validation",
+            "Does the product survive the real world?",
+            &[
+                "Soft (aluminium) tools, parts in the final material",
+                "Drop, fold, sweat, thermal and battery-safety tests",
+                "Pre-compliance EMC / radio scan",
+                "Freeze the design",
+            ],
+            &["validation", "dvt"],
+        ),
+        (
+            "pvt",
+            "PVT — production validation",
+            "Can the factory build it repeatably?",
+            &[
+                "Hardened production tools (T1 → T2 samples)",
+                "Line fixtures, test jigs, work instructions",
+                "First pilot run (e.g. 100 units), yield tracking",
+                "Certifications (FCC / CE / Bluetooth listing)",
+            ],
+            &["production", "pvt"],
+        ),
+        (
+            "mp",
+            "Mass production",
+            "Ship at volume",
+            &[
+                "Ramp plan and supplier contracts",
+                "Incoming inspection and SPC",
+                "Field-return analysis loop",
+            ],
+            &["mp", "mass"],
+        ),
     ];
     defs.iter()
         .map(|(id, title, goal, list, keys)| Stage {
@@ -500,7 +621,11 @@ pub struct PackageFile {
 }
 
 fn utf8(path: impl Into<String>, content: impl Into<String>) -> PackageFile {
-    PackageFile { path: path.into(), content: content.into(), encoding: "utf8".into() }
+    PackageFile {
+        path: path.into(),
+        content: content.into(),
+        encoding: "utf8".into(),
+    }
 }
 
 /// A producer adds files to the package. Add a line to [`PRODUCERS`] to
@@ -523,7 +648,10 @@ fn produce_pcb(p: &Project) -> Vec<PackageFile> {
         return vec![];
     }
     let l = crate::pcb::layout(p);
-    crate::pcb::fab::fab_files(p, &l).into_iter().map(|f| utf8(format!("pcb/{}", f.path), f.content)).collect()
+    crate::pcb::fab::fab_files(p, &l)
+        .into_iter()
+        .map(|f| utf8(format!("pcb/{}", f.path), f.content))
+        .collect()
 }
 
 pub fn molding_report(p: &Project) -> String {
@@ -535,10 +663,24 @@ pub fn molding_report(p: &Project) -> String {
     for x in &a.parts {
         s += &format!(
             "| {} | {} | {:.2}° | {:.0} mm² | {:.2} / {:.2} mm | {:.0} mm² | {:.1} t | {:.1} s | ${:.0} | ${:.2} |\n",
-            x.part, x.pull_label, x.min_draft_deg, x.undercut_area_mm2, x.wall_nominal_mm, x.wall_max_mm, x.projected_area_mm2, x.clamp_tonnes, x.cycle.total_s, x.tool_cost_usd, x.piece.total_usd
+            x.part,
+            x.pull_label,
+            x.min_draft_deg,
+            x.undercut_area_mm2,
+            x.wall_nominal_mm,
+            x.wall_max_mm,
+            x.projected_area_mm2,
+            x.clamp_tonnes,
+            x.cycle.total_s,
+            x.tool_cost_usd,
+            x.piece.total_usd
         );
     }
-    s += &format!("\nShrinkage compensation: scale cavities by **{:.5}** ({} % linear shrink).\n\n", 1.0 / (1.0 - a.material.shrinkage_pct / 100.0), a.material.shrinkage_pct);
+    s += &format!(
+        "\nShrinkage compensation: scale cavities by **{:.5}** ({} % linear shrink).\n\n",
+        1.0 / (1.0 - a.material.shrinkage_pct / 100.0),
+        a.material.shrinkage_pct
+    );
     s += "## Warnings\n\n";
     let mut any = false;
     for x in &a.parts {
@@ -605,7 +747,10 @@ pub fn cost_csv(c: &CostCurve) -> String {
 
 pub fn cost_markdown(p: &Project, c: &CostCurve) -> String {
     let mut s = format!("# {} — cost estimate (indicative — get real quotes)\n\n", p.meta.name);
-    s += &format!("Target quantity **{}**: **${:.2} per unit**.\n\n| Category | USD / unit |\n|---|---|\n", c.target_qty, c.target_unit_usd);
+    s += &format!(
+        "Target quantity **{}**: **${:.2} per unit**.\n\n| Category | USD / unit |\n|---|---|\n",
+        c.target_qty, c.target_unit_usd
+    );
     for (k, v) in &c.target_breakdown {
         s += &format!("| {} | {:.2} |\n", k, v);
     }
@@ -623,11 +768,17 @@ pub fn cost_markdown(p: &Project, c: &CostCurve) -> String {
 
 fn produce_cost(p: &Project) -> Vec<PackageFile> {
     let c = cost_curve(p, &Assumptions::default());
-    vec![utf8("cost/cost-vs-quantity.csv", cost_csv(&c)), utf8("cost/cost-report.md", cost_markdown(p, &c))]
+    vec![
+        utf8("cost/cost-vs-quantity.csv", cost_csv(&c)),
+        utf8("cost/cost-report.md", cost_markdown(p, &c)),
+    ]
 }
 
 fn produce_guides(p: &Project) -> Vec<PackageFile> {
-    order_guides(p).into_iter().map(|g| utf8(format!("guides/order-{}.md", g.id), g.markdown)).collect()
+    order_guides(p)
+        .into_iter()
+        .map(|g| utf8(format!("guides/order-{}.md", g.id), g.markdown))
+        .collect()
 }
 
 fn produce_verification(p: &Project) -> Vec<PackageFile> {
@@ -688,16 +839,38 @@ thread_local! {
 /// the inputs it reads, because verification re-runs on every project edit).
 pub fn metrics(p: &Project) -> Vec<Metric> {
     let d = &p.design;
-    let key = crate::memo::key(&(&p.components, &d.frame, &d.optics, &d.pcb, &d.manufacturing, &d.print, &d.extra, &p.milestones));
+    let key = crate::memo::key(&(
+        &p.components,
+        &d.frame,
+        &d.optics,
+        &d.pcb,
+        &d.manufacturing,
+        &d.print,
+        &d.extra,
+        &p.milestones,
+    ));
     crate::memo::memo(&METRICS_CACHE, key, || metrics_uncached(p))
 }
 
 fn metrics_uncached(p: &Project) -> Vec<Metric> {
     let c = cost_curve(p, &Assumptions::default());
-    let fq = c.quantities.iter().position(|q| (*q - c.target_qty).abs() < 0.5).map(|i| c.frame_choice[i].clone()).unwrap_or_default();
+    let fq = c
+        .quantities
+        .iter()
+        .position(|q| (*q - c.target_qty).abs() < 0.5)
+        .map(|i| c.frame_choice[i].clone())
+        .unwrap_or_default();
     let mut v = vec![
-        Metric::new("mfg.unit_cost_usd", "Unit cost at target quantity", c.target_unit_usd, "USD", "mfg").with_note(&format!("indicative estimate at {} units; frame by {}", c.target_qty, fq)),
-        Metric::new("mfg.bom_cost_usd", "Parts cost at target quantity", c.bom_usd_at_target, "USD", "mfg").with_note("learning-curve price breaks applied to the qty-1 BOM prices"),
+        Metric::new("mfg.unit_cost_usd", "Unit cost at target quantity", c.target_unit_usd, "USD", "mfg")
+            .with_note(&format!("indicative estimate at {} units; frame by {}", c.target_qty, fq)),
+        Metric::new(
+            "mfg.bom_cost_usd",
+            "Parts cost at target quantity",
+            c.bom_usd_at_target,
+            "USD",
+            "mfg",
+        )
+        .with_note("learning-curve price breaks applied to the qty-1 BOM prices"),
     ];
     if let Some(q) = c.crossover_qty {
         v.push(Metric::new("mfg.crossover_qty", "Molding beats printing above", q, "units", "mfg"));
@@ -745,7 +918,22 @@ mod tests {
         let p = Project::iris();
         let files = package(&p);
         let has = |s: &str| files.iter().any(|f| f.path.contains(s));
-        for s in ["README.md", "F_Cu.gbr", "B_Cu.gbr", "Edge_Cuts.gbr", "PTH.drl", "BOM.csv", "CPL.csv", "molding-dfm-report.md", "cost-vs-quantity.csv", "cost-report.md", "order-pcba.md", "order-molding.md", "verification-report.md", "project.json"] {
+        for s in [
+            "README.md",
+            "F_Cu.gbr",
+            "B_Cu.gbr",
+            "Edge_Cuts.gbr",
+            "PTH.drl",
+            "BOM.csv",
+            "CPL.csv",
+            "molding-dfm-report.md",
+            "cost-vs-quantity.csv",
+            "cost-report.md",
+            "order-pcba.md",
+            "order-molding.md",
+            "verification-report.md",
+            "project.json",
+        ] {
             assert!(has(s), "missing {s}");
         }
     }

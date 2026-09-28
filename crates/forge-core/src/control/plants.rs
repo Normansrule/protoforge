@@ -44,7 +44,15 @@ pub struct PlantInfo {
 }
 
 fn ps(key: &str, label: &str, unit: &str, value: f64, min: f64, max: f64, log: bool) -> ParamSpec {
-    ParamSpec { key: key.into(), label: label.into(), unit: unit.into(), value, min, max, log }
+    ParamSpec {
+        key: key.into(),
+        label: label.into(),
+        unit: unit.into(),
+        value,
+        min,
+        max,
+        log,
+    }
 }
 
 /// All plants, with the thermal plant parameterised from the project.
@@ -208,7 +216,10 @@ pub fn build(id: &str, params: &BTreeMap<String, f64>, custom: Option<&Tf>, p: O
             let (mm, m, b, i, l) = (g("M"), g("m"), g("b"), g("I"), g("l"));
             let gr = 9.8;
             let q = (mm + m) * (i + m * l * l) - (m * l).powi(2);
-            Tf::new(vec![m * l / q, 0.0], vec![1.0, b * (i + m * l * l) / q, -(mm + m) * m * gr * l / q, -b * m * gr * l / q])
+            Tf::new(
+                vec![m * l / q, 0.0],
+                vec![1.0, b * (i + m * l * l) / q, -(mm + m) * m * gr * l / q, -b * m * gr * l / q],
+            )
         }
         _ => return Err(format!("unknown plant `{id}`")),
     };

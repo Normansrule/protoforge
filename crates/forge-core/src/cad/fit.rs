@@ -40,7 +40,13 @@ pub struct FitInput {
 
 impl Default for FitInput {
     fn default() -> Self {
-        FitInput { face_width_mm: 138.0, pd_mm: 63.0, sphere_d: 0.0, frame: None, eyebox_mm: 5.0 }
+        FitInput {
+            face_width_mm: 138.0,
+            pd_mm: 63.0,
+            sphere_d: 0.0,
+            frame: None,
+            eyebox_mm: 5.0,
+        }
     }
 }
 
@@ -115,7 +121,10 @@ pub fn recommend(i: &FitInput) -> FitResult {
     let within = offset <= eyebox / 2.0;
     let mut notes = Vec::new();
     if (total - w).abs() > 6.0 {
-        notes.push(format!("Front width {total:.0} mm differs from the face width by {:.0} mm; consider a different rim width.", total - w));
+        notes.push(format!(
+            "Front width {total:.0} mm differs from the face width by {:.0} mm; consider a different rim width.",
+            total - w
+        ));
     }
     if !within {
         notes.push(format!(
@@ -140,7 +149,11 @@ pub fn recommend(i: &FitInput) -> FitResult {
         pupil_to_display_axis_mm: offset,
         within_eyebox: within,
         notes,
-        patch: FitPatch { lens_width_mm: a, bridge_mm: dbl, temple_length_mm: temple },
+        patch: FitPatch {
+            lens_width_mm: a,
+            bridge_mm: dbl,
+            temple_length_mm: temple,
+        },
         current_frame_pd_mm: cur_pd,
         current_decentration_mm: (cur_pd - pd) / 2.0,
     }
@@ -152,7 +165,11 @@ mod tests {
 
     #[test]
     fn average_adult_gets_a_typical_size() {
-        let r = recommend(&FitInput { face_width_mm: 134.0, pd_mm: 64.0, ..Default::default() });
+        let r = recommend(&FitInput {
+            face_width_mm: 134.0,
+            pd_mm: 64.0,
+            ..Default::default()
+        });
         assert!((48.0..=54.0).contains(&r.lens_width_mm), "{r:?}");
         assert!((16.0..=20.0).contains(&r.bridge_mm));
         assert!((r.frame_pd_mm - (r.lens_width_mm + r.bridge_mm)).abs() < 1e-12);
@@ -162,15 +179,28 @@ mod tests {
     #[test]
     fn prentice_rule() {
         // 4 mm decentration total (2 mm per eye) with a -4 D lens: 0.8 Δ.
-        let r = recommend(&FitInput { face_width_mm: 134.0, pd_mm: 64.0, sphere_d: -4.0, ..Default::default() });
+        let r = recommend(&FitInput {
+            face_width_mm: 134.0,
+            pd_mm: 64.0,
+            sphere_d: -4.0,
+            ..Default::default()
+        });
         let expect = r.decentration_per_eye_mm.abs() / 10.0 * 4.0;
         assert!((r.prentice_prism_d - expect).abs() < 1e-12);
     }
 
     #[test]
     fn wider_faces_get_wider_frames() {
-        let narrow = recommend(&FitInput { face_width_mm: 124.0, pd_mm: 58.0, ..Default::default() });
-        let wide = recommend(&FitInput { face_width_mm: 150.0, pd_mm: 70.0, ..Default::default() });
+        let narrow = recommend(&FitInput {
+            face_width_mm: 124.0,
+            pd_mm: 58.0,
+            ..Default::default()
+        });
+        let wide = recommend(&FitInput {
+            face_width_mm: 150.0,
+            pd_mm: 70.0,
+            ..Default::default()
+        });
         assert!(wide.total_width_mm > narrow.total_width_mm + 15.0);
         assert!(wide.temple_length_mm > narrow.temple_length_mm);
     }

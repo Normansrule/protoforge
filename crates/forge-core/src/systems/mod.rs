@@ -53,7 +53,13 @@ fn system_metrics(p: &Project, m: &[Metric]) -> Vec<Metric> {
     } else {
         out.push(Metric::new("mass.components_g", "Component mass", comp, "g", "systems"));
     }
-    out.push(Metric::new("bom.cost_usd", "BOM cost (qty 1 prices)", p.bom_cost_usd(), "USD", "systems"));
+    out.push(Metric::new(
+        "bom.cost_usd",
+        "BOM cost (qty 1 prices)",
+        p.bom_cost_usd(),
+        "USD",
+        "systems",
+    ));
     if let Some(inner) = get("cad.pod_inner_length_mm") {
         let margin = inner - p.design.pcb.width_mm;
         out.push(
@@ -173,7 +179,13 @@ pub fn evaluate_with(p: &Project, metrics: Vec<Metric>) -> Evaluation {
     let pass = results.iter().filter(|r| r.status == Status::Pass).count();
     let fail = results.iter().filter(|r| r.status == Status::Fail).count();
     let unverified = results.len() - pass - fail;
-    Evaluation { metrics, results, pass, fail, unverified }
+    Evaluation {
+        metrics,
+        results,
+        pass,
+        fail,
+        unverified,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -207,38 +219,83 @@ pub fn trace_graph(p: &Project) -> TraceGraph {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
     for n in &p.needs {
-        nodes.push(Node { id: n.id.clone(), label: n.text.clone(), kind: "need".into(), layer: 0 });
+        nodes.push(Node {
+            id: n.id.clone(),
+            label: n.text.clone(),
+            kind: "need".into(),
+            layer: 0,
+        });
     }
     let mut metric_keys = BTreeSet::new();
     for r in &p.requirements {
-        nodes.push(Node { id: r.id.clone(), label: r.text.clone(), kind: "requirement".into(), layer: 1 });
+        nodes.push(Node {
+            id: r.id.clone(),
+            label: r.text.clone(),
+            kind: "requirement".into(),
+            layer: 1,
+        });
         for n in &r.derives_from {
-            edges.push(Edge { from: n.clone(), to: r.id.clone(), kind: "derives".into() });
+            edges.push(Edge {
+                from: n.clone(),
+                to: r.id.clone(),
+                kind: "derives".into(),
+            });
         }
         for s in &r.allocated_to {
-            edges.push(Edge { from: r.id.clone(), to: s.clone(), kind: "allocated".into() });
+            edges.push(Edge {
+                from: r.id.clone(),
+                to: s.clone(),
+                kind: "allocated".into(),
+            });
         }
         if let Some(m) = &r.verification.metric {
             metric_keys.insert(m.clone());
-            edges.push(Edge { from: r.id.clone(), to: format!("m:{m}"), kind: "verified_by".into() });
+            edges.push(Edge {
+                from: r.id.clone(),
+                to: format!("m:{m}"),
+                kind: "verified_by".into(),
+            });
         }
     }
     let mut labs = BTreeSet::new();
     for s in &p.subsystems {
-        nodes.push(Node { id: s.id.clone(), label: s.name.clone(), kind: "subsystem".into(), layer: 2 });
+        nodes.push(Node {
+            id: s.id.clone(),
+            label: s.name.clone(),
+            kind: "subsystem".into(),
+            layer: 2,
+        });
         if !s.lab.is_empty() {
             labs.insert(s.lab.clone());
-            edges.push(Edge { from: s.id.clone(), to: format!("lab:{}", s.lab), kind: "designed_in".into() });
+            edges.push(Edge {
+                from: s.id.clone(),
+                to: format!("lab:{}", s.lab),
+                kind: "designed_in".into(),
+            });
         }
     }
     for m in &metric_keys {
-        nodes.push(Node { id: format!("m:{m}"), label: m.clone(), kind: "metric".into(), layer: 3 });
+        nodes.push(Node {
+            id: format!("m:{m}"),
+            label: m.clone(),
+            kind: "metric".into(),
+            layer: 3,
+        });
         let lab = metric_lab(m);
         labs.insert(lab.clone());
-        edges.push(Edge { from: format!("m:{m}"), to: format!("lab:{lab}"), kind: "computed_in".into() });
+        edges.push(Edge {
+            from: format!("m:{m}"),
+            to: format!("lab:{lab}"),
+            kind: "computed_in".into(),
+        });
     }
     for l in &labs {
-        nodes.push(Node { id: format!("lab:{l}"), label: l.clone(), kind: "lab".into(), layer: 4 });
+        nodes.push(Node {
+            id: format!("lab:{l}"),
+            label: l.clone(),
+            kind: "lab".into(),
+            layer: 4,
+        });
     }
     TraceGraph { nodes, edges }
 }
@@ -317,7 +374,12 @@ pub fn score_trade(t: &TradeStudy) -> TradeResult {
         }
         sens.push(flip);
     }
-    TradeResult { id: t.id.clone(), scores, winner, weight_sensitivity: sens }
+    TradeResult {
+        id: t.id.clone(),
+        scores,
+        winner,
+        weight_sensitivity: sens,
+    }
 }
 
 fn weighted(t: &TradeStudy, w: &[f64]) -> Vec<f64> {
@@ -337,7 +399,10 @@ fn weighted(t: &TradeStudy, w: &[f64]) -> Vec<f64> {
 }
 
 fn argmax(v: &[f64]) -> usize {
-    v.iter().enumerate().fold((0, f64::MIN), |(bi, bv), (i, x)| if *x > bv { (i, *x) } else { (bi, bv) }).0
+    v.iter()
+        .enumerate()
+        .fold((0, f64::MIN), |(bi, bv), (i, x)| if *x > bv { (i, *x) } else { (bi, bv) })
+        .0
 }
 
 // ---------------------------------------------------------------------------
@@ -365,7 +430,11 @@ pub fn fmea(p: &Project) -> Vec<RiskResult> {
             } else {
                 "low"
             };
-            RiskResult { id: r.id.clone(), rpn, level: level.into() }
+            RiskResult {
+                id: r.id.clone(),
+                rpn,
+                level: level.into(),
+            }
         })
         .collect();
     v.sort_by_key(|r| std::cmp::Reverse(r.rpn));
@@ -390,26 +459,50 @@ pub fn lint(p: &Project) -> Vec<LintIssue> {
     let mut seen = BTreeSet::new();
     for r in &p.requirements {
         if !seen.insert(r.id.as_str()) {
-            out.push(LintIssue { severity: "error".into(), id: r.id.clone(), message: "duplicate requirement id".into() });
+            out.push(LintIssue {
+                severity: "error".into(),
+                id: r.id.clone(),
+                message: "duplicate requirement id".into(),
+            });
         }
         if r.derives_from.is_empty() && r.kind != ReqKind::Goal {
-            out.push(LintIssue { severity: "warning".into(), id: r.id.clone(), message: "not traced to any stakeholder need".into() });
+            out.push(LintIssue {
+                severity: "warning".into(),
+                id: r.id.clone(),
+                message: "not traced to any stakeholder need".into(),
+            });
         }
         for n in &r.derives_from {
             if !needs.contains(n.as_str()) {
-                out.push(LintIssue { severity: "error".into(), id: r.id.clone(), message: format!("derives from unknown need {n}") });
+                out.push(LintIssue {
+                    severity: "error".into(),
+                    id: r.id.clone(),
+                    message: format!("derives from unknown need {n}"),
+                });
             }
         }
         if r.allocated_to.is_empty() {
-            out.push(LintIssue { severity: "warning".into(), id: r.id.clone(), message: "not allocated to a subsystem".into() });
+            out.push(LintIssue {
+                severity: "warning".into(),
+                id: r.id.clone(),
+                message: "not allocated to a subsystem".into(),
+            });
         }
         for s in &r.allocated_to {
             if !subs.contains(s.as_str()) {
-                out.push(LintIssue { severity: "error".into(), id: r.id.clone(), message: format!("allocated to unknown subsystem {s}") });
+                out.push(LintIssue {
+                    severity: "error".into(),
+                    id: r.id.clone(),
+                    message: format!("allocated to unknown subsystem {s}"),
+                });
             }
         }
         if r.verification.metric.is_none() {
-            out.push(LintIssue { severity: "info".into(), id: r.id.clone(), message: "no metric bound: verify by test/inspection".into() });
+            out.push(LintIssue {
+                severity: "info".into(),
+                id: r.id.clone(),
+                message: "no metric bound: verify by test/inspection".into(),
+            });
         }
         let t = r.text.to_lowercase();
         for weak in ["user-friendly", "fast", "easy", "adequate", "as appropriate", "etc", "tbd"] {
@@ -422,18 +515,30 @@ pub fn lint(p: &Project) -> Vec<LintIssue> {
             }
         }
         if !t.contains("shall") && !t.contains("should") && !t.contains("will") {
-            out.push(LintIssue { severity: "info".into(), id: r.id.clone(), message: "use \"shall\" for binding requirements".into() });
+            out.push(LintIssue {
+                severity: "info".into(),
+                id: r.id.clone(),
+                message: "use \"shall\" for binding requirements".into(),
+            });
         }
     }
     for n in &p.needs {
         if !p.requirements.iter().any(|r| r.derives_from.contains(&n.id)) {
-            out.push(LintIssue { severity: "warning".into(), id: n.id.clone(), message: "need has no derived requirement".into() });
+            out.push(LintIssue {
+                severity: "warning".into(),
+                id: n.id.clone(),
+                message: "need has no derived requirement".into(),
+            });
         }
     }
     for i in &p.interfaces {
         for end in [&i.from, &i.to] {
             if !subs.contains(end.as_str()) {
-                out.push(LintIssue { severity: "error".into(), id: i.id.clone(), message: format!("interface endpoint {end} is not a subsystem") });
+                out.push(LintIssue {
+                    severity: "error".into(),
+                    id: i.id.clone(),
+                    message: format!("interface endpoint {end} is not a subsystem"),
+                });
             }
         }
     }
@@ -448,7 +553,14 @@ pub fn lint(p: &Project) -> Vec<LintIssue> {
 pub fn report_markdown(p: &Project, ev: &Evaluation) -> String {
     let mut s = String::new();
     s += &format!("# {} — verification report\n\n", p.meta.name);
-    s += &format!("Version {} · {} requirements · **{} pass**, {} fail, {} unverified\n\n", p.meta.version, ev.results.len(), ev.pass, ev.fail, ev.unverified);
+    s += &format!(
+        "Version {} · {} requirements · **{} pass**, {} fail, {} unverified\n\n",
+        p.meta.version,
+        ev.results.len(),
+        ev.pass,
+        ev.fail,
+        ev.unverified
+    );
     s += "| ID | Requirement | Criterion | Value | Status | Source |\n|---|---|---|---|---|---|\n";
     for (r, res) in p.requirements.iter().zip(ev.results.iter()) {
         let val = res.value.map(|v| format!("{v:.3} {}", res.unit)).unwrap_or_else(|| "—".into());
@@ -457,11 +569,26 @@ pub fn report_markdown(p: &Project, ev: &Evaluation) -> String {
             Status::Fail => "❌ fail",
             Status::Unverified => "⚪ unverified",
         };
-        s += &format!("| {} | {} | {} | {} | {} | {} |\n", r.id, r.text.replace('|', "/"), res.criterion, val, st, res.source.clone().unwrap_or_default());
+        s += &format!(
+            "| {} | {} | {} | {} | {} | {} |\n",
+            r.id,
+            r.text.replace('|', "/"),
+            res.criterion,
+            val,
+            st,
+            res.source.clone().unwrap_or_default()
+        );
     }
     s += "\n## All metrics\n\n| Key | Label | Value | Note |\n|---|---|---|---|\n";
     for m in &ev.metrics {
-        s += &format!("| `{}` | {} | {:.4} {} | {} |\n", m.key, m.label, m.value, m.unit, m.note.replace('|', "/"));
+        s += &format!(
+            "| `{}` | {} | {:.4} {} | {} |\n",
+            m.key,
+            m.label,
+            m.value,
+            m.unit,
+            m.note.replace('|', "/")
+        );
     }
     s
 }
@@ -510,10 +637,19 @@ mod tests {
 
     #[test]
     fn checks_criteria() {
-        let v = Verification { cmp: Cmp::Le, target: 50.0, ..Default::default() };
+        let v = Verification {
+            cmp: Cmp::Le,
+            target: 50.0,
+            ..Default::default()
+        };
         assert!(check(&v, 45.0).0);
         assert!(!check(&v, 51.0).0);
-        let b = Verification { cmp: Cmp::Between, target: 1.0, target_hi: Some(3.0), ..Default::default() };
+        let b = Verification {
+            cmp: Cmp::Between,
+            target: 1.0,
+            target_hi: Some(3.0),
+            ..Default::default()
+        };
         assert!(check(&b, 2.0).0);
         assert!(!check(&b, 3.5).0);
     }

@@ -102,8 +102,16 @@ impl Grid {
         if !cells.contains(&Cell::Goal) {
             return Err("the grid needs at least one goal".into());
         }
-        let start = start.or_else(|| cells.iter().position(|c| *c == Cell::Empty)).ok_or("no free cell for the start")?;
-        Ok(Grid { w, h, cells, start, spec: spec.clone() })
+        let start = start
+            .or_else(|| cells.iter().position(|c| *c == Cell::Empty))
+            .ok_or("no free cell for the start")?;
+        Ok(Grid {
+            w,
+            h,
+            cells,
+            start,
+            spec: spec.clone(),
+        })
     }
 
     pub fn n(&self) -> usize {
@@ -141,7 +149,11 @@ impl Grid {
     /// Outcome distribution of action a in s: (prob, next state).
     pub fn outcomes(&self, s: usize, a: usize) -> [(f64, usize); 3] {
         let slip = self.spec.slip.clamp(0.0, 1.0);
-        [(1.0 - slip, self.step_to(s, a)), (slip / 2.0, self.step_to(s, (a + 1) % 4)), (slip / 2.0, self.step_to(s, (a + 3) % 4))]
+        [
+            (1.0 - slip, self.step_to(s, a)),
+            (slip / 2.0, self.step_to(s, (a + 1) % 4)),
+            (slip / 2.0, self.step_to(s, (a + 3) % 4)),
+        ]
     }
 
     pub fn sample(&self, s: usize, a: usize, rng: &mut Rng) -> usize {
@@ -196,7 +208,12 @@ pub fn value_iteration(g: &Grid, tol: f64, max_iter: usize) -> ViResult {
                 continue;
             }
             let best = (0..4)
-                .map(|a| g.outcomes(s, a).iter().map(|(p, s2)| p * (g.reward(*s2) + if g.terminal(*s2) { 0.0 } else { gamma * v[*s2] })).sum::<f64>())
+                .map(|a| {
+                    g.outcomes(s, a)
+                        .iter()
+                        .map(|(p, s2)| p * (g.reward(*s2) + if g.terminal(*s2) { 0.0 } else { gamma * v[*s2] }))
+                        .sum::<f64>()
+                })
                 .fold(f64::NEG_INFINITY, f64::max);
             delta = delta.max((best - v[s]).abs());
             nv[s] = best;
@@ -216,7 +233,11 @@ pub fn value_iteration(g: &Grid, tol: f64, max_iter: usize) -> ViResult {
             let mut q = [0.0; 4];
             if g.active(s) {
                 for (a, qa) in q.iter_mut().enumerate() {
-                    *qa = g.outcomes(s, a).iter().map(|(p, s2)| p * (g.reward(*s2) + if g.terminal(*s2) { 0.0 } else { gamma * v[*s2] })).sum();
+                    *qa = g
+                        .outcomes(s, a)
+                        .iter()
+                        .map(|(p, s2)| p * (g.reward(*s2) + if g.terminal(*s2) { 0.0 } else { gamma * v[*s2] }))
+                        .sum();
                 }
             }
             q
@@ -257,7 +278,18 @@ pub struct TdConfig {
 
 impl Default for TdConfig {
     fn default() -> Self {
-        TdConfig { algorithm: "q_learning".into(), episodes: 600, max_steps: 200, alpha: 0.2, eps_start: 1.0, eps_end: 0.05, eps_decay: 0.993, seed: 7, frames: 40, q_init: 0.0 }
+        TdConfig {
+            algorithm: "q_learning".into(),
+            episodes: 600,
+            max_steps: 200,
+            alpha: 0.2,
+            eps_start: 1.0,
+            eps_end: 0.05,
+            eps_decay: 0.993,
+            seed: 7,
+            frames: 40,
+            q_init: 0.0,
+        }
     }
 }
 
@@ -310,7 +342,14 @@ pub fn train_td(g: &Grid, cfg: &TdConfig) -> TdResult {
     let max_steps = cfg.max_steps.clamp(1, 10_000);
     let sarsa = cfg.algorithm == "sarsa";
     let every = (episodes / cfg.frames.clamp(1, 200)).max(1);
-    let mut out = TdResult { algorithm: if sarsa { "sarsa".into() } else { "q_learning".into() }, w: g.w, h: g.h, cells: g.cells.clone(), start: g.start, ..Default::default() };
+    let mut out = TdResult {
+        algorithm: if sarsa { "sarsa".into() } else { "q_learning".into() },
+        w: g.w,
+        h: g.h,
+        cells: g.cells.clone(),
+        start: g.start,
+        ..Default::default()
+    };
     let mut eps = cfg.eps_start.clamp(0.0, 1.0);
     for ep in 0..episodes {
         let mut s = g.start;
@@ -350,7 +389,15 @@ pub fn train_td(g: &Grid, cfg: &TdConfig) -> TdResult {
         if ep % every == 0 || ep + 1 == episodes {
             out.snapshots.push(Snapshot {
                 episode: ep + 1,
-                v: (0..n).map(|s| if g.active(s) { q[s].iter().cloned().fold(f64::NEG_INFINITY, f64::max) } else { 0.0 }).collect(),
+                v: (0..n)
+                    .map(|s| {
+                        if g.active(s) {
+                            q[s].iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+                        } else {
+                            0.0
+                        }
+                    })
+                    .collect(),
                 policy: (0..n).map(|s| if g.active(s) { argmax(&q[s]) as i8 } else { -1 }).collect(),
                 epsilon: eps,
                 path: path.clone(),
@@ -358,7 +405,15 @@ pub fn train_td(g: &Grid, cfg: &TdConfig) -> TdResult {
         }
         eps = (eps * cfg.eps_decay).max(cfg.eps_end);
     }
-    out.v = (0..n).map(|s| if g.active(s) { q[s].iter().cloned().fold(f64::NEG_INFINITY, f64::max) } else { 0.0 }).collect();
+    out.v = (0..n)
+        .map(|s| {
+            if g.active(s) {
+                q[s].iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+            } else {
+                0.0
+            }
+        })
+        .collect();
     out.policy = (0..n).map(|s| if g.active(s) { argmax(&q[s]) as i8 } else { -1 }).collect();
     // greedy rollout
     let mut rr = Rng::new(cfg.seed ^ 0xABCDEF);
@@ -412,7 +467,17 @@ mod tests {
         let g = aima();
         let vi = value_iteration(&g, 1e-12, 10_000);
         // Russell & Norvig Fig. 17.3 utilities (row 0 = top)
-        let expect = [(0, 0.812), (1, 0.868), (2, 0.918), (4, 0.762), (6, 0.660), (8, 0.705), (9, 0.655), (10, 0.611), (11, 0.388)];
+        let expect = [
+            (0, 0.812),
+            (1, 0.868),
+            (2, 0.918),
+            (4, 0.762),
+            (6, 0.660),
+            (8, 0.705),
+            (9, 0.655),
+            (10, 0.611),
+            (11, 0.388),
+        ];
         for (s, v) in expect {
             assert!((vi.v[s] - v).abs() < 1e-3, "cell {s}: {} vs {v}", vi.v[s]);
         }
@@ -437,7 +502,13 @@ mod tests {
     #[test]
     fn sarsa_learns_too() {
         let g = Grid::parse(&GridSpec::default()).unwrap();
-        let r = train_td(&g, &TdConfig { algorithm: "sarsa".into(), ..Default::default() });
+        let r = train_td(
+            &g,
+            &TdConfig {
+                algorithm: "sarsa".into(),
+                ..Default::default()
+            },
+        );
         assert!(r.rollout_reached_goal);
     }
 }

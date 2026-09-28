@@ -63,7 +63,14 @@ impl Kind {
             Kind::Skirt => "skirt",
         }
     }
-    pub const ALL: [Kind; 6] = [Kind::Travel, Kind::ExternalPerimeter, Kind::Perimeter, Kind::SparseInfill, Kind::SolidInfill, Kind::Skirt];
+    pub const ALL: [Kind; 6] = [
+        Kind::Travel,
+        Kind::ExternalPerimeter,
+        Kind::Perimeter,
+        Kind::SparseInfill,
+        Kind::SolidInfill,
+        Kind::Skirt,
+    ];
 }
 
 /// Slicer settings beyond the project's `PrintParams`.
@@ -273,7 +280,11 @@ pub fn islands(loops: Vec<Vec<P2>>) -> Vec<Vec<Vec<P2>>> {
     if loops.is_empty() {
         return vec![];
     }
-    let clean = if clip::has_intersections(&loops) { clip::union(&loops) } else { clip::classify_loops(loops, |w| w >= 1) };
+    let clean = if clip::has_intersections(&loops) {
+        clip::union(&loops)
+    } else {
+        clip::classify_loops(loops, |w| w >= 1)
+    };
     group(clean)
 }
 
@@ -330,7 +341,12 @@ pub fn hatch(region: &[Vec<P2>], angle_deg: f64, spacing: f64, min_len: f64) -> 
             }
         }
     }
-    edges.sort_by(|a, b| a.0[1].min(a.1[1]).partial_cmp(&b.0[1].min(b.1[1])).unwrap_or(std::cmp::Ordering::Equal));
+    edges.sort_by(|a, b| {
+        a.0[1]
+            .min(a.1[1])
+            .partial_cmp(&b.0[1].min(b.1[1]))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     let k0 = (ymin / spacing - 0.5).ceil() as i64;
     let k1 = (ymax / spacing - 0.5).floor() as i64;
     let mut xs: Vec<f64> = Vec::new();
@@ -368,7 +384,11 @@ struct LayerGeom {
 pub fn slice(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings, only: Option<&[usize]>) -> Vec<Layer> {
     let (lo, hi) = mesh.bbox();
     let zmax = hi[2] - lo[2];
-    let mesh_z = if lo[2].abs() > 1e-9 { mesh.translated(0.0, 0.0, -lo[2]) } else { mesh.clone() };
+    let mesh_z = if lo[2].abs() > 1e-9 {
+        mesh.translated(0.0, 0.0, -lo[2])
+    } else {
+        mesh.clone()
+    };
     let idx = TriIndex::new(&mesh_z);
     let w = pp.line_width_mm.clamp(0.1, 2.0);
     let tops = layer_tops(zmax, st.first_layer_mm, pp.layer_height_mm);
@@ -393,7 +413,13 @@ pub fn slice(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings, only: Option<&[u
         let isl = islands(loops);
         let outline: Vec<Vec<P2>> = isl.iter().flat_map(|x| x.iter().cloned()).collect();
         let area = clip::region_area(&outline);
-        geoms.push(Some(LayerGeom { z, h, islands: isl, outline, area }));
+        geoms.push(Some(LayerGeom {
+            z,
+            h,
+            islands: isl,
+            outline,
+            area,
+        }));
     }
     let perims = pp.perimeters.clamp(0, 20) as usize;
     let lh = pp.layer_height_mm.clamp(0.04, 1.0);
@@ -418,14 +444,22 @@ pub fn slice(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings, only: Option<&[u
                 let mut closed = sk.clone();
                 closed.push(sk[0]);
                 pos = sk[0];
-                paths.push(Path { kind: Kind::Skirt, pts: closed, retract: false });
+                paths.push(Path {
+                    kind: Kind::Skirt,
+                    pts: closed,
+                    retract: false,
+                });
             }
         }
         // Skin detection: interior = outline[i-B] ∩ outline[i+T].
         let b = st.bottom_layers as usize;
         let t = st.top_layers as usize;
         let below = if i >= b { geoms[i - b].as_ref().map(|x| &x.outline) } else { None };
-        let above = if i + t < n { geoms[i + t].as_ref().map(|x| &x.outline) } else { None };
+        let above = if i + t < n {
+            geoms[i + t].as_ref().map(|x| &x.outline)
+        } else {
+            None
+        };
         let mut whole_interior = false;
         let interior: Option<Vec<Vec<P2>>> = match (below, above) {
             (Some(bl), Some(ab)) if !bl.is_empty() && !ab.is_empty() => {
@@ -479,13 +513,21 @@ pub fn slice(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings, only: Option<&[u
                     let mut closed = r.clone();
                     closed.push(r[0]);
                     pos = r[0];
-                    paths.push(Path { kind, pts: closed, retract: false });
+                    paths.push(Path {
+                        kind,
+                        pts: closed,
+                        retract: false,
+                    });
                 }
             }
             if rings.len() < perims {
                 continue;
             }
-            let d_inf = if perims == 0 { 0.5 * w } else { 0.5 * w + perims as f64 * sp - ov * sp };
+            let d_inf = if perims == 0 {
+                0.5 * w
+            } else {
+                0.5 * w + perims as f64 * sp - ov * sp
+            };
             let infill = clip::offset_region(island, -d_inf, 0.02);
             if infill.is_empty() {
                 continue;
@@ -498,11 +540,18 @@ pub fn slice(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings, only: Option<&[u
                     let sparse = clip::intersection(&[infill.as_slice(), int.as_slice()]);
                     let solid = clip::difference(&infill, int);
                     // Morphological opening drops slivers narrower than a line.
-                    let solid = if solid.is_empty() { solid } else { clip::offset_region(&clip::offset_region(&solid, -0.45 * w, 0.02), 0.45 * w, 0.02) };
+                    let solid = if solid.is_empty() {
+                        solid
+                    } else {
+                        clip::offset_region(&clip::offset_region(&solid, -0.45 * w, 0.02), 0.45 * w, 0.02)
+                    };
                     (solid, sparse)
                 }
             };
-            for (region, kind, spacing) in [(&solid, Kind::SolidInfill, sp), (&sparse, Kind::SparseInfill, if infill_frac > 0.0 { sp / infill_frac } else { 0.0 })] {
+            for (region, kind, spacing) in [
+                (&solid, Kind::SolidInfill, sp),
+                (&sparse, Kind::SparseInfill, if infill_frac > 0.0 { sp / infill_frac } else { 0.0 }),
+            ] {
                 if region.is_empty() || spacing <= 0.0 {
                     continue;
                 }
@@ -510,7 +559,13 @@ pub fn slice(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings, only: Option<&[u
                 order_lines(lines, &mut pos, &mut paths, kind, st, spacing);
             }
         }
-        layers.push(Layer { index: i, z: lg.z, height: lg.h, paths, area_mm2: lg.area });
+        layers.push(Layer {
+            index: i,
+            z: lg.z,
+            height: lg.h,
+            paths,
+            area_mm2: lg.area,
+        });
     }
     layers
 }
@@ -549,7 +604,11 @@ fn same_shape(a: &[Vec<P2>], b: &[Vec<P2>], tol: f64) -> bool {
 fn push_travel(paths: &mut Vec<Path>, pos: &mut P2, to: P2, st: &SliceSettings) {
     let d = g::dist(*pos, to);
     if d > 1e-6 {
-        paths.push(Path { kind: Kind::Travel, pts: vec![*pos, to], retract: d > st.retract_min_travel_mm });
+        paths.push(Path {
+            kind: Kind::Travel,
+            pts: vec![*pos, to],
+            retract: d > st.retract_min_travel_mm,
+        });
         *pos = to;
     }
 }
@@ -586,9 +645,17 @@ fn order_lines(mut lines: Vec<[P2; 2]>, pos: &mut P2, paths: &mut Vec<Path>, kin
         let d = g::dist(*pos, a);
         if d > 1e-6 {
             let hop = d <= spacing * 2.5 + 1e-9;
-            paths.push(Path { kind: Kind::Travel, pts: vec![*pos, a], retract: !hop && d > st.retract_min_travel_mm });
+            paths.push(Path {
+                kind: Kind::Travel,
+                pts: vec![*pos, a],
+                retract: !hop && d > st.retract_min_travel_mm,
+            });
         }
-        paths.push(Path { kind, pts: vec![a, b], retract: false });
+        paths.push(Path {
+            kind,
+            pts: vec![a, b],
+            retract: false,
+        });
         *pos = b;
     }
 }

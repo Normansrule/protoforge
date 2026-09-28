@@ -45,7 +45,13 @@ fn collect_edges(loops: &[Vec<P2>]) -> Vec<Edge> {
             let a = l[i];
             let b = l[(i + 1) % n];
             if a != b {
-                edges.push(Edge { a, b, loop_id: li, idx: i, loop_len: n });
+                edges.push(Edge {
+                    a,
+                    b,
+                    loop_id: li,
+                    idx: i,
+                    loop_len: n,
+                });
             }
         }
     }
@@ -85,7 +91,13 @@ impl Grid {
         let nx = ((w / cell).floor() as usize + 1).min(1024);
         let ny = ((h / cell).floor() as usize + 1).min(1024);
         let cell = cell.max((hi[0] - lo[0]) / nx as f64).max((hi[1] - lo[1]) / ny as f64) * (1.0 + 1e-9);
-        let mut grid = Grid { lo, cell, nx, ny, cells: vec![Vec::new(); nx * ny] };
+        let mut grid = Grid {
+            lo,
+            cell,
+            nx,
+            ny,
+            cells: vec![Vec::new(); nx * ny],
+        };
         for (i, e) in edges.iter().enumerate() {
             let (x0, y0, x1, y1) = grid.range(e);
             for y in y0..=y1 {
@@ -528,7 +540,16 @@ mod tests {
     #[test]
     fn offset_notch_shape_uses_winding_cleanup() {
         // U-shape whose arms are 2 mm wide: shrink 1.2 removes the arms.
-        let u = vec![[0.0, 0.0], [20.0, 0.0], [20.0, 20.0], [18.0, 20.0], [18.0, 4.0], [2.0, 4.0], [2.0, 20.0], [0.0, 20.0]];
+        let u = vec![
+            [0.0, 0.0],
+            [20.0, 0.0],
+            [20.0, 20.0],
+            [18.0, 20.0],
+            [18.0, 4.0],
+            [2.0, 4.0],
+            [2.0, 20.0],
+            [0.0, 20.0],
+        ];
         let r = offset_region(&[u], -1.2, 0.01);
         let a = region_area(&r);
         // Remaining: base bar 20x4 shrunk by 1.2 -> 17.6 x 1.6

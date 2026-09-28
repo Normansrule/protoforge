@@ -66,7 +66,18 @@ pub struct CartPoleRl {
 
 impl Default for CartPoleRl {
     fn default() -> Self {
-        CartPoleRl { episodes: 600, max_steps: 500, bins: [1, 3, 6, 12], xdot_bound: 0.5, thetadot_bound: 50f64.to_radians(), gamma: 0.99, alpha_min: 0.1, eps_min: 0.02, decay_k: 25.0, seed: 3 }
+        CartPoleRl {
+            episodes: 600,
+            max_steps: 500,
+            bins: [1, 3, 6, 12],
+            xdot_bound: 0.5,
+            thetadot_bound: 50f64.to_radians(),
+            gamma: 0.99,
+            alpha_min: 0.1,
+            eps_min: 0.02,
+            decay_k: 25.0,
+            seed: 3,
+        }
     }
 }
 
@@ -149,7 +160,11 @@ pub fn train(cfg: &CartPoleRl) -> CartPoleRlResult {
     let mut eval_rng = Rng::new(cfg.seed ^ 0x5151);
     let episodes = cfg.episodes.clamp(1, 20_000);
     let max_steps = cfg.max_steps.clamp(10, 2000);
-    let mut out = CartPoleRlResult { bins: d.bins, states: d.size(), ..Default::default() };
+    let mut out = CartPoleRlResult {
+        bins: d.bins,
+        states: d.size(),
+        ..Default::default()
+    };
     let eval_every = (episodes / 60).max(1);
     let k = cfg.decay_k.max(1.0);
     let mut best_q = q.clone();
@@ -169,7 +184,11 @@ pub fn train(cfg: &CartPoleRl) -> CartPoleRlResult {
             steps += 1;
             let done = failed(&s2);
             let r = 1.0;
-            let target = if done { r } else { r + cfg.gamma * q[d.index(&s2)].iter().cloned().fold(f64::NEG_INFINITY, f64::max) };
+            let target = if done {
+                r
+            } else {
+                r + cfg.gamma * q[d.index(&s2)].iter().cloned().fold(f64::NEG_INFINITY, f64::max)
+            };
             q[i][a] += alpha * (target - q[i][a]);
             s = s2;
             if done {
@@ -183,7 +202,10 @@ pub fn train(cfg: &CartPoleRl) -> CartPoleRlResult {
         if e % eval_every == 0 || e + 1 == episodes {
             // greedy evaluation: mean of 3 episodes; keep the best table
             // (checkpointing — tabular CartPole policies often degrade later)
-            let g = (0..3).map(|_| episode_greedy(&q, &d, &mut eval_rng, max_steps, false).0 as f64).sum::<f64>() / 3.0;
+            let g = (0..3)
+                .map(|_| episode_greedy(&q, &d, &mut eval_rng, max_steps, false).0 as f64)
+                .sum::<f64>()
+                / 3.0;
             out.greedy_curve.push((e + 1, g));
             if g >= out.best_greedy {
                 out.best_greedy = g;
@@ -234,8 +256,15 @@ mod debug {
     fn sweep_bins() {
         for bins in [[1, 1, 6, 12], [1, 3, 6, 12], [3, 3, 6, 12], [1, 1, 8, 12], [3, 3, 8, 12]] {
             for seed in [1u64, 2, 3] {
-                let r = train(&CartPoleRl { bins, seed, ..Default::default() });
-                println!("{bins:?} seed {seed}: best {:.0} @ {} final {:.0} replay {}", r.best_greedy, r.best_episode, r.final_greedy, r.replay_len);
+                let r = train(&CartPoleRl {
+                    bins,
+                    seed,
+                    ..Default::default()
+                });
+                println!(
+                    "{bins:?} seed {seed}: best {:.0} @ {} final {:.0} replay {}",
+                    r.best_greedy, r.best_episode, r.final_greedy, r.replay_len
+                );
             }
         }
     }

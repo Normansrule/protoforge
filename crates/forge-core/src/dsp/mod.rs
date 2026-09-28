@@ -49,7 +49,12 @@ struct AnalyzeIn {
 }
 impl Default for AnalyzeIn {
     fn default() -> Self {
-        AnalyzeIn { spec: signal::SignalSpec::default(), window: WindowKind::Hann, beta: 8.6, nfft: None }
+        AnalyzeIn {
+            spec: signal::SignalSpec::default(),
+            window: WindowKind::Hann,
+            beta: 8.6,
+            nfft: None,
+        }
     }
 }
 
@@ -71,7 +76,13 @@ struct SpectrumIn {
 }
 impl Default for SpectrumIn {
     fn default() -> Self {
-        SpectrumIn { x: vec![], fs: 16000.0, window: WindowKind::Hann, beta: 8.6, nfft: None }
+        SpectrumIn {
+            x: vec![],
+            fs: 16000.0,
+            window: WindowKind::Hann,
+            beta: 8.6,
+            nfft: None,
+        }
     }
 }
 
@@ -87,7 +98,14 @@ struct PsdIn {
 }
 impl Default for PsdIn {
     fn default() -> Self {
-        PsdIn { x: vec![], fs: 16000.0, window: WindowKind::Hann, beta: 8.6, seg_len: 256, overlap: 0.5 }
+        PsdIn {
+            x: vec![],
+            fs: 16000.0,
+            window: WindowKind::Hann,
+            beta: 8.6,
+            seg_len: 256,
+            overlap: 0.5,
+        }
     }
 }
 
@@ -115,7 +133,11 @@ struct WindowIn {
 }
 impl Default for WindowIn {
     fn default() -> Self {
-        WindowIn { kind: WindowKind::Hann, n: 64, beta: 8.6 }
+        WindowIn {
+            kind: WindowKind::Hann,
+            n: 64,
+            beta: 8.6,
+        }
     }
 }
 
@@ -130,7 +152,12 @@ struct LeakageIn {
 }
 impl Default for LeakageIn {
     fn default() -> Self {
-        LeakageIn { n: 64, bin: 10.5, windows: vec![WindowKind::Rectangular, WindowKind::Hann, WindowKind::Blackman], beta: 8.6 }
+        LeakageIn {
+            n: 64,
+            bin: 10.5,
+            windows: vec![WindowKind::Rectangular, WindowKind::Hann, WindowKind::Blackman],
+            beta: 8.6,
+        }
     }
 }
 
@@ -163,7 +190,20 @@ struct FirIn {
 }
 impl Default for FirIn {
     fn default() -> Self {
-        FirIn { band: fir::Band::Lowpass, method: "window".into(), window: WindowKind::Hamming, beta: 8.6, taps: 63, f1: 3400.0, f2: 5000.0, fs: 16000.0, atten_db: 60.0, transition_hz: 800.0, n_points: 512, log: false }
+        FirIn {
+            band: fir::Band::Lowpass,
+            method: "window".into(),
+            window: WindowKind::Hamming,
+            beta: 8.6,
+            taps: 63,
+            f1: 3400.0,
+            f2: 5000.0,
+            fs: 16000.0,
+            atten_db: 60.0,
+            transition_hz: 800.0,
+            n_points: 512,
+            log: false,
+        }
     }
 }
 
@@ -184,7 +224,18 @@ struct IirIn {
 }
 impl Default for IirIn {
     fn default() -> Self {
-        IirIn { family: "butterworth".into(), biquad: iir::BiquadKind::Lowpass, order: 4, highpass: false, f0: 3400.0, q: std::f64::consts::FRAC_1_SQRT_2, gain_db: 6.0, fs: 16000.0, n_points: 512, log: false }
+        IirIn {
+            family: "butterworth".into(),
+            biquad: iir::BiquadKind::Lowpass,
+            order: 4,
+            highpass: false,
+            f0: 3400.0,
+            q: std::f64::consts::FRAC_1_SQRT_2,
+            gain_db: 6.0,
+            fs: 16000.0,
+            n_points: 512,
+            log: false,
+        }
     }
 }
 
@@ -200,7 +251,14 @@ struct TfIn {
 }
 impl Default for TfIn {
     fn default() -> Self {
-        TfIn { b: vec![1.0], a: vec![1.0], sos: vec![], fs: 16000.0, n_points: 512, log: false }
+        TfIn {
+            b: vec![1.0],
+            a: vec![1.0],
+            sos: vec![],
+            fs: 16000.0,
+            n_points: 512,
+            log: false,
+        }
     }
 }
 
@@ -227,7 +285,16 @@ struct FixedIn {
 }
 impl Default for FixedIn {
     fn default() -> Self {
-        FixedIn { b: vec![1.0], a: vec![1.0], sos: vec![], fs: 16000.0, coeff_bits: 12, data_bits: 16, x: vec![], n_points: 512 }
+        FixedIn {
+            b: vec![1.0],
+            a: vec![1.0],
+            sos: vec![],
+            fs: 16000.0,
+            coeff_bits: 12,
+            data_bits: 16,
+            x: vec![],
+            n_points: 512,
+        }
     }
 }
 
@@ -375,12 +442,27 @@ fn fir_design(i: FirIn) -> Result<FilterReport, String> {
     let (h, beta, note) = match i.method.as_str() {
         "kaiser" => {
             let d = fir::kaiser_design(i.band, i.atten_db, i.transition_hz, i.f1, i.f2, fs, 1025);
-            let n = format!("Kaiser: A = {:.0} dB, Δf = {:.0} Hz → β = {:.3}, {} taps", i.atten_db, i.transition_hz, d.beta, d.taps);
+            let n = format!(
+                "Kaiser: A = {:.0} dB, Δf = {:.0} Hz → β = {:.3}, {} taps",
+                i.atten_db, i.transition_hz, d.beta, d.taps
+            );
             (d.h, Some(d.beta), n)
         }
         "ls" => {
-            let h = fir::ls_band(i.band, i.taps, i.f1, i.f2, i.transition_hz, fs, 10f64.powf(i.atten_db / 40.0).min(1e4));
-            let n = format!("least squares, {} taps, don't-care transition ±{:.0} Hz", h.len(), i.transition_hz / 2.0);
+            let h = fir::ls_band(
+                i.band,
+                i.taps,
+                i.f1,
+                i.f2,
+                i.transition_hz,
+                fs,
+                10f64.powf(i.atten_db / 40.0).min(1e4),
+            );
+            let n = format!(
+                "least squares, {} taps, don't-care transition ±{:.0} Hz",
+                h.len(),
+                i.transition_hz / 2.0
+            );
             (h, None, n)
         }
         _ => {
@@ -398,9 +480,20 @@ fn fir_design(i: FirIn) -> Result<FilterReport, String> {
 fn iir_design(i: IirIn) -> Result<FilterReport, String> {
     let fs = i.fs.max(1.0);
     let (sos, note) = if i.family == "rbj" {
-        (vec![iir::rbj(i.biquad, i.f0, i.q, i.gain_db, fs)], format!("RBJ {:?}, f0 = {:.0} Hz, Q = {:.3}", i.biquad, i.f0, i.q))
+        (
+            vec![iir::rbj(i.biquad, i.f0, i.q, i.gain_db, fs)],
+            format!("RBJ {:?}, f0 = {:.0} Hz, Q = {:.3}", i.biquad, i.f0, i.q),
+        )
     } else {
-        (iir::butterworth(i.order, i.f0, fs, i.highpass), format!("Butterworth order {}, {} , fc = {:.0} Hz (bilinear, pre-warped)", i.order.clamp(1, 16), if i.highpass { "high-pass" } else { "low-pass" }, i.f0))
+        (
+            iir::butterworth(i.order, i.f0, fs, i.highpass),
+            format!(
+                "Butterworth order {}, {} , fc = {:.0} Hz (bilinear, pre-warped)",
+                i.order.clamp(1, 16),
+                if i.highpass { "high-pass" } else { "low-pass" },
+                i.f0
+            ),
+        )
     };
     let mut r = report_sos(sos, fs, i.n_points, i.log);
     r.notes.push(note);
@@ -438,7 +531,10 @@ fn fixed_point(i: FixedIn) -> Result<FixedOut, String> {
         for s in &i.sos {
             let all = [s.b[0], s.b[1], s.b[2], s.a[1], s.a[2]];
             let q = filter::quantize_coeffs(&all, i.coeff_bits);
-            sections_q.push(Biquad { b: [q.values[0], q.values[1], q.values[2]], a: [1.0, q.values[3], q.values[4]] });
+            sections_q.push(Biquad {
+                b: [q.values[0], q.values[1], q.values[2]],
+                a: [1.0, q.values[3], q.values[4]],
+            });
         }
         let fl = filter::sos_freqz(&i.sos, fs, &f);
         let fx = filter::sos_freqz(&sections_q, fs, &f);
@@ -471,7 +567,11 @@ fn fixed_point(i: FixedIn) -> Result<FixedOut, String> {
     }
     let bq = filter::quantize_coeffs(&i.b, i.coeff_bits);
     let a_is_fir = i.a.len() <= 1;
-    let aq = if a_is_fir { None } else { Some(filter::quantize_coeffs(&i.a, i.coeff_bits)) };
+    let aq = if a_is_fir {
+        None
+    } else {
+        Some(filter::quantize_coeffs(&i.a, i.coeff_bits))
+    };
     let a_vals = aq.as_ref().map(|q| q.values.clone()).unwrap_or_else(|| vec![1.0]);
     let fl = filter::freqz(&i.b, &i.a, fs, &f);
     let fx = filter::freqz(&bq.values, &a_vals, fs, &f);
@@ -499,7 +599,9 @@ fn fixed_point(i: FixedIn) -> Result<FixedOut, String> {
 
 fn leakage(i: LeakageIn) -> Result<Vec<LeakageTrace>, String> {
     let n = i.n.clamp(8, 4096);
-    let x: Vec<f64> = (0..n).map(|k| (2.0 * std::f64::consts::PI * i.bin * k as f64 / n as f64).cos()).collect();
+    let x: Vec<f64> = (0..n)
+        .map(|k| (2.0 * std::f64::consts::PI * i.bin * k as f64 / n as f64).cos())
+        .collect();
     let mut out = Vec::new();
     for &w in &i.windows {
         let s = fft::spectrum(&x, n as f64, w, i.beta, Some(n));
@@ -507,7 +609,13 @@ fn leakage(i: LeakageIn) -> Result<Vec<LeakageTrace>, String> {
         let total: f64 = s.amp.iter().map(|a| a * a).sum();
         let lo = (i.bin - 3.0).max(0.0);
         let hi = i.bin + 3.0;
-        let outside: f64 = s.amp.iter().enumerate().filter(|(k, _)| (*k as f64) < lo || (*k as f64) > hi).map(|(_, a)| a * a).sum();
+        let outside: f64 = s
+            .amp
+            .iter()
+            .enumerate()
+            .filter(|(k, _)| (*k as f64) < lo || (*k as f64) > hi)
+            .map(|(_, a)| a * a)
+            .sum();
         let peak = s.db.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         out.push(LeakageTrace {
             window: w,
@@ -521,7 +629,10 @@ fn leakage(i: LeakageIn) -> Result<Vec<LeakageTrace>, String> {
 }
 
 fn audio_of(i: &ChainIn) -> AudioParams {
-    i.audio.clone().or_else(|| i.project.as_ref().map(|p| p.design.audio.clone())).unwrap_or_default()
+    i.audio
+        .clone()
+        .or_else(|| i.project.as_ref().map(|p| p.design.audio.clone()))
+        .unwrap_or_default()
 }
 
 /// Polynomial roots (highest power first) by the Aberth–Ehrlich iteration.
@@ -550,7 +661,9 @@ pub fn roots(coeffs: &[f64]) -> Vec<C64> {
     let lead = c[0];
     let a: Vec<f64> = c.iter().map(|v| v / lead).collect();
     let r0 = a[n].abs().powf(1.0 / n as f64).max(1e-6);
-    let mut z: Vec<C64> = (0..n).map(|k| C64::from_polar(r0, 2.0 * std::f64::consts::PI * (k as f64 + 0.25) / n as f64 + 0.3)).collect();
+    let mut z: Vec<C64> = (0..n)
+        .map(|k| C64::from_polar(r0, 2.0 * std::f64::consts::PI * (k as f64 + 0.25) / n as f64 + 0.3))
+        .collect();
     let eval = |x: C64| {
         let mut p = C64::ZERO;
         let mut dp = C64::ZERO;
@@ -606,36 +719,66 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
             Ok(AnalyzeOut { signal: s, spectrum: sp })
         }),
         "dsp.spectrum" => handle(input, |i: SpectrumIn| Ok(fft::spectrum(&i.x, i.fs, i.window, i.beta, i.nfft))),
-        "dsp.psd" => handle(input, |i: PsdIn| Ok(fft::welch_psd(&i.x, i.fs, i.window, i.beta, i.seg_len, i.overlap))),
+        "dsp.psd" => handle(input, |i: PsdIn| {
+            Ok(fft::welch_psd(&i.x, i.fs, i.window, i.beta, i.seg_len, i.overlap))
+        }),
         "dsp.fft" => handle(input, |i: FftIn| {
-            let x: Vec<C64> = i.re.iter().enumerate().map(|(k, &r)| C64::new(r, i.im.get(k).copied().unwrap_or(0.0))).collect();
+            let x: Vec<C64> =
+                i.re.iter()
+                    .enumerate()
+                    .map(|(k, &r)| C64::new(r, i.im.get(k).copied().unwrap_or(0.0)))
+                    .collect();
             let y = if i.inverse { fft::ifft(&x) } else { fft::fft(&x, None) };
-            Ok(FftOut { n: y.len(), re: y.iter().map(|v| v.re).collect(), im: y.iter().map(|v| v.im).collect() })
+            Ok(FftOut {
+                n: y.len(),
+                re: y.iter().map(|v| v.re).collect(),
+                im: y.iter().map(|v| v.im).collect(),
+            })
         }),
         "dsp.window" => handle(input, |i: WindowIn| Ok(fft::window_info(i.kind, i.n, i.beta))),
         "dsp.leakage" => handle(input, leakage),
         "dsp.fir_design" => handle(input, fir_design),
         "dsp.iir_design" => handle(input, iir_design),
         "dsp.filter_response" => handle(input, |i: TfIn| {
-            Ok(if i.sos.is_empty() { report_tf(i.b, i.a, i.fs.max(1.0), i.n_points, i.log) } else { report_sos(i.sos, i.fs.max(1.0), i.n_points, i.log) })
+            Ok(if i.sos.is_empty() {
+                report_tf(i.b, i.a, i.fs.max(1.0), i.n_points, i.log)
+            } else {
+                report_sos(i.sos, i.fs.max(1.0), i.n_points, i.log)
+            })
         }),
         "dsp.apply" => handle(input, |i: ApplyIn| {
-            let y = if !i.sos.is_empty() { filter::sos_filter(&i.sos, &i.x) } else { filter::lfilter(&i.b, if i.a.is_empty() { &[1.0] } else { &i.a }, &i.x) };
+            let y = if !i.sos.is_empty() {
+                filter::sos_filter(&i.sos, &i.x)
+            } else {
+                filter::lfilter(&i.b, if i.a.is_empty() { &[1.0] } else { &i.a }, &i.x)
+            };
             Ok(serde_json::json!({ "y": y }))
         }),
         "dsp.fixed_point" => handle(input, fixed_point),
         "dsp.pdm_chain" => handle(input, |i: ChainIn| {
             let audio = audio_of(&i);
-            let bits = if i.coeff_bits > 0 { i.coeff_bits } else { i.project.as_ref().map(|p| p.design.chip.coeff_bits).unwrap_or(12) };
+            let bits = if i.coeff_bits > 0 {
+                i.coeff_bits
+            } else {
+                i.project.as_ref().map(|p| p.design.chip.coeff_bits).unwrap_or(12)
+            };
             let sim = pdm::simulate(&audio, &i.chain, &i.sim);
             let q = quantized_stopband(&sim.design, audio.voice_band_hi_hz, bits);
-            Ok(ChainOut { sim, coeff_bits: bits, stopband_quantized_db: q })
+            Ok(ChainOut {
+                sim,
+                coeff_bits: bits,
+                stopband_quantized_db: q,
+            })
         }),
         "dsp.decimation_design" => handle(input, |i: ChainIn| {
             let audio = audio_of(&i);
             let d = pdm::design_chain(&audio, &i.chain);
             let (sb, f) = d.stopband_db(audio.voice_band_hi_hz);
-            Ok(DesignOut { design: d, stopband_db: sb, stopband_worst_hz: f })
+            Ok(DesignOut {
+                design: d,
+                stopband_db: sb,
+                stopband_worst_hz: f,
+            })
         }),
         "dsp.beamformer" => handle(input, |i: beam::BeamInput| Ok(beam::analyze(&i))),
         "dsp.beam_field" => handle(input, |i: beam::FieldInput| Ok(beam::field(&i))),
@@ -664,29 +807,36 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
         let tr = IRIS_PATTERN.tau_ratio(0.0);
         let di = beam::directivity_index(IRIS_PATTERN, tr, 1000.0, d, c);
         let wng = beam::white_noise_gain(IRIS_PATTERN, tr, 1000.0, d, c);
-        out.push(Metric::new("dsp.mic_di_db", "Mic array directivity index @ 1 kHz", di, "dB", "dsp").with_note(&format!(
-            "hypercardioid delay-and-subtract, d = {:.1} mm, τ = d/3c = {:.1} µs (ideal limit 6.02 dB); white-noise gain {:.1} dB",
-            a.mic_spacing_mm,
-            tr * d / c * 1e6,
-            wng
-        )));
+        out.push(
+            Metric::new("dsp.mic_di_db", "Mic array directivity index @ 1 kHz", di, "dB", "dsp").with_note(&format!(
+                "hypercardioid delay-and-subtract, d = {:.1} mm, τ = d/3c = {:.1} µs (ideal limit 6.02 dB); white-noise gain {:.1} dB",
+                a.mic_spacing_mm,
+                tr * d / c * 1e6,
+                wng
+            )),
+        );
     } else {
-        out.push(Metric::new("dsp.mic_di_db", "Mic array directivity index @ 1 kHz", 0.0, "dB", "dsp").with_note("single omnidirectional microphone"));
+        out.push(
+            Metric::new("dsp.mic_di_db", "Mic array directivity index @ 1 kHz", 0.0, "dB", "dsp")
+                .with_note("single omnidirectional microphone"),
+        );
     }
     let chain = pdm::design_chain(a, &pdm::ChainOptions::default());
     let (sb, f) = chain.stopband_db(a.voice_band_hi_hz);
     let q = quantized_stopband(&chain, a.voice_band_hi_hz, p.design.chip.coeff_bits);
-    out.push(Metric::new("dsp.decim_stopband_db", "PDM decimation alias attenuation", sb, "dB", "dsp").with_note(&format!(
-        "CIC N={} R={} M={} + {}-tap LS compensation FIR ↓{}; worst alias at {:.1} kHz; with {}-bit coefficients {:.1} dB",
-        chain.cic_order,
-        chain.cic_r,
-        chain.cic_m,
-        chain.fir.len(),
-        chain.fir_decim,
-        f / 1000.0,
-        p.design.chip.coeff_bits,
-        q
-    )));
+    out.push(
+        Metric::new("dsp.decim_stopband_db", "PDM decimation alias attenuation", sb, "dB", "dsp").with_note(&format!(
+            "CIC N={} R={} M={} + {}-tap LS compensation FIR ↓{}; worst alias at {:.1} kHz; with {}-bit coefficients {:.1} dB",
+            chain.cic_order,
+            chain.cic_r,
+            chain.cic_m,
+            chain.fir.len(),
+            chain.fir_decim,
+            f / 1000.0,
+            p.design.chip.coeff_bits,
+            q
+        )),
+    );
     out
 }
 
@@ -705,7 +855,10 @@ mod tests {
         assert!(di > 5.5 && di < 6.1, "DI {di}");
         let sb = get("dsp.decim_stopband_db");
         assert!((60.0..120.0).contains(&sb), "stop band {sb}");
-        eprintln!("dsp metrics: DI {di:.2} dB, stop band {sb:.1} dB in {dt:?}; {:?}", m.iter().map(|x| &x.note).collect::<Vec<_>>());
+        eprintln!(
+            "dsp metrics: DI {di:.2} dB, stop band {sb:.1} dB in {dt:?}; {:?}",
+            m.iter().map(|x| &x.note).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -715,7 +868,11 @@ mod tests {
         assert_eq!(z.len(), 62);
         for r in &z {
             // backward error: |p(z)| relative to Σ|a_i||z|^(n−i)
-            let scale: f64 = h.iter().enumerate().map(|(i, a)| a.abs() * r.abs().powi((h.len() - 1 - i) as i32)).sum();
+            let scale: f64 = h
+                .iter()
+                .enumerate()
+                .map(|(i, a)| a.abs() * r.abs().powi((h.len() - 1 - i) as i32))
+                .sum();
             let v = crate::math::poly_eval(&h, *r).abs() / scale;
             assert!(v < 1e-9, "relative residual {v} at {r:?}");
         }
@@ -729,12 +886,16 @@ mod tests {
 
     #[test]
     fn dispatch_round_trips() {
-        let r = dispatch("dsp.fir_design", &serde_json::json!({"taps": 31, "f1": 2000, "fs": 8000})).unwrap().unwrap();
+        let r = dispatch("dsp.fir_design", &serde_json::json!({"taps": 31, "f1": 2000, "fs": 8000}))
+            .unwrap()
+            .unwrap();
         assert_eq!(r["b"].as_array().unwrap().len(), 31);
         let r = dispatch("dsp.iir_design", &serde_json::json!({"order": 3})).unwrap().unwrap();
         assert_eq!(r["poles"].as_array().unwrap().len(), 3);
         assert!(r["stable"].as_bool().unwrap());
-        let r = dispatch("dsp.pdm_chain", &serde_json::json!({"project": Project::iris()})).unwrap().unwrap();
+        let r = dispatch("dsp.pdm_chain", &serde_json::json!({"project": Project::iris()}))
+            .unwrap()
+            .unwrap();
         assert!(r["stopband_db"].as_f64().unwrap() > 60.0);
         assert!(dispatch("dsp.nope", &Value::Null).is_none());
     }

@@ -98,7 +98,13 @@ fn evaluate(rest: &[String]) -> Result<bool, String> {
     let t0 = Instant::now();
     let ev = systems::evaluate(&p);
     let ms = t0.elapsed().as_secs_f64() * 1e3;
-    println!("{} v{} — {} requirements ({} ms)\n", p.meta.name, p.meta.version, ev.results.len(), ms.round());
+    println!(
+        "{} v{} — {} requirements ({} ms)\n",
+        p.meta.name,
+        p.meta.version,
+        ev.results.len(),
+        ms.round()
+    );
     for (r, res) in p.requirements.iter().zip(&ev.results) {
         let mark = match res.status {
             Status::Pass => "PASS",
@@ -106,7 +112,13 @@ fn evaluate(rest: &[String]) -> Result<bool, String> {
             Status::Unverified => " -- ",
         };
         let val = res.value.map(|v| format!("{v:.3} {}", res.unit)).unwrap_or_else(|| "—".into());
-        println!("[{mark}] {:<6} {:<42} {:>16}   need {}", r.id, truncate(&r.text, 42), val, res.criterion);
+        println!(
+            "[{mark}] {:<6} {:<42} {:>16}   need {}",
+            r.id,
+            truncate(&r.text, 42),
+            val,
+            res.criterion
+        );
     }
     println!("\n{} pass · {} fail · {} unverified", ev.pass, ev.fail, ev.unverified);
     Ok(ev.fail == 0)
@@ -147,7 +159,12 @@ fn lint(rest: &[String]) -> Result<bool, String> {
 
 fn package(rest: &[String]) -> Result<bool, String> {
     let p = load(positional(rest))?;
-    let out = rest.iter().position(|a| a == "--out").and_then(|i| rest.get(i + 1)).map(PathBuf::from).unwrap_or_else(|| PathBuf::from(format!("out/{}", p.meta.id)));
+    let out = rest
+        .iter()
+        .position(|a| a == "--out")
+        .and_then(|i| rest.get(i + 1))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(format!("out/{}", p.meta.id)));
     let t0 = Instant::now();
     let files = forge_core::mfg::package(&p);
     let mut bytes = 0usize;
@@ -156,7 +173,13 @@ fn package(rest: &[String]) -> Result<bool, String> {
         write_file(&path, &f.content, &f.encoding)?;
         bytes += f.content.len();
     }
-    println!("wrote {} files ({} kB) to {} in {:.1} s", files.len(), bytes / 1024, out.display(), t0.elapsed().as_secs_f64());
+    println!(
+        "wrote {} files ({} kB) to {} in {:.1} s",
+        files.len(),
+        bytes / 1024,
+        out.display(),
+        t0.elapsed().as_secs_f64()
+    );
     for f in &files {
         println!("  {}", f.path);
     }
@@ -167,7 +190,11 @@ fn write_file(path: &Path, content: &str, encoding: &str) -> Result<(), String> 
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| format!("mkdir {}: {e}", dir.display()))?;
     }
-    let data = if encoding == "base64" { decode_base64(content)? } else { content.as_bytes().to_vec() };
+    let data = if encoding == "base64" {
+        decode_base64(content)?
+    } else {
+        content.as_bytes().to_vec()
+    };
     std::fs::write(path, data).map_err(|e| format!("write {}: {e}", path.display()))
 }
 

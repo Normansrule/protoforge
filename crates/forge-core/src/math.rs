@@ -28,7 +28,10 @@ impl C64 {
         C64 { re, im: 0.0 }
     }
     pub fn from_polar(r: f64, th: f64) -> Self {
-        C64 { re: r * th.cos(), im: r * th.sin() }
+        C64 {
+            re: r * th.cos(),
+            im: r * th.sin(),
+        }
     }
     pub fn abs(self) -> f64 {
         self.re.hypot(self.im)
@@ -43,14 +46,20 @@ impl C64 {
         self.re * self.re + self.im * self.im
     }
     pub fn scale(self, k: f64) -> Self {
-        C64 { re: self.re * k, im: self.im * k }
+        C64 {
+            re: self.re * k,
+            im: self.im * k,
+        }
     }
     pub fn exp(self) -> Self {
         C64::from_polar(self.re.exp(), self.im)
     }
     pub fn inv(self) -> Self {
         let d = self.norm_sqr();
-        C64 { re: self.re / d, im: -self.im / d }
+        C64 {
+            re: self.re / d,
+            im: -self.im / d,
+        }
     }
     pub fn db(self) -> f64 {
         20.0 * self.abs().max(1e-300).log10()
@@ -63,19 +72,28 @@ impl C64 {
 impl Add for C64 {
     type Output = C64;
     fn add(self, o: C64) -> C64 {
-        C64 { re: self.re + o.re, im: self.im + o.im }
+        C64 {
+            re: self.re + o.re,
+            im: self.im + o.im,
+        }
     }
 }
 impl Sub for C64 {
     type Output = C64;
     fn sub(self, o: C64) -> C64 {
-        C64 { re: self.re - o.re, im: self.im - o.im }
+        C64 {
+            re: self.re - o.re,
+            im: self.im - o.im,
+        }
     }
 }
 impl Mul for C64 {
     type Output = C64;
     fn mul(self, o: C64) -> C64 {
-        C64 { re: self.re * o.re - self.im * o.im, im: self.re * o.im + self.im * o.re }
+        C64 {
+            re: self.re * o.re - self.im * o.im,
+            im: self.re * o.im + self.im * o.re,
+        }
     }
 }
 #[allow(clippy::suspicious_arithmetic_impl)]
@@ -88,13 +106,19 @@ impl Div for C64 {
 impl Neg for C64 {
     type Output = C64;
     fn neg(self) -> C64 {
-        C64 { re: -self.re, im: -self.im }
+        C64 {
+            re: -self.re,
+            im: -self.im,
+        }
     }
 }
 impl Add<f64> for C64 {
     type Output = C64;
     fn add(self, o: f64) -> C64 {
-        C64 { re: self.re + o, im: self.im }
+        C64 {
+            re: self.re + o,
+            im: self.im,
+        }
     }
 }
 impl Mul<f64> for C64 {
@@ -105,9 +129,7 @@ impl Mul<f64> for C64 {
 }
 
 /// Numeric type usable by the generic LU solver.
-pub trait Field:
-    Copy + Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Div<Output = Self> + Neg<Output = Self>
-{
+pub trait Field: Copy + Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Div<Output = Self> + Neg<Output = Self> {
     fn zero() -> Self;
     fn magnitude(self) -> f64;
 }

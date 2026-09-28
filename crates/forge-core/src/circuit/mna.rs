@@ -35,16 +35,78 @@ pub const G_FORCE: f64 = 1e6;
 /// One compiled element. Node numbers index the solution (0 = ground).
 #[derive(Clone, Debug)]
 pub enum CDev {
-    R { a: usize, b: usize, g: f64 },
-    C { a: usize, b: usize, c: f64, ic: Option<f64> },
-    L { a: usize, b: usize, l: f64, br: usize, ic: Option<f64> },
-    V { a: usize, b: usize, br: usize, src: Source },
-    I { a: usize, b: usize, src: Source },
-    D { a: usize, ai: usize, k: usize, m: DiodeModel, area: f64, gs: f64, vcrit: f64 },
-    M { d: usize, g: usize, s: usize, b: usize, m: MosModel, w: f64, l: f64, mult: f64, caps: [(usize, usize, f64); 4] },
-    E { a: usize, b: usize, ca: usize, cb: usize, gain: f64, br: usize },
-    G { a: usize, b: usize, ca: usize, cb: usize, gm: f64 },
-    S { a: usize, b: usize, ca: usize, cb: usize, m: SwModel, init_on: bool },
+    R {
+        a: usize,
+        b: usize,
+        g: f64,
+    },
+    C {
+        a: usize,
+        b: usize,
+        c: f64,
+        ic: Option<f64>,
+    },
+    L {
+        a: usize,
+        b: usize,
+        l: f64,
+        br: usize,
+        ic: Option<f64>,
+    },
+    V {
+        a: usize,
+        b: usize,
+        br: usize,
+        src: Source,
+    },
+    I {
+        a: usize,
+        b: usize,
+        src: Source,
+    },
+    D {
+        a: usize,
+        ai: usize,
+        k: usize,
+        m: DiodeModel,
+        area: f64,
+        gs: f64,
+        vcrit: f64,
+    },
+    M {
+        d: usize,
+        g: usize,
+        s: usize,
+        b: usize,
+        m: MosModel,
+        w: f64,
+        l: f64,
+        mult: f64,
+        caps: [(usize, usize, f64); 4],
+    },
+    E {
+        a: usize,
+        b: usize,
+        ca: usize,
+        cb: usize,
+        gain: f64,
+        br: usize,
+    },
+    G {
+        a: usize,
+        b: usize,
+        ca: usize,
+        cb: usize,
+        gm: f64,
+    },
+    S {
+        a: usize,
+        b: usize,
+        ca: usize,
+        cb: usize,
+        m: SwModel,
+        init_on: bool,
+    },
 }
 
 /// A compiled circuit ready for analysis.
@@ -73,17 +135,41 @@ impl Ckt {
         for e in &nl.elements {
             let n = &e.nodes;
             let d = match &e.dev {
-                Device::Resistor { r } => CDev::R { a: n[0], b: n[1], g: 1.0 / r },
-                Device::Capacitor { c, ic } => CDev::C { a: n[0], b: n[1], c: *c, ic: *ic },
+                Device::Resistor { r } => CDev::R {
+                    a: n[0],
+                    b: n[1],
+                    g: 1.0 / r,
+                },
+                Device::Capacitor { c, ic } => CDev::C {
+                    a: n[0],
+                    b: n[1],
+                    c: *c,
+                    ic: *ic,
+                },
                 Device::Inductor { l, ic } => {
                     nbr += 1;
-                    CDev::L { a: n[0], b: n[1], l: *l, br: nbr - 1, ic: *ic }
+                    CDev::L {
+                        a: n[0],
+                        b: n[1],
+                        l: *l,
+                        br: nbr - 1,
+                        ic: *ic,
+                    }
                 }
                 Device::Vsource { src } => {
                     nbr += 1;
-                    CDev::V { a: n[0], b: n[1], br: nbr - 1, src: src.clone() }
+                    CDev::V {
+                        a: n[0],
+                        b: n[1],
+                        br: nbr - 1,
+                        src: src.clone(),
+                    }
                 }
-                Device::Isource { src } => CDev::I { a: n[0], b: n[1], src: src.clone() },
+                Device::Isource { src } => CDev::I {
+                    a: n[0],
+                    b: n[1],
+                    src: src.clone(),
+                },
                 Device::Diode { model, area, .. } => {
                     linear = false;
                     let rs = model.rs / area.max(1e-30);
@@ -93,22 +179,65 @@ impl Ckt {
                     } else {
                         n[0]
                     };
-                    CDev::D { a: n[0], ai, k: n[1], m: model.clone(), area: *area, gs: if rs > 0.0 { 1.0 / rs } else { 0.0 }, vcrit: devices::vcrit(model, *area) }
+                    CDev::D {
+                        a: n[0],
+                        ai,
+                        k: n[1],
+                        m: model.clone(),
+                        area: *area,
+                        gs: if rs > 0.0 { 1.0 / rs } else { 0.0 },
+                        vcrit: devices::vcrit(model, *area),
+                    }
                 }
                 Device::Mosfet { model, w, l, mult, .. } => {
                     linear = false;
                     let (dn, gn, sn, bn) = (n[0], n[1], n[2], n[3]);
-                    let caps = [(gn, sn, model.cgso * w * mult), (gn, dn, model.cgdo * w * mult), (bn, dn, model.cbd * mult), (bn, sn, model.cbs * mult)];
-                    CDev::M { d: dn, g: gn, s: sn, b: bn, m: model.clone(), w: *w, l: *l, mult: *mult, caps }
+                    let caps = [
+                        (gn, sn, model.cgso * w * mult),
+                        (gn, dn, model.cgdo * w * mult),
+                        (bn, dn, model.cbd * mult),
+                        (bn, sn, model.cbs * mult),
+                    ];
+                    CDev::M {
+                        d: dn,
+                        g: gn,
+                        s: sn,
+                        b: bn,
+                        m: model.clone(),
+                        w: *w,
+                        l: *l,
+                        mult: *mult,
+                        caps,
+                    }
                 }
                 Device::Vcvs { gain } => {
                     nbr += 1;
-                    CDev::E { a: n[0], b: n[1], ca: n[2], cb: n[3], gain: *gain, br: nbr - 1 }
+                    CDev::E {
+                        a: n[0],
+                        b: n[1],
+                        ca: n[2],
+                        cb: n[3],
+                        gain: *gain,
+                        br: nbr - 1,
+                    }
                 }
-                Device::Vccs { gm } => CDev::G { a: n[0], b: n[1], ca: n[2], cb: n[3], gm: *gm },
+                Device::Vccs { gm } => CDev::G {
+                    a: n[0],
+                    b: n[1],
+                    ca: n[2],
+                    cb: n[3],
+                    gm: *gm,
+                },
                 Device::Switch { model, on, .. } => {
                     linear = false;
-                    CDev::S { a: n[0], b: n[1], ca: n[2], cb: n[3], m: model.clone(), init_on: *on }
+                    CDev::S {
+                        a: n[0],
+                        b: n[1],
+                        ca: n[2],
+                        cb: n[3],
+                        m: model.clone(),
+                        init_on: *on,
+                    }
                 }
             };
             el.push(d);
@@ -165,7 +294,11 @@ pub struct Sys<T: Field> {
 
 impl<T: Field> Sys<T> {
     pub fn new(n: usize) -> Self {
-        Sys { n, a: vec![T::zero(); n * n], b: vec![T::zero(); n] }
+        Sys {
+            n,
+            a: vec![T::zero(); n * n],
+            b: vec![T::zero(); n],
+        }
     }
     pub fn clear(&mut self) {
         self.a.iter_mut().for_each(|v| *v = T::zero());
@@ -363,7 +496,15 @@ impl Ckt {
                     }
                     sys.cond(*a, *b, if mm.on { 1.0 / m.ron } else { 1.0 / m.roff });
                 }
-                CDev::D { a, ai, k: kk, m, area, gs, vcrit } => {
+                CDev::D {
+                    a,
+                    ai,
+                    k: kk,
+                    m,
+                    area,
+                    gs,
+                    vcrit,
+                } => {
                     if *gs > 0.0 {
                         sys.cond(*a, *ai, *gs);
                     }
@@ -394,7 +535,17 @@ impl Ckt {
                     sys.cond(*ai, *kk, g);
                     sys.cur(*ai, *kk, i - g * vd);
                 }
-                CDev::M { d: dn, g: gn, s: sn, b: bn, m, w, l, mult, caps } => {
+                CDev::M {
+                    d: dn,
+                    g: gn,
+                    s: sn,
+                    b: bn,
+                    m,
+                    w,
+                    l,
+                    mult,
+                    caps,
+                } => {
                     let p = if m.pmos { -1.0 } else { 1.0 };
                     let vs = vx(x, *sn);
                     let mut vgs = p * (vx(x, *gn) - vs);
@@ -483,7 +634,9 @@ impl Ckt {
                 }
                 CDev::G { a, b, ca, cb, gm } => sys.vccs(*a, *b, *ca, *cb, C64::real(*gm)),
                 CDev::S { a, b, m, .. } => sys.cond(*a, *b, C64::real(if mem[k].on { 1.0 / m.ron } else { 1.0 / m.roff })),
-                CDev::D { a, ai, k: kk, m, area, gs, .. } => {
+                CDev::D {
+                    a, ai, k: kk, m, area, gs, ..
+                } => {
                     if *gs > 0.0 {
                         sys.cond(*a, *ai, C64::real(*gs));
                     }
@@ -491,7 +644,17 @@ impl Ckt {
                     let op = diode_eval(m, *area, vd);
                     sys.cond(*ai, *kk, C64::new(op.gd + gmin, w * op.c));
                 }
-                CDev::M { d: dn, g: gn, s: sn, b: bn, m, w: ww, l, mult, caps } => {
+                CDev::M {
+                    d: dn,
+                    g: gn,
+                    s: sn,
+                    b: bn,
+                    m,
+                    w: ww,
+                    l,
+                    mult,
+                    caps,
+                } => {
                     let tv = [vx(x, *dn), vx(x, *gn), vx(x, *sn), vx(x, *bn)];
                     let op = mos_eval(m, *ww, *l, *mult, tv);
                     let nodes = [*dn, *gn, *sn, *bn];
@@ -543,7 +706,17 @@ impl Ckt {
                     }
                     i
                 }
-                CDev::M { d: dn, g: gn, s: sn, b: bn, m, w, l, mult, .. } => {
+                CDev::M {
+                    d: dn,
+                    g: gn,
+                    s: sn,
+                    b: bn,
+                    m,
+                    w,
+                    l,
+                    mult,
+                    ..
+                } => {
                     let op = mos_eval(m, *w, *l, *mult, [vx(x, *dn), vx(x, *gn), vx(x, *sn), vx(x, *bn)]);
                     op.id + gmin * (vx(x, *dn) - vx(x, *sn))
                 }
@@ -593,7 +766,15 @@ pub struct Work {
 
 impl Work {
     pub fn new(n: usize) -> Self {
-        Work { sys: Sys::new(n), lu: vec![0.0; n * n], perm: (0..n).collect(), key: vec![f64::NAN; n * n], valid: false, factors: 0, solves: 0 }
+        Work {
+            sys: Sys::new(n),
+            lu: vec![0.0; n * n],
+            perm: (0..n).collect(),
+            key: vec![f64::NAN; n * n],
+            valid: false,
+            factors: 0,
+            solves: 0,
+        }
     }
 
     /// Solve the system currently in `self.sys`.

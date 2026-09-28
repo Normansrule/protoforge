@@ -443,7 +443,12 @@ pub struct PowerRails {
 
 impl Default for PowerRails {
     fn default() -> Self {
-        PowerRails { core_v: 1.8, buck_efficiency: 0.9, display_rail_v: 3.3, quiescent_ua: 5.0 }
+        PowerRails {
+            core_v: 1.8,
+            buck_efficiency: 0.9,
+            display_rail_v: 3.3,
+            quiescent_ua: 5.0,
+        }
     }
 }
 
@@ -528,7 +533,13 @@ pub struct ImuParams {
 
 impl Default for ImuParams {
     fn default() -> Self {
-        ImuParams { rate_hz: 200.0, gyro_noise_dps_rthz: 0.008, gyro_bias_dps: 0.5, accel_noise_mg_rthz: 0.16, fusion_alpha: 0.98 }
+        ImuParams {
+            rate_hz: 200.0,
+            gyro_noise_dps_rthz: 0.008,
+            gyro_bias_dps: 0.5,
+            accel_noise_mg_rthz: 0.16,
+            fusion_alpha: 0.98,
+        }
     }
 }
 
@@ -661,7 +672,13 @@ pub struct ChipParams {
 
 impl Default for ChipParams {
     fn default() -> Self {
-        ChipParams { clock_mhz: 50.0, coeff_bits: 12, data_bits: 16, gate_delay_ns: 0.25, cell_budget: 3000.0 }
+        ChipParams {
+            clock_mhz: 50.0,
+            coeff_bits: 12,
+            data_bits: 16,
+            gate_delay_ns: 0.25,
+            cell_budget: 3000.0,
+        }
     }
 }
 
@@ -690,7 +707,14 @@ pub struct Metric {
 
 impl Metric {
     pub fn new(key: &str, label: &str, value: f64, unit: &str, source: &str) -> Self {
-        Metric { key: key.into(), label: label.into(), value, unit: unit.into(), source: source.into(), note: String::new() }
+        Metric {
+            key: key.into(),
+            label: label.into(),
+            value,
+            unit: unit.into(),
+            source: source.into(),
+            note: String::new(),
+        }
     }
     pub fn with_note(mut self, note: &str) -> Self {
         self.note = note.into();
@@ -745,7 +769,9 @@ struct BlankIn {
 pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
     match method {
         "project.iris" => Some(crate::api::to_value(Project::iris())),
-        "project.blank" => handle(input, |i: BlankIn| Ok(Project::blank(i.name.as_deref().unwrap_or("Untitled product")))),
+        "project.blank" => handle(input, |i: BlankIn| {
+            Ok(Project::blank(i.name.as_deref().unwrap_or("Untitled product")))
+        }),
         "project.validate" => handle(input, |p: Project| Ok(crate::systems::lint(&p))),
         _ => None,
     }

@@ -63,7 +63,11 @@ impl Tf {
             num.pop();
         }
         let lead = if den[0].abs() > 0.0 { den[0] } else { 1.0 };
-        Tf { num: num.iter().map(|v| v / lead).collect(), den: den.iter().map(|v| v / lead).collect(), delay: self.delay }
+        Tf {
+            num: num.iter().map(|v| v / lead).collect(),
+            den: den.iter().map(|v| v / lead).collect(),
+            delay: self.delay,
+        }
     }
 
     pub fn order(&self) -> usize {
@@ -103,7 +107,12 @@ impl Tf {
     }
 
     pub fn series(&self, o: &Tf) -> Tf {
-        Tf { num: poly_mul(&self.num, &o.num), den: poly_mul(&self.den, &o.den), delay: self.delay + o.delay }.normalized()
+        Tf {
+            num: poly_mul(&self.num, &o.num),
+            den: poly_mul(&self.den, &o.den),
+            delay: self.delay + o.delay,
+        }
+        .normalized()
     }
 
     /// Replace the dead time with a Padé approximation of the given order
@@ -113,14 +122,24 @@ impl Tf {
             return self.clone();
         }
         let (n, d) = pade(self.delay, order);
-        Tf { num: poly_mul(&self.num, &n), den: poly_mul(&self.den, &d), delay: 0.0 }.normalized()
+        Tf {
+            num: poly_mul(&self.num, &n),
+            den: poly_mul(&self.den, &d),
+            delay: 0.0,
+        }
+        .normalized()
     }
 
     /// Closed loop with unity negative feedback, `G/(1+G)` (delay must be
     /// Padé-approximated first for an exact rational result).
     pub fn feedback_unity(&self) -> Tf {
         let g = self.pade(3);
-        Tf { num: g.num.clone(), den: poly_add(&g.den, &g.num), delay: 0.0 }.normalized()
+        Tf {
+            num: g.num.clone(),
+            den: poly_add(&g.den, &g.num),
+            delay: 0.0,
+        }
+        .normalized()
     }
 
     /// Controllable canonical realisation (A, B, C, D).
@@ -179,7 +198,13 @@ pub fn horizon_from_poles(poles: &[C64]) -> f64 {
             slow = slow.min(-p.re);
         }
     }
-    let mut t = if slow.is_finite() { 7.0 / slow } else if fast > 0.0 { 20.0 / fast } else { 10.0 };
+    let mut t = if slow.is_finite() {
+        7.0 / slow
+    } else if fast > 0.0 {
+        20.0 / fast
+    } else {
+        10.0
+    };
     for p in poles {
         if p.im.abs() > 1e-9 {
             t = t.max(3.0 * 2.0 * std::f64::consts::PI / p.im.abs());
@@ -222,10 +247,22 @@ impl Discrete {
         let (a, b, c, d) = tf.to_ss()?;
         let n = a.len();
         if n == 0 {
-            return Ok(Discrete { ad: vec![], bd: vec![], c: vec![], d, x: vec![] });
+            return Ok(Discrete {
+                ad: vec![],
+                bd: vec![],
+                c: vec![],
+                d,
+                x: vec![],
+            });
         }
         let (ad, bd) = mat::c2d(&a, &b, h);
-        Ok(Discrete { ad, bd: bd.iter().map(|r| r[0]).collect(), c: c[0].clone(), d, x: vec![0.0; n] })
+        Ok(Discrete {
+            ad,
+            bd: bd.iter().map(|r| r[0]).collect(),
+            c: c[0].clone(),
+            d,
+            x: vec![0.0; n],
+        })
     }
     /// Output for the current state and input.
     pub fn output(&self, u: f64) -> f64 {
@@ -340,7 +377,10 @@ pub struct StepMetrics {
 pub fn step_metrics(t: &[f64], y: &[f64], r: f64) -> StepMetrics {
     let n = y.len();
     if n < 3 {
-        return StepMetrics { stable: false, ..Default::default() };
+        return StepMetrics {
+            stable: false,
+            ..Default::default()
+        };
     }
     let tail = (n / 20).max(1);
     let yf = y[n - tail..].iter().sum::<f64>() / tail as f64;
@@ -384,8 +424,21 @@ pub fn step_metrics(t: &[f64], y: &[f64], r: f64) -> StepMetrics {
             _ => None,
         };
     }
-    let os = if (yf - y0).abs() > 1e-12 { ((pk - yf) / (yf - y0) * 100.0).max(0.0) } else { 0.0 };
-    StepMetrics { rise_time: rise, peak: pk, peak_time: pk_t, overshoot_pct: os, settling_time: settle, final_value: yf, ss_error: r - yf, stable }
+    let os = if (yf - y0).abs() > 1e-12 {
+        ((pk - yf) / (yf - y0) * 100.0).max(0.0)
+    } else {
+        0.0
+    };
+    StepMetrics {
+        rise_time: rise,
+        peak: pk,
+        peak_time: pk_t,
+        overshoot_pct: os,
+        settling_time: settle,
+        final_value: yf,
+        ss_error: r - yf,
+        stable,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -426,7 +479,10 @@ pub fn auto_grid(tfs: &[&Tf], n: usize) -> Vec<f64> {
 }
 
 pub fn bode(tf: &Tf, w: &[f64]) -> Bode {
-    let mut out = Bode { w: w.to_vec(), ..Default::default() };
+    let mut out = Bode {
+        w: w.to_vec(),
+        ..Default::default()
+    };
     let mut prev: Option<f64> = None;
     for &wi in w {
         let g = tf.eval(C64::new(0.0, wi));
@@ -564,7 +620,11 @@ pub fn roots_warm(coeffs: &[f64], init: &[C64]) -> Vec<C64> {
         return poly_roots(&c);
     }
     let a: Vec<f64> = c.iter().map(|v| v / c[0]).collect();
-    let mut r: Vec<C64> = init.iter().enumerate().map(|(i, z)| *z + C64::new(1e-7 * (i as f64 + 1.0), 1.3e-7)).collect();
+    let mut r: Vec<C64> = init
+        .iter()
+        .enumerate()
+        .map(|(i, z)| *z + C64::new(1e-7 * (i as f64 + 1.0), 1.3e-7))
+        .collect();
     for _ in 0..300 {
         let mut md: f64 = 0.0;
         for i in 0..n {
@@ -611,8 +671,14 @@ pub struct RootLocus {
 pub fn root_locus(l: &Tf, k_min: f64, k_max: f64, n: usize) -> RootLocus {
     let l = l.pade(2);
     let (num, den) = (&l.num, &l.den);
-    let gains: Vec<f64> = std::iter::once(0.0).chain(logspace(k_min.max(1e-9), k_max.max(k_min * 10.0), n.max(10))).collect();
-    let mut out = RootLocus { open_poles: poly_roots(den), open_zeros: poly_roots(num), ..Default::default() };
+    let gains: Vec<f64> = std::iter::once(0.0)
+        .chain(logspace(k_min.max(1e-9), k_max.max(k_min * 10.0), n.max(10)))
+        .collect();
+    let mut out = RootLocus {
+        open_poles: poly_roots(den),
+        open_zeros: poly_roots(num),
+        ..Default::default()
+    };
     let deg = den.len() - 1;
     if deg == 0 {
         return out;
@@ -675,7 +741,12 @@ pub struct Pid {
 
 impl Default for Pid {
     fn default() -> Self {
-        Pid { kp: 1.0, ki: 0.0, kd: 0.0, n: 10.0 }
+        Pid {
+            kp: 1.0,
+            ki: 0.0,
+            kd: 0.0,
+            n: 10.0,
+        }
     }
 }
 
@@ -701,7 +772,12 @@ impl Pid {
     }
 
     pub fn scaled(&self, k: f64) -> Pid {
-        Pid { kp: self.kp * k, ki: self.ki * k, kd: self.kd * k, n: self.n }
+        Pid {
+            kp: self.kp * k,
+            ki: self.ki * k,
+            kd: self.kd * k,
+            n: self.n,
+        }
     }
 }
 
@@ -834,7 +910,12 @@ pub fn simulate_pid_loop(plant: &Tf, pid: &Pid, opt: &LoopSimOptions, t_end: f64
 /// Closed-loop characteristic polynomial for C·G (delay → Padé order 3).
 pub fn loop_tf(plant: &Tf, pid: &Pid) -> Tf {
     let c = pid.tf();
-    Tf { num: poly_mul(&c.num, &plant.num), den: poly_mul(&c.den, &plant.den), delay: plant.delay }.normalized()
+    Tf {
+        num: poly_mul(&c.num, &plant.num),
+        den: poly_mul(&c.den, &plant.den),
+        delay: plant.delay,
+    }
+    .normalized()
 }
 
 #[cfg(test)]
@@ -858,7 +939,11 @@ mod tests {
             let r = simulate(&g, InputKind::Step, 12.0, 6001, 0.0).unwrap();
             let m = step_metrics(&r.t, &r.y, 1.0);
             let expected = 100.0 * (-zeta * std::f64::consts::PI / (1.0 - zeta * zeta).sqrt()).exp();
-            assert!((m.overshoot_pct - expected).abs() < 0.2, "ζ={zeta}: {} vs {expected}", m.overshoot_pct);
+            assert!(
+                (m.overshoot_pct - expected).abs() < 0.2,
+                "ζ={zeta}: {} vs {expected}",
+                m.overshoot_pct
+            );
             // peak time π/ωd
             let tp = std::f64::consts::PI / (wn * (1.0 - zeta * zeta).sqrt());
             assert!((m.peak_time - tp).abs() < 0.01);
@@ -904,10 +989,24 @@ mod tests {
     #[test]
     fn pid_loop_matches_linear_closed_loop_without_saturation() {
         let plant = Tf::new(vec![1.0], vec![1.0, 3.0, 2.0]);
-        let pid = Pid { kp: 4.0, ki: 2.0, kd: 0.5, n: 20.0 };
+        let pid = Pid {
+            kp: 4.0,
+            ki: 2.0,
+            kd: 0.5,
+            n: 20.0,
+        };
         let cl = loop_tf(&plant, &pid).feedback_unity();
         let lin = simulate(&cl, InputKind::Step, 8.0, 3201, 0.0).unwrap();
-        let sim = simulate_pid_loop(&plant, &pid, &LoopSimOptions { samples: 800, ..Default::default() }, 8.0).unwrap();
+        let sim = simulate_pid_loop(
+            &plant,
+            &pid,
+            &LoopSimOptions {
+                samples: 800,
+                ..Default::default()
+            },
+            8.0,
+        )
+        .unwrap();
         for (i, &t) in sim.t.iter().enumerate().skip(10) {
             let yl = crate::math::interp(&lin.t, &lin.y, t);
             assert!((sim.y[i] - yl).abs() < 0.03, "t={t}: {} vs {yl}", sim.y[i]);
@@ -917,10 +1016,29 @@ mod tests {
     #[test]
     fn anti_windup_reduces_overshoot() {
         let plant = Tf::new(vec![1.0], vec![1.0, 1.0, 0.0]);
-        let pid = Pid { kp: 2.0, ki: 1.0, kd: 1.0, n: 10.0 };
-        let base = LoopSimOptions { u_min: Some(-0.3), u_max: Some(0.3), samples: 1000, ..Default::default() };
+        let pid = Pid {
+            kp: 2.0,
+            ki: 1.0,
+            kd: 1.0,
+            n: 10.0,
+        };
+        let base = LoopSimOptions {
+            u_min: Some(-0.3),
+            u_max: Some(0.3),
+            samples: 1000,
+            ..Default::default()
+        };
         let with = simulate_pid_loop(&plant, &pid, &base, 60.0).unwrap();
-        let without = simulate_pid_loop(&plant, &pid, &LoopSimOptions { anti_windup: false, ..base.clone() }, 60.0).unwrap();
+        let without = simulate_pid_loop(
+            &plant,
+            &pid,
+            &LoopSimOptions {
+                anti_windup: false,
+                ..base.clone()
+            },
+            60.0,
+        )
+        .unwrap();
         let pk = |y: &[f64]| y.iter().cloned().fold(f64::MIN, f64::max);
         assert!(pk(&with.y) < pk(&without.y), "{} vs {}", pk(&with.y), pk(&without.y));
     }

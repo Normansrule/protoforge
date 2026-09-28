@@ -46,7 +46,9 @@ pub fn fft_in_place(x: &mut [C64], inverse: bool) {
         let wlen = C64::from_polar(1.0, ang);
         let half = len / 2;
         // twiddles by phasor rotation, re-anchored every 64 steps for accuracy
-        let tw: Vec<C64> = (0..half.div_ceil(64)).map(|b| C64::from_polar(1.0, ang * (b * 64) as f64)).collect();
+        let tw: Vec<C64> = (0..half.div_ceil(64))
+            .map(|b| C64::from_polar(1.0, ang * (b * 64) as f64))
+            .collect();
         let mut i = 0;
         while i < n {
             let mut w = C64::ONE;
@@ -323,7 +325,12 @@ pub struct Psd {
 /// window each, average |X|², scale by 1/(fs·Σw²) and double non-DC bins.
 pub fn welch_psd(x: &[f64], fs: f64, kind: WindowKind, beta: f64, seg_len: usize, overlap: f64) -> Psd {
     let seg = next_pow2(seg_len.clamp(8, x.len().max(8)));
-    let seg = if seg > x.len() && x.len() >= 8 { next_pow2(x.len()) / 2 } else { seg }.max(8);
+    let seg = if seg > x.len() && x.len() >= 8 {
+        next_pow2(x.len()) / 2
+    } else {
+        seg
+    }
+    .max(8);
     let hop = ((seg as f64) * (1.0 - overlap.clamp(0.0, 0.95))).max(1.0) as usize;
     let w = window_periodic(kind, seg, beta);
     let s2: f64 = w.iter().map(|v| v * v).sum();
@@ -380,7 +387,11 @@ mod tests {
         let fs = 1024.0;
         let x: Vec<f64> = (0..n).map(|i| 0.7 * (2.0 * PI * 50.0 * i as f64 / fs).sin()).collect();
         let s = spectrum(&x, fs, WindowKind::Rectangular, 0.0, None);
-        let (k, a) = s.amp.iter().enumerate().fold((0, 0.0), |b, (k, &a)| if a > b.1 { (k, a) } else { b });
+        let (k, a) = s
+            .amp
+            .iter()
+            .enumerate()
+            .fold((0, 0.0), |b, (k, &a)| if a > b.1 { (k, a) } else { b });
         assert_eq!(k, 50);
         assert!((a - 0.7).abs() < 1e-9, "amplitude {a}");
         // Hann: coherent gain corrected, same amplitude on a bin centre
@@ -390,7 +401,9 @@ mod tests {
 
     #[test]
     fn fft_inverse_roundtrip_and_zero_padding() {
-        let x: Vec<C64> = (0..100).map(|i| C64::new((i as f64 * 0.3).sin(), (i as f64 * 0.11).cos())).collect();
+        let x: Vec<C64> = (0..100)
+            .map(|i| C64::new((i as f64 * 0.3).sin(), (i as f64 * 0.11).cos()))
+            .collect();
         let xf = fft(&x, None);
         assert_eq!(xf.len(), 128);
         let back = ifft(&xf);

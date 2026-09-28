@@ -260,8 +260,13 @@ impl Costs {
     fn new(m: &Machine, home: [f64; 2], parts: &[Placement], feeders: &[Feeder]) -> Costs {
         let n = parts.len();
         let pos = |a: usize| if a == n { home } else { parts[a].xy };
-        let approach = (0..=n).map(|a| parts.iter().map(|p| m.move_time(pos(a), feeders[p.feeder].xy, 0.0)).collect()).collect();
-        let rest = parts.iter().map(|p| m.part_time(feeders[p.feeder].xy, feeders[p.feeder].xy, p.xy, p.rot_deg)).collect();
+        let approach = (0..=n)
+            .map(|a| parts.iter().map(|p| m.move_time(pos(a), feeders[p.feeder].xy, 0.0)).collect())
+            .collect();
+        let rest = parts
+            .iter()
+            .map(|p| m.part_time(feeders[p.feeder].xy, feeders[p.feeder].xy, p.xy, p.rot_deg))
+            .collect();
         let ret = (0..=n).map(|a| m.move_time(pos(a), home, 0.0)).collect();
         Costs { approach, rest, ret }
     }
@@ -291,7 +296,11 @@ fn build_parts(p: &Project, cfg: &PnpConfig, optimize: bool) -> (Vec<Feeder>, Ve
         let comp = p.components.iter().find(|c| c.refdes == pl.refdes);
         let (name, fp, key) = match comp {
             Some(c) => {
-                let val = if c.example_part.is_empty() { c.name.clone() } else { c.example_part.clone() };
+                let val = if c.example_part.is_empty() {
+                    c.name.clone()
+                } else {
+                    c.example_part.clone()
+                };
                 (c.name.clone(), c.footprint.clone(), format!("{val} [{}]", c.footprint))
             }
             None => (pl.refdes.clone(), String::new(), pl.refdes.clone()),
@@ -300,7 +309,11 @@ fn build_parts(p: &Project, cfg: &PnpConfig, optimize: bool) -> (Vec<Feeder>, Ve
             keys.push(key.clone());
         }
         let side = if pl.side.is_empty() { "top".to_string() } else { pl.side.clone() };
-        let bx = if side == "bottom" { p.design.pcb.width_mm - pl.x_mm } else { pl.x_mm };
+        let bx = if side == "bottom" {
+            p.design.pcb.width_mm - pl.x_mm
+        } else {
+            pl.x_mm
+        };
         parts.push(Placement {
             refdes: pl.refdes.clone(),
             name,
@@ -331,12 +344,22 @@ fn build_parts(p: &Project, cfg: &PnpConfig, optimize: bool) -> (Vec<Feeder>, Ve
     for (slot, &ki) in order.iter().enumerate() {
         let key = keys[ki].clone();
         slot_of.insert(key.clone(), slot);
-        let fp = parts.iter().zip(&key_of).find(|(_, k)| **k == key).map(|(p, _)| p.footprint.clone()).unwrap_or_default();
+        let fp = parts
+            .iter()
+            .zip(&key_of)
+            .find(|(_, k)| **k == key)
+            .map(|(p, _)| p.footprint.clone())
+            .unwrap_or_default();
         feeders.push(Feeder {
             slot,
             key: key.clone(),
             footprint: fp,
-            refdes: parts.iter().zip(&key_of).filter(|(_, k)| **k == key).map(|(p, _)| p.refdes.clone()).collect(),
+            refdes: parts
+                .iter()
+                .zip(&key_of)
+                .filter(|(_, k)| **k == key)
+                .map(|(p, _)| p.refdes.clone())
+                .collect(),
             xy: [x0 + slot as f64 * cfg.feeder_pitch_mm, cfg.feeder_y_mm],
         });
     }
@@ -437,7 +460,13 @@ impl Recorder<'_> {
             _ => self.bd.handling += dur,
         }
         if dur > 0.0 {
-            self.events.push(Event { t0, t1: t0 + dur, kind: kind.into(), label: label.into(), refdes: refdes.map(|s| s.to_string()) });
+            self.events.push(Event {
+                t0,
+                t1: t0 + dur,
+                kind: kind.into(),
+                label: label.into(),
+                refdes: refdes.map(|s| s.to_string()),
+            });
         }
     }
     fn zmove(&mut self, down: bool, label: &str, refdes: Option<&str>) {
@@ -464,7 +493,11 @@ impl Recorder<'_> {
         };
         let c = &self.m.cfg;
         let d = [(qb[0] - qa[0]).to_degrees(), (qb[1] - qa[1]).to_degrees(), rot - self.nozzle];
-        let (tt, profs) = synchronized(&d, &[c.j1_vmax_dps, c.j2_vmax_dps, c.j4_vmax_dps], &[c.j1_amax_dps2, c.j2_amax_dps2, c.j4_amax_dps2]);
+        let (tt, profs) = synchronized(
+            &d,
+            &[c.j1_vmax_dps, c.j2_vmax_dps, c.j4_vmax_dps],
+            &[c.j1_amax_dps2, c.j2_amax_dps2, c.j4_amax_dps2],
+        );
         let t0 = self.t;
         let n0 = self.nozzle;
         while self.next_frame <= t0 + tt {
@@ -496,20 +529,34 @@ pub fn plan(p: &Project, cfg: &PnpConfig, record: bool) -> PnpPlan {
     naive_cfg.optimize = false;
     let naive = plan_inner(p, &naive_cfg, false);
     let opt = plan_inner(p, cfg, false);
-    let mut best = if opt.cycle_s <= naive.cycle_s { plan_inner(p, cfg, record) } else { plan_inner(p, &naive_cfg, record) };
+    let mut best = if opt.cycle_s <= naive.cycle_s {
+        plan_inner(p, cfg, record)
+    } else {
+        plan_inner(p, &naive_cfg, record)
+    };
     best.naive_cycle_s = naive.cycle_s;
     best
 }
 
 fn plan_inner(p: &Project, cfg: &PnpConfig, record: bool) -> PnpPlan {
-    let arm = Arm2 { l1: cfg.l1_mm, l2: cfg.l2_mm, q1_min: -180.0, q1_max: 180.0, q2_min: -180.0, q2_max: 180.0 };
+    let arm = Arm2 {
+        l1: cfg.l1_mm,
+        l2: cfg.l2_mm,
+        q1_min: -180.0,
+        q1_max: 180.0,
+        q2_min: -180.0,
+        q2_max: 180.0,
+    };
     let m = Machine { arm, cfg: cfg.clone() };
     let home = cfg.camera_xy_mm;
     let (feeders, mut parts) = build_parts(p, cfg, cfg.optimize);
     let mut warnings = Vec::new();
     for pp in &parts {
         if m.ik(pp.xy).is_none() {
-            warnings.push(format!("{} at ({:.0}, {:.0}) mm is outside the SCARA reach", pp.refdes, pp.xy[0], pp.xy[1]));
+            warnings.push(format!(
+                "{} at ({:.0}, {:.0}) mm is outside the SCARA reach",
+                pp.refdes, pp.xy[0], pp.xy[1]
+            ));
         }
     }
     for f in &feeders {
@@ -517,7 +564,9 @@ fn plan_inner(p: &Project, cfg: &PnpConfig, record: bool) -> PnpPlan {
             warnings.push(format!("feeder {} at x = {:.0} mm is outside the SCARA reach", f.slot, f.xy[0]));
         }
     }
-    let order: Vec<usize> = if cfg.optimize { optimize_order(&m, home, &parts, &feeders) } else {
+    let order: Vec<usize> = if cfg.optimize {
+        optimize_order(&m, home, &parts, &feeders)
+    } else {
         let mut o: Vec<usize> = (0..parts.len()).filter(|&i| parts[i].side != "bottom").collect();
         o.extend((0..parts.len()).filter(|&i| parts[i].side == "bottom"));
         o
@@ -549,7 +598,10 @@ fn plan_inner(p: &Project, cfg: &PnpConfig, record: bool) -> PnpPlan {
     let has_bottom = parts.iter().any(|x| x.side == "bottom");
     let bw = p.design.pcb.width_mm;
     let bh = p.design.pcb.height_mm;
-    let fid = [[cfg.board_origin_mm[0] + 1.5, cfg.board_origin_mm[1] + 1.5], [cfg.board_origin_mm[0] + bw - 1.5, cfg.board_origin_mm[1] + bh - 1.5]];
+    let fid = [
+        [cfg.board_origin_mm[0] + 1.5, cfg.board_origin_mm[1] + 1.5],
+        [cfg.board_origin_mm[0] + bw - 1.5, cfg.board_origin_mm[1] + bh - 1.5],
+    ];
     rec.hold(cfg.board_handling_s / 2.0, "handling", "conveyor: load board", None);
     let mut side_now = "top".to_string();
     let fiducials = |rec: &mut Recorder, lbl: &str| {

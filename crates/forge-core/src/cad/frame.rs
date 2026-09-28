@@ -247,7 +247,11 @@ fn front_outline(d: &Dims, c: f64, v_h: f64) -> (Vec<P2>, Vec<P2>, Vec<P2>) {
             let wu = smoothstep((p[0] - 0.55 * reach) / (0.45 * reach));
             let he = 0.55 * (d.b + d.rim);
             let dv = (p[1] - v_h) / he;
-            let wv = if dv.abs() < 1.0 { (0.5 * std::f64::consts::PI * dv).cos().powi(2) } else { 0.0 };
+            let wv = if dv.abs() < 1.0 {
+                (0.5 * std::f64::consts::PI * dv).cos().powi(2)
+            } else {
+                0.0
+            };
             [p[0] + c + 3.0 * wu * wv, p[1]]
         })
         .collect();
@@ -341,7 +345,10 @@ pub fn build(p: &Project) -> FrameGeom {
     let front_region = Region::new(outline.clone(), vec![lens_l.clone(), lens_r.clone()]);
     front.append(&extrude_draft(&front_region, 0.0, d.t, d.draft, 0.0));
     let mut front_shells = 1;
-    for (v0, v1) in [(v_h + kh / 2.0 + KNUCKLE_GAP, v_h + hk / 2.0), (v_h - hk / 2.0, v_h - kh / 2.0 - KNUCKLE_GAP)] {
+    for (v0, v1) in [
+        (v_h + kh / 2.0 + KNUCKLE_GAP, v_h + hk / 2.0),
+        (v_h - hk / 2.0, v_h - kh / 2.0 - KNUCKLE_GAP),
+    ] {
         for side in [1.0, -1.0] {
             let (ua, ub) = if side > 0.0 { (u_k0, u_k1) } else { (-u_k1, -u_k0) };
             let r = g::rounded_rect((ua + ub) / 2.0, (v0 + v1) / 2.0, ub - ua, v1 - v0, 0.4, 3);
@@ -369,12 +376,24 @@ pub fn build(p: &Project) -> FrameGeom {
 
     // ---------------- temples (print frame: p = y, q = z, w = outward from x_in)
     let z_c = v_h;
-    let r_p = ((d.pod_h - d.temple_h) / 2.0).clamp(0.0, 3.0).min(d.pod_h / 2.0 - d.wall - 0.3).max(0.0);
+    let r_p = ((d.pod_h - d.temple_h) / 2.0)
+        .clamp(0.0, 3.0)
+        .min(d.pod_h / 2.0 - d.wall - 0.3)
+        .max(0.0);
     let pocket_inset = d.wall + 2.0 * d.pod_w * tan;
     let temple_for = |pod_len: f64, usb: bool| -> (Mesh, Mesh, usize, usize, [f64; 2]) {
         let pod_y1 = pod_y0 + pod_len;
         // Exact inward offsets of the pod's rounded rectangle.
-        let rr = |inset: f64| g::rounded_rect(pod_y0 + pod_len / 2.0, z_c, pod_len - 2.0 * inset, d.pod_h - 2.0 * inset, (r_p - inset).max(0.0), 6);
+        let rr = |inset: f64| {
+            g::rounded_rect(
+                pod_y0 + pod_len / 2.0,
+                z_c,
+                pod_len - 2.0 * inset,
+                d.pod_h - 2.0 * inset,
+                (r_p - inset).max(0.0),
+                6,
+            )
+        };
         let pod = rr(0.0);
         // Arm centre line: straight to the ear bend, arc down, tail.
         let l_ear = (0.25 * d.temple_len).clamp(25.0, 45.0);
@@ -425,7 +444,7 @@ pub fn build(p: &Project) -> FrameGeom {
         s.extend_from_slice(&band[1..band.len() - 1]);
         s.push([pod_y1, z_c + half[0]]);
         s.extend_from_slice(&pod[seg..3 * seg]); // top-right + top-left corners
-        // front face going down: insert lug
+                                                 // front face going down: insert lug
         s.push([pod_y0, lug[1][1]]);
         s.push([lug[0][0], lug[1][1]]);
         s.push([lug[0][0], lug[0][1]]);
@@ -438,7 +457,13 @@ pub fn build(p: &Project) -> FrameGeom {
         let mut m = Mesh::default();
         let s_region = Region::new(s.clone(), vec![]);
         m.append(&extrude_draft(&s_region, 0.0, d.wall, d.draft, 0.0));
-        m.append(&extrude_draft(&Region::new(s, vec![pocket.clone()]), d.wall, d.temple_w, d.draft, 0.0));
+        m.append(&extrude_draft(
+            &Region::new(s, vec![pocket.clone()]),
+            d.wall,
+            d.temple_w,
+            d.draft,
+            0.0,
+        ));
         let mut slot = [0.0, 0.0];
         let ring = if usb {
             // Ring with a slot through the bottom wall near the rear.
@@ -470,7 +495,13 @@ pub fn build(p: &Project) -> FrameGeom {
         let lip_w = 0.9f64.min(0.25 * d.pod_h);
         let lip_outer = rr(rim_inset + CLEARANCE);
         let lip_inner = rr(rim_inset + CLEARANCE + lip_w);
-        lid.append(&extrude_draft(&Region::new(mirror(&lip_outer), vec![mirror(&lip_inner)]), wl, wl + lip_depth, d.draft, wl));
+        lid.append(&extrude_draft(
+            &Region::new(mirror(&lip_outer), vec![mirror(&lip_inner)]),
+            wl,
+            wl + lip_depth,
+            d.draft,
+            wl,
+        ));
         let mut lid_shells = 2;
         if usb {
             let receptacle_top = d.temple_w + USB_RECEPTACLE_H + 0.2;
@@ -493,12 +524,24 @@ pub fn build(p: &Project) -> FrameGeom {
     let (temple_r, lid_r, tr_shells, lr_shells, usb_slot) = temple_for(d.pod_len, true);
     let (temple_l, lid_l, tl_shells, ll_shells, _) = temple_for(d.batt_len, false);
     // (p, q, w) -> (x_in + w, p, q)   and the mirrored left side.
-    let temple_place_r = Affine { m: [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], t: [x_in, 0.0, 0.0] };
-    let temple_place_l = Affine { m: [[0.0, 0.0, -1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], t: [-x_in, 0.0, 0.0] };
+    let temple_place_r = Affine {
+        m: [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        t: [x_in, 0.0, 0.0],
+    };
+    let temple_place_l = Affine {
+        m: [[0.0, 0.0, -1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        t: [-x_in, 0.0, 0.0],
+    };
     // Lid frame: (p, q', z') -> (x_in + pod_w + wl - z', p, -q')
     let wl = d.wall;
-    let lid_place_r = Affine { m: [[0.0, 0.0, -1.0], [1.0, 0.0, 0.0], [0.0, -1.0, 0.0]], t: [x_in + d.pod_w + wl, 0.0, 0.0] };
-    let lid_place_l = Affine { m: [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, -1.0, 0.0]], t: [-(x_in + d.pod_w + wl), 0.0, 0.0] };
+    let lid_place_r = Affine {
+        m: [[0.0, 0.0, -1.0], [1.0, 0.0, 0.0], [0.0, -1.0, 0.0]],
+        t: [x_in + d.pod_w + wl, 0.0, 0.0],
+    };
+    let lid_place_l = Affine {
+        m: [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, -1.0, 0.0]],
+        t: [-(x_in + d.pod_w + wl), 0.0, 0.0],
+    };
 
     // ---------------- optics housing (tray open downwards)
     let o = &p.design.optics;
@@ -518,7 +561,10 @@ pub fn build(p: &Project) -> FrameGeom {
     let top_reach = d.b + d.rim;
     let o_top = top_reach - 1.0;
     // (x', y', z') -> (xc + x', yc - y', o_top - z')
-    let optics_place = Affine { m: [[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]], t: [x0 + ox / 2.0, d.t + oy / 2.0, o_top] };
+    let optics_place = Affine {
+        m: [[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]],
+        t: [x0 + ox / 2.0, d.t + oy / 2.0, o_top],
+    };
 
     // ---------------- pantoscopic tilt about the hinge pin line
     let tilt = Affine::translate(0.0, -pin_y, -v_h)
@@ -536,14 +582,78 @@ pub fn build(p: &Project) -> FrameGeom {
         let explode = [explode[0], -explode[1], explode[2]];
         let (lo, hi) = local.bbox();
         let print = local.translated(-(lo[0] + hi[0]) / 2.0, -(lo[1] + hi[1]) / 2.0, -lo[2]);
-        parts.push(BuiltPart { name: name.into(), label: label.into(), color: color.into(), explode, print, assembly, shells, group, pull });
+        parts.push(BuiltPart {
+            name: name.into(),
+            label: label.into(),
+            color: color.into(),
+            explode,
+            print,
+            assembly,
+            shells,
+            group,
+            pull,
+        });
     };
-    push("front", "Front (rims, bridge, knuckles, nose pads)", "#5d7aa8", [0.0, -22.0, 0.0], front, front_place.then(&tilt), front_shells, "front");
-    push("temple_r", "Right temple + electronics pod", "#3e4c64", [26.0, 8.0, 0.0], temple_r, temple_place_r, tr_shells, "right");
-    push("temple_l", "Left temple + battery pod", "#3e4c64", [-26.0, 8.0, 0.0], temple_l, temple_place_l, tl_shells, "left");
-    push("lid_r", "Electronics pod lid", "#c98f4a", [52.0, 8.0, 0.0], lid_r, lid_place_r, lr_shells, "right");
-    push("lid_l", "Battery pod lid", "#c98f4a", [-52.0, 8.0, 0.0], lid_l, lid_place_l, ll_shells, "left");
-    push("optics_housing", "Display optics housing", "#8b9db5", [0.0, 14.0, 28.0], optics, optics_place.then(&tilt), 2, "front");
+    push(
+        "front",
+        "Front (rims, bridge, knuckles, nose pads)",
+        "#5d7aa8",
+        [0.0, -22.0, 0.0],
+        front,
+        front_place.then(&tilt),
+        front_shells,
+        "front",
+    );
+    push(
+        "temple_r",
+        "Right temple + electronics pod",
+        "#3e4c64",
+        [26.0, 8.0, 0.0],
+        temple_r,
+        temple_place_r,
+        tr_shells,
+        "right",
+    );
+    push(
+        "temple_l",
+        "Left temple + battery pod",
+        "#3e4c64",
+        [-26.0, 8.0, 0.0],
+        temple_l,
+        temple_place_l,
+        tl_shells,
+        "left",
+    );
+    push(
+        "lid_r",
+        "Electronics pod lid",
+        "#c98f4a",
+        [52.0, 8.0, 0.0],
+        lid_r,
+        lid_place_r,
+        lr_shells,
+        "right",
+    );
+    push(
+        "lid_l",
+        "Battery pod lid",
+        "#c98f4a",
+        [-52.0, 8.0, 0.0],
+        lid_l,
+        lid_place_l,
+        ll_shells,
+        "left",
+    );
+    push(
+        "optics_housing",
+        "Display optics housing",
+        "#8b9db5",
+        [0.0, 14.0, 28.0],
+        optics,
+        optics_place.then(&tilt),
+        2,
+        "front",
+    );
 
     // ---------------- layout numbers
     let pod_y1 = pod_y0 + d.pod_len;
@@ -599,7 +709,14 @@ pub fn build(p: &Project) -> FrameGeom {
         let lm = extrude_draft(&Region::simple(g::offset_vertexwise(lens, 0.3, 3.0)), 0.0, 1.8, 0.0, 0.0)
             .translated(0.0, 0.0, d.t / 2.0 - 0.9)
             .transformed(&front_place.then(&tilt).then(&mirror));
-        display.push(DisplayItem { name: name.into(), kind: "lens".into(), mesh: lm.to_f32(), color: "#9ecbff".into(), opacity: 0.22, group: "front".into() });
+        display.push(DisplayItem {
+            name: name.into(),
+            kind: "lens".into(),
+            mesh: lm.to_f32(),
+            color: "#9ecbff".into(),
+            opacity: 0.22,
+            group: "front".into(),
+        });
     }
     // 45° combiner plate hanging below the optics housing, in front of the pupil.
     let comb_w = bore * 1.2;
@@ -607,14 +724,41 @@ pub fn build(p: &Project) -> FrameGeom {
         .transformed(&Affine::rot_z(45.0))
         .translated(c, d.t + oy / 2.0, o_top - oz - comb_w / 2.0 - 0.5)
         .transformed(&tilt.then(&mirror));
-    display.push(DisplayItem { name: "combiner".into(), kind: "combiner".into(), mesh: comb.to_f32(), color: "#7fd7ff".into(), opacity: 0.35, group: "front".into() });
+    display.push(DisplayItem {
+        name: "combiner".into(),
+        kind: "combiner".into(),
+        mesh: comb.to_f32(),
+        color: "#7fd7ff".into(),
+        opacity: 0.35,
+        group: "front".into(),
+    });
     let board = super::solid::box_mesh(
-        [pcb_center[0] - pcb_size[0] / 2.0, pcb_center[1] - pcb_size[1] / 2.0, pcb_center[2] - pcb_size[2] / 2.0],
-        [pcb_center[0] + pcb_size[0] / 2.0, pcb_center[1] + pcb_size[1] / 2.0, pcb_center[2] + pcb_size[2] / 2.0],
+        [
+            pcb_center[0] - pcb_size[0] / 2.0,
+            pcb_center[1] - pcb_size[1] / 2.0,
+            pcb_center[2] - pcb_size[2] / 2.0,
+        ],
+        [
+            pcb_center[0] + pcb_size[0] / 2.0,
+            pcb_center[1] + pcb_size[1] / 2.0,
+            pcb_center[2] + pcb_size[2] / 2.0,
+        ],
     );
-    display.push(DisplayItem { name: "pcb".into(), kind: "pcb".into(), mesh: board.to_f32(), color: "#2fbf71".into(), opacity: 0.55, group: "right".into() });
+    display.push(DisplayItem {
+        name: "pcb".into(),
+        kind: "pcb".into(),
+        mesh: board.to_f32(),
+        color: "#2fbf71".into(),
+        opacity: 0.55,
+        group: "right".into(),
+    });
 
-    FrameGeom { parts, display, layout, warnings }
+    FrameGeom {
+        parts,
+        display,
+        layout,
+        warnings,
+    }
 }
 
 #[cfg(test)]

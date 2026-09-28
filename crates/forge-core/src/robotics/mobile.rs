@@ -36,7 +36,16 @@ pub struct PursuitIn {
 impl Default for PursuitIn {
     fn default() -> Self {
         PursuitIn {
-            waypoints: vec![[0.0, 0.0], [2.0, -0.4], [3.6, 0.6], [3.4, 2.4], [1.8, 2.2], [0.8, 3.2], [-1.0, 2.8], [-1.6, 1.0]],
+            waypoints: vec![
+                [0.0, 0.0],
+                [2.0, -0.4],
+                [3.6, 0.6],
+                [3.4, 2.4],
+                [1.8, 2.2],
+                [0.8, 3.2],
+                [-1.0, 2.8],
+                [-1.6, 1.0],
+            ],
             lookahead: 0.5,
             speed: 0.6,
             wheelbase: 0.25,
@@ -72,7 +81,9 @@ pub struct PursuitOut {
 fn catmull(p0: [f64; 2], p1: [f64; 2], p2: [f64; 2], p3: [f64; 2], t: f64) -> [f64; 2] {
     let t2 = t * t;
     let t3 = t2 * t;
-    let f = |a: f64, b: f64, c: f64, d: f64| 0.5 * (2.0 * b + (-a + c) * t + (2.0 * a - 5.0 * b + 4.0 * c - d) * t2 + (-a + 3.0 * b - 3.0 * c + d) * t3);
+    let f = |a: f64, b: f64, c: f64, d: f64| {
+        0.5 * (2.0 * b + (-a + c) * t + (2.0 * a - 5.0 * b + 4.0 * c - d) * t2 + (-a + 3.0 * b - 3.0 * c + d) * t3)
+    };
     [f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]
 }
 
@@ -115,10 +126,19 @@ pub fn pure_pursuit(i: &PursuitIn) -> Result<PursuitOut, String> {
     let total = np as f64 * ds;
     let la = i.lookahead.clamp(0.05, 10.0);
     let la_n = (la / ds).round() as usize;
-    let mut out = PursuitOut { path_x: path.iter().map(|p| p[0]).collect(), path_y: path.iter().map(|p| p[1]).collect(), path_len: total, ..Default::default() };
+    let mut out = PursuitOut {
+        path_x: path.iter().map(|p| p[0]).collect(),
+        path_y: path.iter().map(|p| p[1]).collect(),
+        path_len: total,
+        ..Default::default()
+    };
     // initial pose: first point + offset, heading along the path
     let h0 = (path[1][1] - path[0][1]).atan2(path[1][0] - path[0][0]);
-    let (mut x, mut y, mut th) = (path[0][0] + i.start_offset[0], path[0][1] + i.start_offset[1], h0 + i.start_offset[2].to_radians());
+    let (mut x, mut y, mut th) = (
+        path[0][0] + i.start_offset[0],
+        path[0][1] + i.start_offset[1],
+        h0 + i.start_offset[2].to_radians(),
+    );
     let dt = i.dt.clamp(0.001, 0.2);
     let mut idx = 0usize;
     let mut progress = 0usize; // total path samples advanced (for lap counting)
@@ -147,7 +167,11 @@ pub fn pure_pursuit(i: &PursuitIn) -> Result<PursuitOut, String> {
         // signed cross-track (left positive) using the path tangent
         let j2 = (idx + 1) % np;
         let (tx, ty) = (path[j2][0] - path[idx][0], path[j2][1] - path[idx][1]);
-        let sign = if tx * (y - path[idx][1]) - ty * (x - path[idx][0]) >= 0.0 { 1.0 } else { -1.0 };
+        let sign = if tx * (y - path[idx][1]) - ty * (x - path[idx][0]) >= 0.0 {
+            1.0
+        } else {
+            -1.0
+        };
         let g = path[(idx + la_n) % np];
         let (dx, dy) = (g[0] - x, g[1] - y);
         let yr = -th.sin() * dx + th.cos() * dy;

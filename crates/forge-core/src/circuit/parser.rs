@@ -49,13 +49,37 @@ pub enum Wave {
     None,
     /// `PULSE(v1 v2 td tr tf pw per)`; `None` fields take the ngspice defaults
     /// (tr = tf = tstep, pw = per = tstop) when a transient is set up.
-    Pulse { v1: f64, v2: f64, td: f64, tr: Option<f64>, tf: Option<f64>, pw: Option<f64>, per: Option<f64> },
+    Pulse {
+        v1: f64,
+        v2: f64,
+        td: f64,
+        tr: Option<f64>,
+        tf: Option<f64>,
+        pw: Option<f64>,
+        per: Option<f64>,
+    },
     /// `SIN(vo va freq td theta phase)`.
-    Sin { vo: f64, va: f64, freq: Option<f64>, td: f64, theta: f64, phase_deg: f64 },
+    Sin {
+        vo: f64,
+        va: f64,
+        freq: Option<f64>,
+        td: f64,
+        theta: f64,
+        phase_deg: f64,
+    },
     /// `EXP(v1 v2 td1 tau1 td2 tau2)`.
-    Exp { v1: f64, v2: f64, td1: f64, tau1: Option<f64>, td2: Option<f64>, tau2: Option<f64> },
+    Exp {
+        v1: f64,
+        v2: f64,
+        td1: f64,
+        tau1: Option<f64>,
+        td2: Option<f64>,
+        tau2: Option<f64>,
+    },
     /// `PWL(t1 v1 t2 v2 ...)`.
-    Pwl { points: Vec<(f64, f64)> },
+    Pwl {
+        points: Vec<(f64, f64)>,
+    },
 }
 
 /// Independent source description.
@@ -84,7 +108,17 @@ pub struct DiodeModel {
 
 impl Default for DiodeModel {
     fn default() -> Self {
-        DiodeModel { is: 1e-14, n: 1.0, rs: 0.0, cjo: 0.0, vj: 1.0, m: 0.5, fc: 0.5, tt: 0.0, bv: f64::INFINITY }
+        DiodeModel {
+            is: 1e-14,
+            n: 1.0,
+            rs: 0.0,
+            cjo: 0.0,
+            vj: 1.0,
+            m: 0.5,
+            fc: 0.5,
+            tt: 0.0,
+            bv: f64::INFINITY,
+        }
     }
 }
 
@@ -107,7 +141,18 @@ pub struct MosModel {
 
 impl Default for MosModel {
     fn default() -> Self {
-        MosModel { pmos: false, vto: 0.0, kp: 2e-5, lambda: 0.0, gamma: 0.0, phi: 0.6, cgso: 0.0, cgdo: 0.0, cbd: 0.0, cbs: 0.0 }
+        MosModel {
+            pmos: false,
+            vto: 0.0,
+            kp: 2e-5,
+            lambda: 0.0,
+            gamma: 0.0,
+            phi: 0.6,
+            cgso: 0.0,
+            cgdo: 0.0,
+            cbd: 0.0,
+            cbs: 0.0,
+        }
     }
 }
 
@@ -122,7 +167,12 @@ pub struct SwModel {
 
 impl Default for SwModel {
     fn default() -> Self {
-        SwModel { ron: 1.0, roff: 1e12, vt: 0.0, vh: 0.0 }
+        SwModel {
+            ron: 1.0,
+            roff: 1e12,
+            vt: 0.0,
+            vh: 0.0,
+        }
     }
 }
 
@@ -130,18 +180,48 @@ impl Default for SwModel {
 #[derive(Clone, Debug, Serialize, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Device {
-    Resistor { r: f64 },
-    Capacitor { c: f64, ic: Option<f64> },
-    Inductor { l: f64, ic: Option<f64> },
-    Vsource { src: Source },
-    Isource { src: Source },
-    Diode { model: DiodeModel, model_name: String, area: f64 },
-    Mosfet { model: MosModel, model_name: String, w: f64, l: f64, mult: f64 },
+    Resistor {
+        r: f64,
+    },
+    Capacitor {
+        c: f64,
+        ic: Option<f64>,
+    },
+    Inductor {
+        l: f64,
+        ic: Option<f64>,
+    },
+    Vsource {
+        src: Source,
+    },
+    Isource {
+        src: Source,
+    },
+    Diode {
+        model: DiodeModel,
+        model_name: String,
+        area: f64,
+    },
+    Mosfet {
+        model: MosModel,
+        model_name: String,
+        w: f64,
+        l: f64,
+        mult: f64,
+    },
     /// Voltage-controlled voltage source (`E`).
-    Vcvs { gain: f64 },
+    Vcvs {
+        gain: f64,
+    },
     /// Voltage-controlled current source (`G`).
-    Vccs { gm: f64 },
-    Switch { model: SwModel, model_name: String, on: bool },
+    Vccs {
+        gm: f64,
+    },
+    Switch {
+        model: SwModel,
+        model_name: String,
+        on: bool,
+    },
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
@@ -174,9 +254,25 @@ pub enum AcSweep {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Analysis {
     Op,
-    Dc { src: String, start: f64, stop: f64, step: f64 },
-    Tran { tstep: f64, tstop: f64, tstart: f64, tmax: Option<f64>, uic: bool },
-    Ac { sweep: AcSweep, n: usize, fstart: f64, fstop: f64 },
+    Dc {
+        src: String,
+        start: f64,
+        stop: f64,
+        step: f64,
+    },
+    Tran {
+        tstep: f64,
+        tstop: f64,
+        tstart: f64,
+        tmax: Option<f64>,
+        uic: bool,
+    },
+    Ac {
+        sweep: AcSweep,
+        n: usize,
+        fstart: f64,
+        fstop: f64,
+    },
 }
 
 /// Solver options (`.options`).
@@ -193,7 +289,15 @@ pub struct Options {
 
 impl Default for Options {
     fn default() -> Self {
-        Options { reltol: 1e-3, abstol: 1e-12, vntol: 1e-6, gmin: 1e-12, itl1: 100, itl4: 30, trtol: 7.0 }
+        Options {
+            reltol: 1e-3,
+            abstol: 1e-12,
+            vntol: 1e-6,
+            gmin: 1e-12,
+            itl1: 100,
+            itl4: 30,
+            trtol: 7.0,
+        }
     }
 }
 
@@ -665,7 +769,11 @@ impl ParamTable {
 
     fn eval_str(&mut self, expr: &str, stack: &mut Vec<String>) -> Result<f64, String> {
         let e = expr.trim();
-        let inner = e.strip_prefix('{').and_then(|x| x.strip_suffix('}')).or_else(|| e.strip_prefix('\'').and_then(|x| x.strip_suffix('\''))).unwrap_or(e);
+        let inner = e
+            .strip_prefix('{')
+            .and_then(|x| x.strip_suffix('}'))
+            .or_else(|| e.strip_prefix('\'').and_then(|x| x.strip_suffix('\'')))
+            .unwrap_or(e);
         if let Some(v) = parse_number(inner) {
             return Ok(v);
         }
@@ -678,7 +786,9 @@ impl ParamTable {
             Tok::Word(w) => {
                 if let Some(v) = parse_number(w) {
                     Ok(v)
-                } else if w.chars().next().is_some_and(|c| c.is_alphabetic() || c == '_') && (self.raw.contains_key(&w.to_lowercase()) || self.over.contains_key(&w.to_lowercase())) {
+                } else if w.chars().next().is_some_and(|c| c.is_alphabetic() || c == '_')
+                    && (self.raw.contains_key(&w.to_lowercase()) || self.over.contains_key(&w.to_lowercase()))
+                {
                     self.get(w, &mut Vec::new())
                 } else {
                     Err(format!("expected a number, found `{w}`"))
@@ -781,7 +891,11 @@ pub fn with_params(text: &str, over: &BTreeMap<String, f64>) -> String {
                         None => format!("{n}={}", v.trim()),
                     })
                     .collect();
-                let pad = if comment.is_empty() { String::new() } else { format!(" {}", comment.trim_start()) };
+                let pad = if comment.is_empty() {
+                    String::new()
+                } else {
+                    format!(" {}", comment.trim_start())
+                };
                 out.push_str(&format!(".param {}{}\n", parts.join(" "), pad));
                 continue;
             }
@@ -898,7 +1012,10 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
         if lower.starts_with(".end") && !lower.starts_with(".endc") && !lower.starts_with(".ends") {
             break;
         }
-        cards.push(Card { line: ln, text: body.to_string() });
+        cards.push(Card {
+            line: ln,
+            text: body.to_string(),
+        });
     }
 
     // ---- 2. parameters and models ------------------------------------------
@@ -949,7 +1066,11 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
             }
         };
         if toks.len() < 3 {
-            err(&mut errors, c.line, ".model needs a name and a type, e.g. `.model DX D(IS=1e-14)`".into());
+            err(
+                &mut errors,
+                c.line,
+                ".model needs a name and a type, e.g. `.model DX D(IS=1e-14)`".into(),
+            );
             continue;
         }
         let name = toks[1].show().to_lowercase();
@@ -967,12 +1088,23 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                     i += 3;
                 }
                 t => {
-                    err(&mut errors, c.line, format!("model {name}: expected `PARAM=value`, found `{}`", t.show()));
+                    err(
+                        &mut errors,
+                        c.line,
+                        format!("model {name}: expected `PARAM=value`, found `{}`", t.show()),
+                    );
                     i += 1;
                 }
             }
         }
-        models.insert(name, RawModel { kind, params: ps, line: c.line });
+        models.insert(
+            name,
+            RawModel {
+                kind,
+                params: ps,
+                line: c.line,
+            },
+        );
     }
 
     // ---- 3. elements and directives ------------------------------------------
@@ -1027,9 +1159,16 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                                 err(&mut errors, line, ".dc sweep has more than 20000 points".into());
                                 continue;
                             }
-                            analyses.push(Analysis::Dc { src: toks[1].show(), start: v[0], stop: v[1], step: v[2] });
+                            analyses.push(Analysis::Dc {
+                                src: toks[1].show(),
+                                start: v[0],
+                                stop: v[1],
+                                step: v[2],
+                            });
                             if toks.len() > 5 {
-                                warnings.push(format!("line {line}: nested .dc sweeps are not supported; only the first source is swept"));
+                                warnings.push(format!(
+                                    "line {line}: nested .dc sweeps are not supported; only the first source is swept"
+                                ));
                             }
                         }
                         Err(e) => err(&mut errors, line, format!(".dc: {e}")),
@@ -1049,7 +1188,11 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                         }
                     }
                     if nums.len() < 2 {
-                        err(&mut errors, line, ".tran needs `.tran <tstep> <tstop> [tstart [tmax]] [uic]`".into());
+                        err(
+                            &mut errors,
+                            line,
+                            ".tran needs `.tran <tstep> <tstop> [tstart [tmax]] [uic]`".into(),
+                        );
                         continue;
                     }
                     let (tstep, tstop) = (nums[0], nums[1]);
@@ -1058,7 +1201,13 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                         err(&mut errors, line, ".tran: need tstep > 0, tstop > 0 and 0 ≤ tstart < tstop".into());
                         continue;
                     }
-                    analyses.push(Analysis::Tran { tstep, tstop, tstart, tmax: nums.get(3).copied().filter(|v| *v > 0.0), uic });
+                    analyses.push(Analysis::Tran {
+                        tstep,
+                        tstop,
+                        tstart,
+                        tmax: nums.get(3).copied().filter(|v| *v > 0.0),
+                        uic,
+                    });
                 }
                 ".ac" => {
                     if toks.len() < 5 {
@@ -1082,7 +1231,12 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                                 err(&mut errors, line, ".ac: need 0 < fstart ≤ fstop".into());
                                 continue;
                             }
-                            analyses.push(Analysis::Ac { sweep, n, fstart: v[1], fstop: v[2] });
+                            analyses.push(Analysis::Ac {
+                                sweep,
+                                n,
+                                fstart: v[1],
+                                fstop: v[2],
+                            });
                         }
                         Err(e) => err(&mut errors, line, format!(".ac: {e}")),
                     }
@@ -1091,7 +1245,11 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                     // v(node)=value ...
                     let mut i = 1;
                     while i < toks.len() {
-                        let ok = toks[i].word().is_some_and(|w| w.eq_ignore_ascii_case("v")) && toks.get(i + 1) == Some(&Tok::LP) && toks.get(i + 3) == Some(&Tok::RP) && toks.get(i + 4) == Some(&Tok::Eq) && i + 5 < toks.len();
+                        let ok = toks[i].word().is_some_and(|w| w.eq_ignore_ascii_case("v"))
+                            && toks.get(i + 1) == Some(&Tok::LP)
+                            && toks.get(i + 3) == Some(&Tok::RP)
+                            && toks.get(i + 4) == Some(&Tok::Eq)
+                            && i + 5 < toks.len();
                         if !ok {
                             err(&mut errors, line, format!("{lhead}: expected `v(node)=value`"));
                             break;
@@ -1140,10 +1298,16 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                 }
                 ".title" => title = c.text[6..].trim().to_string(),
                 ".subckt" | ".ends" | ".include" | ".inc" | ".lib" => {
-                    err(&mut errors, line, format!("`{head}` is not supported here (flatten sub-circuits, or run the deck in ngspice)"));
+                    err(
+                        &mut errors,
+                        line,
+                        format!("`{head}` is not supported here (flatten sub-circuits, or run the deck in ngspice)"),
+                    );
                 }
                 ".save" | ".print" | ".plot" | ".probe" | ".meas" | ".measure" | ".four" | ".width" | ".global" | ".temp" | ".csparam" => {
-                    warnings.push(format!("line {line}: `{head}` ignored (all node voltages and element currents are saved)"));
+                    warnings.push(format!(
+                        "line {line}: `{head}` ignored (all node voltages and element currents are saved)"
+                    ));
                 }
                 _ => err(&mut errors, line, format!("unknown directive `{head}`")),
             }
@@ -1162,7 +1326,11 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
             'E' | 'G' | 'S' => 4,
             'M' => 4,
             _ => {
-                err(&mut errors, line, format!("element type `{letter}` ({name}) is not supported by this simulator — supported: R C L V I D M E G S"));
+                err(
+                    &mut errors,
+                    line,
+                    format!("element type `{letter}` ({name}) is not supported by this simulator — supported: R C L V I D M E G S"),
+                );
                 continue;
             }
         };
@@ -1238,13 +1406,22 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                 }
                 'V' | 'I' => {
                     let src = parse_source(rest, &mut ptab, &name)?;
-                    Ok(if letter == 'V' { Device::Vsource { src } } else { Device::Isource { src } })
+                    Ok(if letter == 'V' {
+                        Device::Vsource { src }
+                    } else {
+                        Device::Isource { src }
+                    })
                 }
                 'D' => {
                     let mname = rest.first().ok_or_else(|| format!("{name}: missing model name"))?.show();
-                    let rm = models.get(&mname.to_lowercase()).ok_or_else(|| format!("{name}: model `{mname}` is not defined (.model {mname} D(...))"))?;
+                    let rm = models
+                        .get(&mname.to_lowercase())
+                        .ok_or_else(|| format!("{name}: model `{mname}` is not defined (.model {mname} D(...))"))?;
                     if rm.kind != "d" {
-                        return Err(format!("{name}: model `{mname}` is type {}, a diode needs type D", rm.kind.to_uppercase()));
+                        return Err(format!(
+                            "{name}: model `{mname}` is type {}, a diode needs type D",
+                            rm.kind.to_uppercase()
+                        ));
                     }
                     let mut area = 1.0;
                     for t in &rest[1..] {
@@ -1255,13 +1432,22 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                             area = v;
                         }
                     }
-                    Ok(Device::Diode { model: diode_model(rm, &mut warnings), model_name: mname, area })
+                    Ok(Device::Diode {
+                        model: diode_model(rm, &mut warnings),
+                        model_name: mname,
+                        area,
+                    })
                 }
                 'M' => {
                     let mname = rest.first().ok_or_else(|| format!("{name}: missing model name"))?.show();
-                    let rm = models.get(&mname.to_lowercase()).ok_or_else(|| format!("{name}: model `{mname}` is not defined (.model {mname} NMOS(...))"))?;
+                    let rm = models
+                        .get(&mname.to_lowercase())
+                        .ok_or_else(|| format!("{name}: model `{mname}` is not defined (.model {mname} NMOS(...))"))?;
                     if rm.kind != "nmos" && rm.kind != "pmos" {
-                        return Err(format!("{name}: model `{mname}` is type {}, a MOSFET needs NMOS or PMOS", rm.kind.to_uppercase()));
+                        return Err(format!(
+                            "{name}: model `{mname}` is type {}, a MOSFET needs NMOS or PMOS",
+                            rm.kind.to_uppercase()
+                        ));
                     }
                     let (mut w, mut l, mut mult) = (100e-6, 100e-6, 1.0);
                     let mut j = 1;
@@ -1284,30 +1470,57 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
                     if w <= 0.0 || l <= 0.0 {
                         return Err(format!("{name}: W and L must be positive"));
                     }
-                    Ok(Device::Mosfet { model: mos_model(rm, &mut warnings), model_name: mname, w, l, mult })
+                    Ok(Device::Mosfet {
+                        model: mos_model(rm, &mut warnings),
+                        model_name: mname,
+                        w,
+                        l,
+                        mult,
+                    })
                 }
                 'E' | 'G' => {
                     let t = rest.first().ok_or_else(|| format!("{name}: missing gain"))?;
                     if t.is_kw("value") || t.is_kw("poly") || t.is_kw("table") {
-                        return Err(format!("{name}: `{}` forms are not supported; use the linear form `{name} n+ n- nc+ nc- gain`", t.show()));
+                        return Err(format!(
+                            "{name}: `{}` forms are not supported; use the linear form `{name} n+ n- nc+ nc- gain`",
+                            t.show()
+                        ));
                     }
                     let g = ptab.value(t)?;
-                    Ok(if letter == 'E' { Device::Vcvs { gain: g } } else { Device::Vccs { gm: g } })
+                    Ok(if letter == 'E' {
+                        Device::Vcvs { gain: g }
+                    } else {
+                        Device::Vccs { gm: g }
+                    })
                 }
                 'S' => {
                     let mname = rest.first().ok_or_else(|| format!("{name}: missing model name"))?.show();
-                    let rm = models.get(&mname.to_lowercase()).ok_or_else(|| format!("{name}: model `{mname}` is not defined (.model {mname} SW(RON=1 ROFF=1meg VT=0.5))"))?;
+                    let rm = models
+                        .get(&mname.to_lowercase())
+                        .ok_or_else(|| format!("{name}: model `{mname}` is not defined (.model {mname} SW(RON=1 ROFF=1meg VT=0.5))"))?;
                     if rm.kind != "sw" {
-                        return Err(format!("{name}: model `{mname}` is type {}, a switch needs type SW", rm.kind.to_uppercase()));
+                        return Err(format!(
+                            "{name}: model `{mname}` is type {}, a switch needs type SW",
+                            rm.kind.to_uppercase()
+                        ));
                     }
                     let on = rest.get(1).is_some_and(|t| t.is_kw("on"));
-                    Ok(Device::Switch { model: sw_model(rm, &mut warnings), model_name: mname, on })
+                    Ok(Device::Switch {
+                        model: sw_model(rm, &mut warnings),
+                        model_name: mname,
+                        on,
+                    })
                 }
                 _ => unreachable!(),
             }
         })();
         match dev {
-            Ok(dev) => elements.push(Element { name, nodes: nidx, dev, line }),
+            Ok(dev) => elements.push(Element {
+                name,
+                nodes: nidx,
+                dev,
+                line,
+            }),
             Err(e) => err(&mut errors, line, e),
         }
     }
@@ -1316,9 +1529,15 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
         let mut out = Vec::new();
         for (n, v, line) in list {
             match nodes.iter().position(|x| *x == canon_node(&n)) {
-                Some(0) => errors.push(ParseError { line, message: "cannot set an initial condition on ground".into() }),
+                Some(0) => errors.push(ParseError {
+                    line,
+                    message: "cannot set an initial condition on ground".into(),
+                }),
                 Some(i) => out.push((i, v)),
-                None => errors.push(ParseError { line, message: format!("unknown node `{n}`") }),
+                None => errors.push(ParseError {
+                    line,
+                    message: format!("unknown node `{n}`"),
+                }),
             }
         }
         out
@@ -1329,7 +1548,9 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
     // ---- 4. sanity checks ----------------------------------------------------
     for (mname, m) in &models {
         if !elements.iter().any(|e| match &e.dev {
-            Device::Diode { model_name, .. } | Device::Mosfet { model_name, .. } | Device::Switch { model_name, .. } => model_name.eq_ignore_ascii_case(mname),
+            Device::Diode { model_name, .. } | Device::Mosfet { model_name, .. } | Device::Switch { model_name, .. } => {
+                model_name.eq_ignore_ascii_case(mname)
+            }
             _ => false,
         }) {
             warnings.push(format!("line {}: model `{mname}` is never used", m.line));
@@ -1337,24 +1558,39 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
     }
     for a in &analyses {
         if let Analysis::Dc { src, .. } = a {
-            let ok = elements.iter().any(|e| e.name.eq_ignore_ascii_case(src) && matches!(e.dev, Device::Vsource { .. } | Device::Isource { .. }));
+            let ok = elements
+                .iter()
+                .any(|e| e.name.eq_ignore_ascii_case(src) && matches!(e.dev, Device::Vsource { .. } | Device::Isource { .. }));
             if !ok {
-                errors.push(ParseError { line: 0, message: format!(".dc: `{src}` is not an independent V or I source") });
+                errors.push(ParseError {
+                    line: 0,
+                    message: format!(".dc: `{src}` is not an independent V or I source"),
+                });
             }
         }
     }
     if errors.is_empty() {
         if elements.is_empty() {
-            errors.push(ParseError { line: 0, message: "the netlist has no elements (remember: line 1 is always the title)".into() });
+            errors.push(ParseError {
+                line: 0,
+                message: "the netlist has no elements (remember: line 1 is always the title)".into(),
+            });
         } else if !elements.iter().any(|e| e.nodes.contains(&0)) {
-            errors.push(ParseError { line: 0, message: "no element connects to ground (node 0 or gnd)".into() });
+            errors.push(ParseError {
+                line: 0,
+                message: "no element connects to ground (node 0 or gnd)".into(),
+            });
         }
     }
     // dangling nodes
     if errors.is_empty() {
         let mut count = vec![0usize; nodes.len()];
         for e in &elements {
-            let used: &[usize] = if matches!(e.dev, Device::Vcvs { .. } | Device::Vccs { .. } | Device::Switch { .. }) { &e.nodes[..2] } else { &e.nodes };
+            let used: &[usize] = if matches!(e.dev, Device::Vcvs { .. } | Device::Vccs { .. } | Device::Switch { .. }) {
+                &e.nodes[..2]
+            } else {
+                &e.nodes
+            };
             for &n in used {
                 count[n] += 1;
             }
@@ -1376,7 +1612,17 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
     }
 
     if errors.is_empty() {
-        Ok(Netlist { title, nodes, elements, analyses, ics, nodesets, params, options, warnings })
+        Ok(Netlist {
+            title,
+            nodes,
+            elements,
+            analyses,
+            ics,
+            nodesets,
+            params,
+            options,
+            warnings,
+        })
     } else {
         errors.sort_by_key(|e| e.line);
         Err(errors)
@@ -1384,7 +1630,12 @@ pub fn parse(text: &str, overrides: &BTreeMap<String, f64>) -> Result<Netlist, V
 }
 
 fn parse_source(rest: &[Tok], ptab: &mut ParamTable, name: &str) -> Result<Source, String> {
-    let mut src = Source { dc: 0.0, ac_mag: 0.0, ac_phase_deg: 0.0, wave: Wave::None };
+    let mut src = Source {
+        dc: 0.0,
+        ac_mag: 0.0,
+        ac_phase_deg: 0.0,
+        wave: Wave::None,
+    };
     let mut dc_set = false;
     let mut j = 0;
     while j < rest.len() {
@@ -1404,7 +1655,11 @@ fn parse_source(rest: &[Tok], ptab: &mut ParamTable, name: &str) -> Result<Sourc
                     j += 1;
                 }
             }
-        } else if let Some(w) = t.word().map(|w| w.to_lowercase()).filter(|w| ["pulse", "sin", "pwl", "exp"].contains(&w.as_str())) {
+        } else if let Some(w) = t
+            .word()
+            .map(|w| w.to_lowercase())
+            .filter(|w| ["pulse", "sin", "pwl", "exp"].contains(&w.as_str()))
+        {
             j += 1;
             let mut vals = Vec::new();
             let paren = rest.get(j) == Some(&Tok::LP);
@@ -1419,7 +1674,10 @@ fn parse_source(rest: &[Tok], ptab: &mut ParamTable, name: &str) -> Result<Sourc
                 if !paren && rest[j].word().is_some_and(|w| ["dc", "ac"].contains(&w.to_lowercase().as_str())) {
                     break;
                 }
-                vals.push(ptab.value(&rest[j]).map_err(|e| format!("{name}: {} argument: {e}", w.to_uppercase()))?);
+                vals.push(
+                    ptab.value(&rest[j])
+                        .map_err(|e| format!("{name}: {} argument: {e}", w.to_uppercase()))?,
+                );
                 j += 1;
             }
             let g = |i: usize| vals.get(i).copied();
@@ -1428,19 +1686,41 @@ fn parse_source(rest: &[Tok], ptab: &mut ParamTable, name: &str) -> Result<Sourc
                     if vals.len() < 2 {
                         return Err(format!("{name}: PULSE needs at least v1 and v2"));
                     }
-                    Wave::Pulse { v1: vals[0], v2: vals[1], td: g(2).unwrap_or(0.0), tr: g(3).filter(|v| *v > 0.0), tf: g(4).filter(|v| *v > 0.0), pw: g(5), per: g(6).filter(|v| *v > 0.0) }
+                    Wave::Pulse {
+                        v1: vals[0],
+                        v2: vals[1],
+                        td: g(2).unwrap_or(0.0),
+                        tr: g(3).filter(|v| *v > 0.0),
+                        tf: g(4).filter(|v| *v > 0.0),
+                        pw: g(5),
+                        per: g(6).filter(|v| *v > 0.0),
+                    }
                 }
                 "sin" => {
                     if vals.len() < 2 {
                         return Err(format!("{name}: SIN needs at least vo and va"));
                     }
-                    Wave::Sin { vo: vals[0], va: vals[1], freq: g(2).filter(|v| *v > 0.0), td: g(3).unwrap_or(0.0), theta: g(4).unwrap_or(0.0), phase_deg: g(5).unwrap_or(0.0) }
+                    Wave::Sin {
+                        vo: vals[0],
+                        va: vals[1],
+                        freq: g(2).filter(|v| *v > 0.0),
+                        td: g(3).unwrap_or(0.0),
+                        theta: g(4).unwrap_or(0.0),
+                        phase_deg: g(5).unwrap_or(0.0),
+                    }
                 }
                 "exp" => {
                     if vals.len() < 2 {
                         return Err(format!("{name}: EXP needs at least v1 and v2"));
                     }
-                    Wave::Exp { v1: vals[0], v2: vals[1], td1: g(2).unwrap_or(0.0), tau1: g(3).filter(|v| *v > 0.0), td2: g(4), tau2: g(5).filter(|v| *v > 0.0) }
+                    Wave::Exp {
+                        v1: vals[0],
+                        v2: vals[1],
+                        td1: g(2).unwrap_or(0.0),
+                        tau1: g(3).filter(|v| *v > 0.0),
+                        td2: g(4),
+                        tau2: g(5).filter(|v| *v > 0.0),
+                    }
                 }
                 _ => {
                     if vals.len() < 2 || vals.len() % 2 != 0 {
@@ -1500,7 +1780,10 @@ fn diode_model(rm: &RawModel, warnings: &mut Vec<String>) -> DiodeModel {
 }
 
 fn mos_model(rm: &RawModel, warnings: &mut Vec<String>) -> MosModel {
-    let mut m = MosModel { pmos: rm.kind == "pmos", ..Default::default() };
+    let mut m = MosModel {
+        pmos: rm.kind == "pmos",
+        ..Default::default()
+    };
     let (mut uo, mut tox, mut kp_set) = (600.0, 0.0, false);
     for (k, v) in &rm.params {
         match k.as_str() {
@@ -1520,7 +1803,10 @@ fn mos_model(rm: &RawModel, warnings: &mut Vec<String>) -> MosModel {
             "tox" => tox = *v,
             "level" => {
                 if (*v - 1.0).abs() > 1e-9 {
-                    warnings.push(format!("line {}: only MOSFET LEVEL=1 is implemented; simulating as level 1", rm.line));
+                    warnings.push(format!(
+                        "line {}: only MOSFET LEVEL=1 is implemented; simulating as level 1",
+                        rm.line
+                    ));
                 }
             }
             _ => warnings.push(format!("line {}: MOSFET model parameter `{k}` ignored", rm.line)),

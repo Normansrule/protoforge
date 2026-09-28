@@ -347,14 +347,25 @@ pub const SILK_W: f64 = 0.15;
 
 pub fn silkscreen(l: &Layout, title: &str) -> Silk {
     let keep = 0.15 + SILK_W / 2.0; // silk-to-pad clearance
-    let pads: Vec<Shape> = l.pads.iter().filter(|p| p.top).map(|p| p.shape_geom()).chain(l.vias.iter().map(|v| v.shape())).collect();
+    let pads: Vec<Shape> = l
+        .pads
+        .iter()
+        .filter(|p| p.top)
+        .map(|p| p.shape_geom())
+        .chain(l.vias.iter().map(|v| v.shape()))
+        .collect();
     let clear_of_pads = |x: f64, y: f64| pads.iter().all(|s| s.dist_point(x, y) >= keep);
     let mut silk = Silk::default();
     let edge = 0.2;
     let inside = |x: f64, y: f64| x > edge && y > edge && x < l.board.width - edge && y < l.board.height - edge;
     for part in l.parts.iter().filter(|p| !p.feature && p.side == "top") {
         let b = part.body;
-        let edges = [(b[0], b[1], b[2], b[1]), (b[2], b[1], b[2], b[3]), (b[2], b[3], b[0], b[3]), (b[0], b[3], b[0], b[1])];
+        let edges = [
+            (b[0], b[1], b[2], b[1]),
+            (b[2], b[1], b[2], b[3]),
+            (b[2], b[3], b[0], b[3]),
+            (b[0], b[3], b[0], b[1]),
+        ];
         for (x0, y0, x1, y1) in edges {
             let len = (x1 - x0).hypot(y1 - y0);
             let n = (len / 0.05).ceil().max(1.0) as usize;
@@ -404,11 +415,21 @@ pub fn silkscreen(l: &Layout, title: &str) -> Silk {
             if boxes.iter().any(hits_box) || used.iter().any(hits_box) {
                 continue;
             }
-            let sh = Shape::Rect { cx: (bb[0] + bb[2]) / 2.0, cy: (bb[1] + bb[3]) / 2.0, hw: (bb[2] - bb[0]) / 2.0, hh: (bb[3] - bb[1]) / 2.0 };
+            let sh = Shape::Rect {
+                cx: (bb[0] + bb[2]) / 2.0,
+                cy: (bb[1] + bb[3]) / 2.0,
+                hw: (bb[2] - bb[0]) / 2.0,
+                hh: (bb[3] - bb[1]) / 2.0,
+            };
             if pads.iter().any(|p| p.dist(&sh) < keep) {
                 continue;
             }
-            silk.labels.push(SilkLabel { text: text.into(), x, y, h });
+            silk.labels.push(SilkLabel {
+                text: text.into(),
+                x,
+                y,
+                h,
+            });
             used.push(bb);
             return true;
         }
@@ -419,7 +440,12 @@ pub fn silkscreen(l: &Layout, title: &str) -> Silk {
         let c = part.courtyard;
         let tw = text_width(&part.refdes, h);
         let mid = (c[0] + c[2]) / 2.0 - tw / 2.0;
-        let cands = vec![(mid, c[3] + 0.15), (mid, c[1] - h - 0.15), (c[2] + 0.15, (c[1] + c[3]) / 2.0 - h / 2.0), (c[0] - tw - 0.15, (c[1] + c[3]) / 2.0 - h / 2.0)];
+        let cands = vec![
+            (mid, c[3] + 0.15),
+            (mid, c[1] - h - 0.15),
+            (c[2] + 0.15, (c[1] + c[3]) / 2.0 - h / 2.0),
+            (c[0] - tw - 0.15, (c[1] + c[3]) / 2.0 - h / 2.0),
+        ];
         place_text(&part.refdes, h, cands, &mut silk, &mut used);
     }
     let mut cands = Vec::new();
@@ -472,7 +498,11 @@ pub fn excellon(holes: &[(f64, f64, f64)], plated: bool, project: &str) -> Strin
     let mut s = String::new();
     s += "M48\n";
     s += &format!("; DRILL file — Protoforge PCB Studio — {project}\n");
-    s += &format!("; #@! TF.FileFunction,{},1,2,{}\n", if plated { "Plated" } else { "NonPlated" }, if plated { "PTH" } else { "NPTH" });
+    s += &format!(
+        "; #@! TF.FileFunction,{},1,2,{}\n",
+        if plated { "Plated" } else { "NonPlated" },
+        if plated { "PTH" } else { "NPTH" }
+    );
     s += "; FORMAT={-:-/ absolute / metric / decimal}\n";
     s += "FMAT,2\nMETRIC\n";
     for (i, t) in tools.iter().enumerate() {
@@ -496,7 +526,19 @@ pub fn excellon(holes: &[(f64, f64, f64)], plated: bool, project: &str) -> Strin
 /// Short value string for the BOM "Comment" column (e.g. "100nF", "4.7kΩ").
 pub fn bom_value(c: &Component) -> String {
     let words: Vec<&str> = c.name.split_whitespace().collect();
-    let units = [("pF", "pF"), ("nF", "nF"), ("uF", "uF"), ("µF", "uF"), ("nH", "nH"), ("uH", "uH"), ("µH", "uH"), ("k", "kΩ"), ("M", "MΩ"), ("R", "Ω"), ("Ω", "Ω")];
+    let units = [
+        ("pF", "pF"),
+        ("nF", "nF"),
+        ("uF", "uF"),
+        ("µF", "uF"),
+        ("nH", "nH"),
+        ("uH", "uH"),
+        ("µH", "uH"),
+        ("k", "kΩ"),
+        ("M", "MΩ"),
+        ("R", "Ω"),
+        ("Ω", "Ω"),
+    ];
     let passive = c.refdes.starts_with('R') || c.refdes.starts_with('C') || c.refdes.starts_with('L');
     if passive {
         for w in words.windows(2) {
@@ -547,14 +589,27 @@ pub fn cpl_csv(l: &Layout) -> String {
     let mut parts: Vec<_> = l.parts.iter().filter(|p| !p.feature).collect();
     parts.sort_by_key(|p| natural_key(&p.refdes));
     for p in parts {
-        s += &format!("{},{:.3}mm,{:.3}mm,{},{}\n", p.refdes, p.x, p.y, if p.side == "bottom" { "Bottom" } else { "Top" }, p.rot.round() as i64);
+        s += &format!(
+            "{},{:.3}mm,{:.3}mm,{},{}\n",
+            p.refdes,
+            p.x,
+            p.y,
+            if p.side == "bottom" { "Bottom" } else { "Top" },
+            p.rot.round() as i64
+        );
     }
     s
 }
 
 fn readme(p: &Project, l: &Layout, name: &str) -> String {
     let r = &l.rules;
-    let min_drill = l.vias.iter().map(|v| v.drill).chain(l.pads.iter().filter(|p| p.drill > 0.0).map(|p| p.drill)).chain(l.holes.iter().map(|h| h.d)).fold(f64::INFINITY, f64::min);
+    let min_drill = l
+        .vias
+        .iter()
+        .map(|v| v.drill)
+        .chain(l.pads.iter().filter(|p| p.drill > 0.0).map(|p| p.drill))
+        .chain(l.holes.iter().map(|h| h.d))
+        .fold(f64::INFINITY, f64::min);
     let s = &l.stats;
     let mut t = String::new();
     t += &format!("# {} — main board fabrication notes\n\n", p.meta.name);
@@ -564,17 +619,30 @@ fn readme(p: &Project, l: &Layout, name: &str) -> String {
     t += &format!("| Layers | {} (F.Cu signals, B.Cu signals + GND pour) |\n", l.board.layers);
     t += &format!("| Thickness | {:.2} mm FR-4 |\n", l.board.thickness);
     t += "| Copper | 1 oz (35 µm) outer layers |\n";
-    t += "| Surface finish | ENIG recommended (0.4 mm-pitch QFN and LGA parts need flat pads); lead-free HASL acceptable for prototypes |\n";
+    t +=
+        "| Surface finish | ENIG recommended (0.4 mm-pitch QFN and LGA parts need flat pads); lead-free HASL acceptable for prototypes |\n";
     t += "| Solder mask | both sides, any colour; vias tented |\n| Silkscreen | top |\n";
     t += &format!("| Min trace / space used | {:.3} mm / {:.3} mm |\n", r.trace_mm, r.clearance_mm);
-    t += &format!("| Via | {:.2} mm drill / {:.2} mm pad ({} vias) |\n", r.via_drill_mm, r.via_pad_mm, s.via_count);
-    t += &format!("| Smallest drill | {:.2} mm |\n", if min_drill.is_finite() { min_drill } else { 0.0 });
+    t += &format!(
+        "| Via | {:.2} mm drill / {:.2} mm pad ({} vias) |\n",
+        r.via_drill_mm, r.via_pad_mm, s.via_count
+    );
+    t += &format!(
+        "| Smallest drill | {:.2} mm |\n",
+        if min_drill.is_finite() { min_drill } else { 0.0 }
+    );
     t += &format!("| Copper-to-edge | ≥ {:.2} mm |\n\n", r.edge_clearance_mm);
     t += "## Files\n\n| File | Content |\n|---|---|\n";
     for (f, d) in [
         ("-F_Cu.gbr", "Top copper (pads, tracks, vias)"),
-        ("-B_Cu.gbr", "Bottom copper (GND pour as G36/G37 regions, tracks, test pads, touch electrode)"),
-        ("-F_Mask.gbr / -B_Mask.gbr", "Solder-mask openings (negative polarity, +0.05 mm expansion)"),
+        (
+            "-B_Cu.gbr",
+            "Bottom copper (GND pour as G36/G37 regions, tracks, test pads, touch electrode)",
+        ),
+        (
+            "-F_Mask.gbr / -B_Mask.gbr",
+            "Solder-mask openings (negative polarity, +0.05 mm expansion)",
+        ),
         ("-F_Paste.gbr", "Stencil apertures (thermal pads windowed)"),
         ("-F_Silkscreen.gbr", "Legend"),
         ("-Edge_Cuts.gbr", "Board outline"),
@@ -585,9 +653,15 @@ fn readme(p: &Project, l: &Layout, name: &str) -> String {
     t += "\n## Assembly (PCBA)\n\n";
     t += &format!("* `{name}-BOM.csv` — columns `Comment,Designator,Footprint,LCSC Part #`. **The part-number column is intentionally empty:** choose parts in the distributor's catalogue that match value, voltage rating, tolerance and package.\n");
     t += &format!("* `{name}-CPL.csv` — `Designator,Mid X,Mid Y,Layer,Rotation` (mm from the bottom-left board corner). Rotation zero-orientations differ between CAD libraries and assembly houses: check every part in the vendor's placement preview and correct rotations there.\n");
-    t += &format!("* {} SMD joints, {} through-hole joints, {} unique BOM lines, all parts on the top side.\n\n", s.smd_joints, s.tht_joints, s.unique_parts);
+    t += &format!(
+        "* {} SMD joints, {} through-hole joints, {} unique BOM lines, all parts on the top side.\n\n",
+        s.smd_joints, s.tht_joints, s.unique_parts
+    );
     t += "## Verification snapshot\n\n";
-    t += &format!("* Routed: {}/{} connections ({:.1} %)\n* DRC violations: {}\n* Track length: {:.1} mm, vias: {}\n\n", s.routed, s.connections, s.routed_pct, s.drc_violations, s.track_length_mm, s.via_count);
+    t += &format!(
+        "* Routed: {}/{} connections ({:.1} %)\n* DRC violations: {}\n* Track length: {:.1} mm, vias: {}\n\n",
+        s.routed, s.connections, s.routed_pct, s.drc_violations, s.track_length_mm, s.via_count
+    );
     t += "## Engineering notes\n\n";
     for n in &l.notes {
         t += &format!("* {n}\n");
@@ -605,19 +679,46 @@ fn assembly_svg(l: &Layout, title: &str) -> String {
     let ty = |y: f64| pad + 24.0 + (h - y) * s;
     let mut o = format!("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{vw:.0}\" height=\"{vh:.0}\" viewBox=\"0 0 {vw:.0} {vh:.0}\" font-family=\"Helvetica, Arial, sans-serif\">\n");
     o += &format!("<rect width=\"100%\" height=\"100%\" fill=\"#ffffff\"/>\n<text x=\"{pad}\" y=\"16\" font-size=\"13\" font-weight=\"700\">{} — top assembly drawing (mm)</text>\n", xml(title));
-    o += &format!("<rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"#e9f2ea\" stroke=\"#222\" stroke-width=\"1\"/>\n", tx(0.0), ty(h), w * s, h * s);
+    o += &format!(
+        "<rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"#e9f2ea\" stroke=\"#222\" stroke-width=\"1\"/>\n",
+        tx(0.0),
+        ty(h),
+        w * s,
+        h * s
+    );
     for p in l.pads.iter().filter(|p| p.top) {
         let (x0, y1) = (tx(p.x - p.w / 2.0), ty(p.y + p.h / 2.0));
         if p.shape == PadShape::Circle {
-            o += &format!("<circle cx=\"{:.1}\" cy=\"{:.1}\" r=\"{:.1}\" fill=\"#c8a36a\"/>\n", tx(p.x), ty(p.y), p.w / 2.0 * s);
+            o += &format!(
+                "<circle cx=\"{:.1}\" cy=\"{:.1}\" r=\"{:.1}\" fill=\"#c8a36a\"/>\n",
+                tx(p.x),
+                ty(p.y),
+                p.w / 2.0 * s
+            );
         } else {
-            o += &format!("<rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"#c8a36a\"/>\n", x0, y1, p.w * s, p.h * s);
+            o += &format!(
+                "<rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"#c8a36a\"/>\n",
+                x0,
+                y1,
+                p.w * s,
+                p.h * s
+            );
         }
     }
     for part in l.parts.iter().filter(|p| !p.feature) {
         let b = part.body;
-        o += &format!("<rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"none\" stroke=\"#333\" stroke-width=\"0.8\"/>\n", tx(b[0]), ty(b[3]), (b[2] - b[0]) * s, (b[3] - b[1]) * s);
-        o += &format!("<circle cx=\"{:.1}\" cy=\"{:.1}\" r=\"1.6\" fill=\"#d0302f\"/>\n", tx(part.pin1[0]), ty(part.pin1[1]));
+        o += &format!(
+            "<rect x=\"{:.1}\" y=\"{:.1}\" width=\"{:.1}\" height=\"{:.1}\" fill=\"none\" stroke=\"#333\" stroke-width=\"0.8\"/>\n",
+            tx(b[0]),
+            ty(b[3]),
+            (b[2] - b[0]) * s,
+            (b[3] - b[1]) * s
+        );
+        o += &format!(
+            "<circle cx=\"{:.1}\" cy=\"{:.1}\" r=\"1.6\" fill=\"#d0302f\"/>\n",
+            tx(part.pin1[0]),
+            ty(part.pin1[1])
+        );
         let fs = ((b[2] - b[0]).min(b[3] - b[1]) * s * 0.45).clamp(6.0, 11.0);
         o += &format!("<text x=\"{:.1}\" y=\"{:.1}\" font-size=\"{fs:.1}\" text-anchor=\"middle\" dominant-baseline=\"central\" fill=\"#0b3d91\" font-weight=\"700\">{}</text>\n", tx(part.x), ty(part.y), xml(&part.refdes));
     }
@@ -632,7 +733,10 @@ fn xml(s: &str) -> String {
 /// Base name used for the fab files.
 pub fn base_name(p: &Project) -> String {
     let n = if p.meta.codename.is_empty() { &p.meta.id } else { &p.meta.codename };
-    let s: String = n.chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' }).collect();
+    let s: String = n
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
+        .collect();
     if s.is_empty() {
         "board".into()
     } else {
@@ -644,40 +748,112 @@ pub fn base_name(p: &Project) -> String {
 pub fn fab_files(p: &Project, l: &Layout) -> Vec<FabFile> {
     let name = base_name(p);
     let proj = gerber_escape(&p.meta.name);
-    let title = format!("{} {}", p.meta.name.to_uppercase(), if p.meta.version.is_empty() { "v0.1".to_string() } else { format!("v{}", p.meta.version) });
+    let title = format!(
+        "{} {}",
+        p.meta.name.to_uppercase(),
+        if p.meta.version.is_empty() {
+            "v0.1".to_string()
+        } else {
+            format!("v{}", p.meta.version)
+        }
+    );
     let silk = silkscreen(l, &title);
     let mut pth: Vec<(f64, f64, f64)> = l.vias.iter().map(|v| (v.x, v.y, v.drill)).collect();
     pth.extend(l.pads.iter().filter(|p| p.drill > 0.0).map(|p| (p.x, p.y, p.drill)));
     let npth: Vec<(f64, f64, f64)> = l.holes.iter().map(|h| (h.x, h.y, h.d)).collect();
     let dir = "gerbers";
     let mut files = vec![
-        FabFile { path: format!("{dir}/{name}-F_Cu.gbr"), content: copper_layer(l, &proj, false), kind: "F_Cu".into() },
-        FabFile { path: format!("{dir}/{name}-B_Cu.gbr"), content: copper_layer(l, &proj, true), kind: "B_Cu".into() },
-        FabFile { path: format!("{dir}/{name}-F_Mask.gbr"), content: mask_layer(l, &proj, false), kind: "F_Mask".into() },
-        FabFile { path: format!("{dir}/{name}-B_Mask.gbr"), content: mask_layer(l, &proj, true), kind: "B_Mask".into() },
-        FabFile { path: format!("{dir}/{name}-F_Paste.gbr"), content: paste_layer(l, &proj), kind: "F_Paste".into() },
-        FabFile { path: format!("{dir}/{name}-F_Silkscreen.gbr"), content: silk_layer(&proj, &silk), kind: "F_Silkscreen".into() },
-        FabFile { path: format!("{dir}/{name}-Edge_Cuts.gbr"), content: edge_layer(l, &proj), kind: "Edge_Cuts".into() },
-        FabFile { path: format!("{dir}/{name}-PTH.drl"), content: excellon(&pth, true, &proj), kind: "Drill_PTH".into() },
+        FabFile {
+            path: format!("{dir}/{name}-F_Cu.gbr"),
+            content: copper_layer(l, &proj, false),
+            kind: "F_Cu".into(),
+        },
+        FabFile {
+            path: format!("{dir}/{name}-B_Cu.gbr"),
+            content: copper_layer(l, &proj, true),
+            kind: "B_Cu".into(),
+        },
+        FabFile {
+            path: format!("{dir}/{name}-F_Mask.gbr"),
+            content: mask_layer(l, &proj, false),
+            kind: "F_Mask".into(),
+        },
+        FabFile {
+            path: format!("{dir}/{name}-B_Mask.gbr"),
+            content: mask_layer(l, &proj, true),
+            kind: "B_Mask".into(),
+        },
+        FabFile {
+            path: format!("{dir}/{name}-F_Paste.gbr"),
+            content: paste_layer(l, &proj),
+            kind: "F_Paste".into(),
+        },
+        FabFile {
+            path: format!("{dir}/{name}-F_Silkscreen.gbr"),
+            content: silk_layer(&proj, &silk),
+            kind: "F_Silkscreen".into(),
+        },
+        FabFile {
+            path: format!("{dir}/{name}-Edge_Cuts.gbr"),
+            content: edge_layer(l, &proj),
+            kind: "Edge_Cuts".into(),
+        },
+        FabFile {
+            path: format!("{dir}/{name}-PTH.drl"),
+            content: excellon(&pth, true, &proj),
+            kind: "Drill_PTH".into(),
+        },
     ];
     if !npth.is_empty() {
-        files.push(FabFile { path: format!("{dir}/{name}-NPTH.drl"), content: excellon(&npth, false, &proj), kind: "Drill_NPTH".into() });
+        files.push(FabFile {
+            path: format!("{dir}/{name}-NPTH.drl"),
+            content: excellon(&npth, false, &proj),
+            kind: "Drill_NPTH".into(),
+        });
     }
-    files.push(FabFile { path: format!("assembly/{name}-BOM.csv"), content: bom_csv(p), kind: "BOM".into() });
-    files.push(FabFile { path: format!("assembly/{name}-CPL.csv"), content: cpl_csv(l), kind: "CPL".into() });
-    files.push(FabFile { path: format!("assembly/{name}-assembly-top.svg"), content: assembly_svg(l, &title), kind: "Assembly".into() });
+    files.push(FabFile {
+        path: format!("assembly/{name}-BOM.csv"),
+        content: bom_csv(p),
+        kind: "BOM".into(),
+    });
+    files.push(FabFile {
+        path: format!("assembly/{name}-CPL.csv"),
+        content: cpl_csv(l),
+        kind: "CPL".into(),
+    });
+    files.push(FabFile {
+        path: format!("assembly/{name}-assembly-top.svg"),
+        content: assembly_svg(l, &title),
+        kind: "Assembly".into(),
+    });
     let mut nl = String::from("Net,Class,Pins\n");
     for n in &l.nets {
         nl += &format!("{},{:?},{}\n", csv(&n.name), n.class, csv(&n.pins.join(" ")));
     }
-    files.push(FabFile { path: format!("assembly/{name}-netlist.csv"), content: nl, kind: "Netlist".into() });
-    files.push(FabFile { path: format!("{name}-FAB-README.md"), content: readme(p, l, &name), kind: "README".into() });
+    files.push(FabFile {
+        path: format!("assembly/{name}-netlist.csv"),
+        content: nl,
+        kind: "Netlist".into(),
+    });
+    files.push(FabFile {
+        path: format!("{name}-FAB-README.md"),
+        content: readme(p, l, &name),
+        kind: "README".into(),
+    });
     files
 }
 
 /// Silkscreen geometry for the web viewer.
 pub fn silk_for(p: &Project, l: &Layout) -> Silk {
-    let title = format!("{} {}", p.meta.name.to_uppercase(), if p.meta.version.is_empty() { "v0.1".to_string() } else { format!("v{}", p.meta.version) });
+    let title = format!(
+        "{} {}",
+        p.meta.name.to_uppercase(),
+        if p.meta.version.is_empty() {
+            "v0.1".to_string()
+        } else {
+            format!("v{}", p.meta.version)
+        }
+    );
     silkscreen(l, &title)
 }
 
@@ -737,7 +913,13 @@ pub fn parse_gerber(src: &str) -> Result<GerberStats, String> {
                 }
                 defined.push(d);
                 st.apertures += 1;
-            } else if !(cmd.starts_with("TF.") || cmd.starts_with("TA.") || cmd.starts_with("TO.") || cmd.starts_with("TD") || cmd == "LPD" || cmd == "LPC") {
+            } else if !(cmd.starts_with("TF.")
+                || cmd.starts_with("TA.")
+                || cmd.starts_with("TO.")
+                || cmd.starts_with("TD")
+                || cmd == "LPD"
+                || cmd == "LPC")
+            {
                 return Err(format!("unknown extended command {cmd}"));
             }
             i = end + 1;

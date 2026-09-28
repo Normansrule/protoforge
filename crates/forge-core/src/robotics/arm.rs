@@ -31,7 +31,14 @@ pub struct Arm2 {
 
 impl Default for Arm2 {
     fn default() -> Self {
-        Arm2 { l1: 1.0, l2: 0.7, q1_min: -170.0, q1_max: 170.0, q2_min: -150.0, q2_max: 150.0 }
+        Arm2 {
+            l1: 1.0,
+            l2: 0.7,
+            q1_min: -170.0,
+            q1_max: 170.0,
+            q2_min: -150.0,
+            q2_max: 150.0,
+        }
     }
 }
 
@@ -64,7 +71,10 @@ impl Arm2 {
     pub fn jacobian(&self, q1: f64, q2: f64) -> [[f64; 2]; 2] {
         let (s1, c1) = q1.sin_cos();
         let (s12, c12) = (q1 + q2).sin_cos();
-        [[-self.l1 * s1 - self.l2 * s12, -self.l2 * s12], [self.l1 * c1 + self.l2 * c12, self.l2 * c12]]
+        [
+            [-self.l1 * s1 - self.l2 * s12, -self.l2 * s12],
+            [self.l1 * c1 + self.l2 * c12, self.l2 * c12],
+        ]
     }
 
     pub fn manipulability(&self, q2: f64) -> f64 {
@@ -96,7 +106,11 @@ pub fn ellipse(j: &[[f64; 2]; 2]) -> Ellipse {
     let l1 = tr / 2.0 + disc;
     let l2 = (tr / 2.0 - disc).max(0.0);
     let angle = 0.5 * (2.0 * m01).atan2(m00 - m11);
-    Ellipse { a: l1.sqrt(), b: l2.sqrt(), angle_deg: angle.to_degrees() }
+    Ellipse {
+        a: l1.sqrt(),
+        b: l2.sqrt(),
+        angle_deg: angle.to_degrees(),
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -147,7 +161,13 @@ pub fn query(arm: &Arm2, x: f64, y: f64, elbow_up: bool) -> ArmQuery {
     let r = (x * x + y * y).sqrt();
     let r_min = (arm.l1 - arm.l2).abs();
     let r_max = arm.l1 + arm.l2;
-    let mut out = ArmQuery { r_min, r_max, distance: r, max_manipulability: arm.l1 * arm.l2, ..Default::default() };
+    let mut out = ArmQuery {
+        r_min,
+        r_max,
+        distance: r,
+        max_manipulability: arm.l1 * arm.l2,
+        ..Default::default()
+    };
     if let (Some(a), Some(b)) = (arm.ik(x, y, elbow_up), arm.ik(x, y, !elbow_up)) {
         out.reachable = true;
         out.solution = Some(solution(arm, a, elbow_up));

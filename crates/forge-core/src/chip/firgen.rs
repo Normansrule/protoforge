@@ -88,7 +88,18 @@ pub struct FirGenOptions {
 
 impl Default for FirGenOptions {
     fn default() -> Self {
-        FirGenOptions { arch: Arch::Mac, adder: AdderKind::Ripple, pipeline: false, coeff_bits: 12, data_bits: 16, decim: 2, gate_delay_ns: 0.25, clock_mhz: 50.0, module_name: "iris_fir".into(), test_len: 160 }
+        FirGenOptions {
+            arch: Arch::Mac,
+            adder: AdderKind::Ripple,
+            pipeline: false,
+            coeff_bits: 12,
+            data_bits: 16,
+            decim: 2,
+            gate_delay_ns: 0.25,
+            clock_mhz: 50.0,
+            module_name: "iris_fir".into(),
+            test_len: 160,
+        }
     }
 }
 
@@ -202,7 +213,14 @@ pub fn model_transposed(codes: &[i64], x: &[i64], frac: u32, d: u32, decim: u32)
     let n = codes.len();
     let half = if frac > 0 { 1i64 << (frac - 1) } else { 0 };
     let digits: Vec<Vec<i8>> = codes.iter().map(|&c| csd(c)).collect();
-    let mult = |k: usize, xv: i64| -> i64 { digits[k].iter().enumerate().filter(|(_, &dg)| dg != 0).map(|(s, &dg)| (dg as i64) * (xv << s)).sum() };
+    let mult = |k: usize, xv: i64| -> i64 {
+        digits[k]
+            .iter()
+            .enumerate()
+            .filter(|(_, &dg)| dg != 0)
+            .map(|(s, &dg)| (dg as i64) * (xv << s))
+            .sum()
+    };
     // the delay line resets to the rounding constant so every output carries it
     let mut z = vec![half; n.saturating_sub(1)];
     let (maxv, minv) = ((1i64 << (d - 1)) - 1, -(1i64 << (d - 1)));
@@ -342,11 +360,20 @@ pub fn generate(coeffs: &[f64], o: &FirGenOptions) -> Result<FirGen, String> {
     let total_bin: u32 = coefs.iter().map(|c| c.binary_nonzero).sum();
     let x_test = test_input(o.test_len.clamp(40, 2000), d);
     let y_expected = reference_output(&codes, &x_test, frac, d, decim);
-    let name = if o.module_name.is_empty() { "iris_fir".to_string() } else { o.module_name.clone() };
+    let name = if o.module_name.is_empty() {
+        "iris_fir".to_string()
+    } else {
+        o.module_name.clone()
+    };
     let (cost, verilog, cycles, spacing) = match o.arch {
         Arch::Transposed => {
             let c = transposed_cost(&coefs, &unique, n, d, w, frac, o, gd);
-            (c, transposed_verilog(&name, &codes, frac, d, w, decim, o.pipeline), 1, if o.pipeline { 2 } else { 1 })
+            (
+                c,
+                transposed_verilog(&name, &codes, frac, d, w, decim, o.pipeline),
+                1,
+                if o.pipeline { 2 } else { 1 },
+            )
         }
         Arch::Mac => {
             let c = mac_cost(n, b, d, w, o, gd);
@@ -354,7 +381,13 @@ pub fn generate(coeffs: &[f64], o: &FirGenOptions) -> Result<FirGen, String> {
         }
     };
     let spacing = spacing.max(1);
-    let testbench = fir_testbench(&name, &x_test, &y_expected, d, spacing.max(if o.arch == Arch::Mac { n as u32 + 6 } else { 3 }));
+    let testbench = fir_testbench(
+        &name,
+        &x_test,
+        &y_expected,
+        d,
+        spacing.max(if o.arch == Arch::Mac { n as u32 + 6 } else { 3 }),
+    );
     Ok(FirGen {
         arch: o.arch,
         taps: n,
@@ -414,7 +447,10 @@ fn transposed_cost(coefs: &[CoefInfo], unique: &[&CoefInfo], n: usize, d: u32, w
             (acc, format!("accumulate adder, {w} bits"))
         }
     } else {
-        (tree + acc, format!("CSD shift-add tree ({deepest} level(s) × {deepest_w} bits) + accumulate adder ({w} bits)"))
+        (
+            tree + acc,
+            format!("CSD shift-add tree ({deepest} level(s) × {deepest_w} bits) + accumulate adder ({w} bits)"),
+        )
     };
     BlockCost {
         name: "FIR (transposed form)".into(),
@@ -460,8 +496,16 @@ fn mac_cost(n: usize, b: u32, d: u32, w: u32, o: &FirGenOptions, gd: f64) -> Blo
     let mult_t = (b - 1) as f64 * 2.0 * gd + adder_delay(d + 1, k, gd);
     let acc_t = adder_delay(w, k, gd);
     let sat_t = (2.0 * clog2(w as u64) as f64 + 2.0) * gd;
-    let stages = [(rom_t, "coefficient ROM decode".to_string()), (mult_t, format!("{d}×{b} array multiplier")), (acc_t, format!("{w}-bit accumulator")), (sat_t, "round/saturate".to_string())];
-    let (crit, desc) = stages.iter().cloned().fold((0.0, String::new()), |a, s| if s.0 > a.0 { s } else { a });
+    let stages = [
+        (rom_t, "coefficient ROM decode".to_string()),
+        (mult_t, format!("{d}×{b} array multiplier")),
+        (acc_t, format!("{w}-bit accumulator")),
+        (sat_t, "round/saturate".to_string()),
+    ];
+    let (crit, desc) = stages
+        .iter()
+        .cloned()
+        .fold((0.0, String::new()), |a, s| if s.0 > a.0 { s } else { a });
     BlockCost {
         name: "FIR (decimating MAC)".into(),
         cells: adders + ffs + other,
@@ -505,15 +549,34 @@ fn transposed_verilog(name: &str, codes: &[i64], frac: u32, d: u32, w: u32, deci
     for k in 0..n {
         match first_of[k] {
             Some(j) => v += &format!("    wire signed [{}:0] m{k} = m{j};  // c{k} = c{j} = {}\n", w - 1, codes[k]),
-            None => v += &format!("    wire signed [{}:0] m{k} = {};  // c{k} = {}\n", w - 1, shift_add_expr(codes[k]), codes[k]),
+            None => {
+                v += &format!(
+                    "    wire signed [{}:0] m{k} = {};  // c{k} = {}\n",
+                    w - 1,
+                    shift_add_expr(codes[k]),
+                    codes[k]
+                )
+            }
         }
     }
     let src = |k: usize| if pipeline { format!("mp{k}") } else { format!("m{k}") };
     if pipeline {
-        v += &format!("\n    // pipeline registers after the multiplier block\n    reg v_p;\n{}", (0..n).map(|k| format!("    reg signed [{}:0] mp{k};\n", w - 1)).collect::<String>());
+        v += &format!(
+            "\n    // pipeline registers after the multiplier block\n    reg v_p;\n{}",
+            (0..n).map(|k| format!("    reg signed [{}:0] mp{k};\n", w - 1)).collect::<String>()
+        );
     }
-    v += &format!("\n    // transposed delay line\n{}", (0..n.saturating_sub(1)).map(|k| format!("    reg signed [{}:0] z{k};\n", w - 1)).collect::<String>());
-    v += &format!("    reg signed [{}:0] y_acc;\n    reg               y_acc_v;\n    reg [{}:0] phase;\n", w - 1, pw - 1);
+    v += &format!(
+        "\n    // transposed delay line\n{}",
+        (0..n.saturating_sub(1))
+            .map(|k| format!("    reg signed [{}:0] z{k};\n", w - 1))
+            .collect::<String>()
+    );
+    v += &format!(
+        "    reg signed [{}:0] y_acc;\n    reg               y_acc_v;\n    reg [{}:0] phase;\n",
+        w - 1,
+        pw - 1
+    );
     let step = if pipeline { "v_p" } else { "v_r" };
     v += "\n";
     v += &sat_function(d, w, frac, "y_acc");
@@ -541,10 +604,18 @@ fn transposed_verilog(name: &str, codes: &[i64], frac: u32, d: u32, w: u32, deci
         if k + 1 < n - 1 {
             v += &format!("                z{k} <= {} + z{};\n", src(k + 1), k + 1);
         } else {
-            v += &format!("                z{k} <= {} + {};  // rounding constant rides the chain\n", src(k + 1), vconst(w, half));
+            v += &format!(
+                "                z{k} <= {} + {};  // rounding constant rides the chain\n",
+                src(k + 1),
+                vconst(w, half)
+            );
         }
     }
-    let y_expr = if n > 1 { format!("{} + z0", src(0)) } else { format!("{} + {}", src(0), vconst(w, half)) };
+    let y_expr = if n > 1 {
+        format!("{} + z0", src(0))
+    } else {
+        format!("{} + {}", src(0), vconst(w, half))
+    };
     v += &format!(
         "                if (phase == {pw}'d{}) begin\n                    phase <= {pw}'d0;\n                    y_acc <= {y_expr};\n                    y_acc_v <= 1'b1;\n                end else begin\n                    phase <= phase + {pw}'d1;\n                end\n            end\n            out_valid <= y_acc_v;\n            if (y_acc_v) y_out <= sat;\n        end\n    end\nendmodule\n\n`default_nettype wire\n",
         decim - 1
@@ -627,7 +698,10 @@ pub fn cic_cost(c: &CicSpec, k: AdderKind, gd: f64) -> BlockCost {
         other_cells: other,
         critical_ns: adder_delay(w, k, gd) + reg_overhead(gd),
         critical_desc: format!("{w}-bit integrator adder"),
-        detail: format!("N = {}, R = {}, M = {}: {} integrators + {} pipelined combs, {w}-bit registers (Hogenauer)", c.order, c.rate, c.diff_delay, c.order, c.order),
+        detail: format!(
+            "N = {}, R = {}, M = {}: {} integrators + {} pipelined combs, {w}-bit registers (Hogenauer)",
+            c.order, c.rate, c.diff_delay, c.order, c.order
+        ),
     }
 }
 
@@ -692,7 +766,13 @@ pub struct TopOptions {
 
 impl Default for TopOptions {
     fn default() -> Self {
-        TopOptions { fir: FirGenOptions::default(), encoding: Encoding::Binary, tap_ms: 250, long_ms: 600, gap_ms: 250 }
+        TopOptions {
+            fir: FirGenOptions::default(),
+            encoding: Encoding::Binary,
+            tap_ms: 250,
+            long_ms: 600,
+            gap_ms: 250,
+        }
     }
 }
 
@@ -740,7 +820,13 @@ pub fn fsm_block(f: &fsm::Fsm, enc: Encoding, gd: f64) -> BlockCost {
         other_cells: (c.comparator_cells + c.next_state_cells + c.output_cells) as f64,
         critical_ns: c.critical_ns,
         critical_desc: "timer comparator → next-state logic".into(),
-        detail: format!("{} states ({:?}), {}-bit timer, {} comparators", f.states.len(), enc, c.timer_ffs, c.comparator_cells / c.timer_ffs.max(1)),
+        detail: format!(
+            "{} states ({:?}), {}-bit timer, {} comparators",
+            f.states.len(),
+            enc,
+            c.timer_ffs,
+            c.comparator_cells / c.timer_ffs.max(1)
+        ),
     }
 }
 
@@ -750,7 +836,9 @@ pub fn summarize(blocks: Vec<BlockCost>, clock_mhz: f64, budget: f64, arch: Arch
         Some(x) if x.critical_ns >= b.critical_ns => Some(x),
         _ => Some(b),
     });
-    let (cns, cblock, cdesc) = crit.map(|b| (b.critical_ns, b.name.clone(), b.critical_desc.clone())).unwrap_or((0.0, String::new(), String::new()));
+    let (cns, cblock, cdesc) =
+        crit.map(|b| (b.critical_ns, b.name.clone(), b.critical_desc.clone()))
+            .unwrap_or((0.0, String::new(), String::new()));
     let period = 1000.0 / clock_mhz.max(1e-3);
     let mut sug = Vec::new();
     if cns > period {
@@ -764,9 +852,14 @@ pub fn summarize(blocks: Vec<BlockCost>, clock_mhz: f64, budget: f64, arch: Arch
     }
     if total > budget {
         if arch == Arch::Transposed {
-            sug.push("The transposed form needs one constant multiplier per tap; the decimating MAC shares one multiplier across all taps.".into());
+            sug.push(
+                "The transposed form needs one constant multiplier per tap; the decimating MAC shares one multiplier across all taps."
+                    .into(),
+            );
         }
-        sug.push("Reduce coefficient/data word lengths, or exploit coefficient symmetry (pre-add x[n−k] + x[n−N+1+k] to halve the MACs).".into());
+        sug.push(
+            "Reduce coefficient/data word lengths, or exploit coefficient symmetry (pre-add x[n−k] + x[n−N+1+k] to halve the MACs).".into(),
+        );
     }
     DspChipCost {
         total_cells: total,
@@ -831,19 +924,44 @@ mod tests {
     fn iris_cost_model_numbers() {
         let h = iris_fir();
         let mac = generate(&h, &FirGenOptions::default()).unwrap();
-        let tr = generate(&h, &FirGenOptions { arch: Arch::Transposed, ..Default::default() }).unwrap();
+        let tr = generate(
+            &h,
+            &FirGenOptions {
+                arch: Arch::Transposed,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert!(mac.cost.cells < tr.cost.cells);
         assert!(mac.cost.critical_ns < 20.0, "{:?}", mac.cost);
-        assert!(tr.cost.critical_ns > 20.0, "ripple transposed form should miss 20 ns: {:?}", tr.cost);
+        assert!(
+            tr.cost.critical_ns > 20.0,
+            "ripple transposed form should miss 20 ns: {:?}",
+            tr.cost
+        );
         assert!(mac.total_csd_digits < mac.total_binary_digits);
-        let cla = generate(&h, &FirGenOptions { arch: Arch::Transposed, adder: AdderKind::Cla, pipeline: true, ..Default::default() }).unwrap();
+        let cla = generate(
+            &h,
+            &FirGenOptions {
+                arch: Arch::Transposed,
+                adder: AdderKind::Cla,
+                pipeline: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert!(cla.cost.critical_ns < 20.0);
         assert!(cla.cost.cells > tr.cost.cells);
     }
 
     #[test]
     fn cic_model_dc_gain() {
-        let c = CicSpec { order: 4, rate: 32, diff_delay: 1, width: 22 };
+        let c = CicSpec {
+            order: 4,
+            rate: 32,
+            diff_delay: 1,
+            width: 22,
+        };
         let y = model_cic(&vec![true; 32 * 20], &c);
         assert_eq!(*y.last().unwrap(), 32i64.pow(4));
         let v = cic_verilog(&c);

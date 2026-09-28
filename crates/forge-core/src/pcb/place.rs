@@ -35,7 +35,9 @@ struct Item {
 /// Pins of each part → net (static table only; GPIO nets on the SoC are
 /// represented by the SoC outline until they are assigned).
 fn static_pin_nets(p: &Project, refs: &[String]) -> Vec<(String, String, String)> {
-    let present = |r: &str, pin: &str| refs.iter().any(|x| x == r) && part_footprint(p, r).map(|f| f.pads.iter().any(|pd| pd.num == pin)).unwrap_or(false);
+    let present = |r: &str, pin: &str| {
+        refs.iter().any(|x| x == r) && part_footprint(p, r).map(|f| f.pads.iter().any(|pd| pd.num == pin)).unwrap_or(false)
+    };
     let nets = netlist::build_nets(p, &present, &[]);
     let mut out = Vec::new();
     for n in nets {
@@ -75,7 +77,10 @@ pub fn constructive(p: &Project) -> PlaceResult {
     let mut items: Vec<Item> = Vec::new();
     for c in p.components.iter().filter(|c| c.on_pcb) {
         if let Some(fp) = super::footprints::footprint(&c.footprint) {
-            items.push(Item { refdes: c.refdes.clone(), fp });
+            items.push(Item {
+                refdes: c.refdes.clone(),
+                fp,
+            });
         }
     }
     let refs: Vec<String> = items.iter().map(|i| i.refdes.clone()).collect();
@@ -87,7 +92,16 @@ pub fn constructive(p: &Project) -> PlaceResult {
     let fixed = |idx: usize, x: f64, y: f64, rot: f64, placed: &mut Vec<(PartPos, [f64; 4])>, items: &[Item]| {
         let it = &items[idx];
         let cy = place_box(it.fp.courtyard, x, y, rot);
-        placed.push((PartPos { refdes: it.refdes.clone(), x, y, rot, side: "top".into() }, cy));
+        placed.push((
+            PartPos {
+                refdes: it.refdes.clone(),
+                x,
+                y,
+                rot,
+                side: "top".into(),
+            },
+            cy,
+        ));
     };
 
     // --- anchors -------------------------------------------------------
@@ -113,7 +127,9 @@ pub fn constructive(p: &Project) -> PlaceResult {
     let main = items
         .iter()
         .enumerate()
-        .filter(|(_, it)| it.fp.name.starts_with("QFN") || it.fp.pads.len() >= 20 && !it.fp.name.starts_with("FPC") && !it.fp.name.starts_with("USB"))
+        .filter(|(_, it)| {
+            it.fp.name.starts_with("QFN") || it.fp.pads.len() >= 20 && !it.fp.name.starts_with("FPC") && !it.fp.name.starts_with("USB")
+        })
         .max_by_key(|(_, it)| it.fp.pads.len())
         .map(|(i, _)| i);
     let mut soc_box = None;
@@ -137,10 +153,19 @@ pub fn constructive(p: &Project) -> PlaceResult {
         keepouts.push([(cy[0] - 0.8).max(0.0), (cy[1] - 1.0).max(0.0), cy[2] + 0.4, h]);
     }
     // Microphones: bottom edge, centred in the free span right of the SoC.
-    let mics: Vec<usize> = items.iter().enumerate().filter(|(_, it)| it.fp.name.starts_with("MIC")).map(|(i, _)| i).collect();
+    let mics: Vec<usize> = items
+        .iter()
+        .enumerate()
+        .filter(|(_, it)| it.fp.name.starts_with("MIC"))
+        .map(|(i, _)| i)
+        .collect();
     if !mics.is_empty() {
         let lo = soc_box.map(|b| b[2]).unwrap_or(0.0);
-        let hi = placed.iter().find(|(pp, _)| items.iter().any(|it| it.refdes == pp.refdes && it.fp.name.starts_with("USB"))).map(|(_, b)| b[0]).unwrap_or(w);
+        let hi = placed
+            .iter()
+            .find(|(pp, _)| items.iter().any(|it| it.refdes == pp.refdes && it.fp.name.starts_with("USB")))
+            .map(|(_, b)| b[0])
+            .unwrap_or(w);
         let s = p.design.audio.mic_spacing_mm.max(4.0);
         let span = s * (mics.len() as f64 - 1.0);
         let c = items[mics[0]].fp.courtyard;
@@ -198,8 +223,15 @@ pub fn constructive(p: &Project) -> PlaceResult {
     let demand_w: f64 = 3.0;
 
     // --- greedy placement of the rest ---------------------------------------
-    let dec = |r: &str| DECOUPLING.iter().find(|(c, _, _)| *c == r).map(|(_, ic, pin)| (ic.to_string(), pin.to_string()));
-    let mut remaining: Vec<usize> = (0..items.len()).filter(|&i| !placed.iter().any(|(pp, _)| pp.refdes == items[i].refdes)).collect();
+    let dec = |r: &str| {
+        DECOUPLING
+            .iter()
+            .find(|(c, _, _)| *c == r)
+            .map(|(_, ic, pin)| (ic.to_string(), pin.to_string()))
+    };
+    let mut remaining: Vec<usize> = (0..items.len())
+        .filter(|&i| !placed.iter().any(|(pp, _)| pp.refdes == items[i].refdes))
+        .collect();
     let soc_ref = main.map(|i| items[i].refdes.clone());
     while !remaining.is_empty() {
         // pick the part with most connections to placed parts (ICs before passives)
@@ -208,7 +240,10 @@ pub fn constructive(p: &Project) -> PlaceResult {
             let mut conn = 0;
             for (pr, _, net) in pin_nets.iter().filter(|(pr, _, _)| pr == r) {
                 let _ = pr;
-                if pin_nets.iter().any(|(r2, _, n2)| n2 == net && r2 != r && placed.iter().any(|(pp, _)| &pp.refdes == r2)) {
+                if pin_nets
+                    .iter()
+                    .any(|(r2, _, n2)| n2 == net && r2 != r && placed.iter().any(|(pp, _)| &pp.refdes == r2))
+                {
                     conn += 1;
                 }
             }
@@ -221,7 +256,11 @@ pub fn constructive(p: &Project) -> PlaceResult {
             let pri = if pads >= 5 {
                 3000 + conn * 30 + pads
             } else if let Some((ic, _)) = dec(r) {
-                if placed.iter().any(|(pp, _)| pp.refdes == ic) { 2000 + conn } else { 500 + conn }
+                if placed.iter().any(|(pp, _)| pp.refdes == ic) {
+                    2000 + conn
+                } else {
+                    500 + conn
+                }
             } else {
                 1000 + conn * 10
             };
@@ -268,7 +307,13 @@ pub fn constructive(p: &Project) -> PlaceResult {
         let halo: f64 = 0.5;
         let ic_boxes: Vec<[f64; 4]> = placed
             .iter()
-            .filter(|(pp, _)| items.iter().find(|x| x.refdes == pp.refdes).map(|x| x.fp.pads.len() >= 5 && !x.fp.name.starts_with("MIC")).unwrap_or(false))
+            .filter(|(pp, _)| {
+                items
+                    .iter()
+                    .find(|x| x.refdes == pp.refdes)
+                    .map(|x| x.fp.pads.len() >= 5 && !x.fp.name.starts_with("MIC"))
+                    .unwrap_or(false)
+            })
             .map(|(_, b)| *b)
             .collect();
         let mut best: Option<(f64, PartPos, [f64; 4])> = None;
@@ -322,7 +367,10 @@ pub fn constructive(p: &Project) -> PlaceResult {
                         let pd = it.fp.pads.iter().find(|pd| &pd.num == pin).unwrap();
                         let (dx, dy) = rot_pt(pd.x, pd.y, rot);
                         let (px, py) = (x + dx, y + dy);
-                        let d = pts.iter().map(|(tx, ty)| (tx - px).abs() + (ty - py).abs()).fold(f64::INFINITY, f64::min);
+                        let d = pts
+                            .iter()
+                            .map(|(tx, ty)| (tx - px).abs() + (ty - py).abs())
+                            .fold(f64::INFINITY, f64::min);
                         cost += wgt * d;
                     }
                     if let (Some(sb), false) = (soc_box, gpio_mine.is_empty()) {
@@ -344,7 +392,17 @@ pub fn constructive(p: &Project) -> PlaceResult {
                     // mild preference for the board mid-line (keeps routing channels on both edges)
                     cost += 0.02 * (y - h / 2.0).abs() + 0.001 * rot;
                     if best.as_ref().map(|b| cost < b.0 - 1e-9).unwrap_or(true) {
-                        best = Some((cost, PartPos { refdes: r.clone(), x, y, rot, side: "top".into() }, cy));
+                        best = Some((
+                            cost,
+                            PartPos {
+                                refdes: r.clone(),
+                                x,
+                                y,
+                                rot,
+                                side: "top".into(),
+                            },
+                            cy,
+                        ));
                     }
                 }
             }
@@ -354,7 +412,16 @@ pub fn constructive(p: &Project) -> PlaceResult {
         } else {
             // no legal spot: park it outside the board so DRC reports it
             let x = w + 3.0 + 4.0 * placed.len() as f64 % 20.0;
-            placed.push((PartPos { refdes: r.clone(), x, y: -4.0, rot: 0.0, side: "top".into() }, [x - 1.0, -5.0, x + 1.0, -3.0]));
+            placed.push((
+                PartPos {
+                    refdes: r.clone(),
+                    x,
+                    y: -4.0,
+                    rot: 0.0,
+                    side: "top".into(),
+                },
+                [x - 1.0, -5.0, x + 1.0, -3.0],
+            ));
         }
     }
     let mut parts: Vec<PartPos> = placed.into_iter().map(|(pp, _)| pp).collect();
@@ -365,9 +432,11 @@ pub fn constructive(p: &Project) -> PlaceResult {
 
 /// Pins of `refdes` that land on a GPIO net (static table).
 fn netlist_gpio_nets(refdes: &str) -> impl Iterator<Item = (&'static str, &'static str)> + '_ {
-    netlist::PINS.iter().filter(move |(r, _, n)| *r == refdes && GPIO_NETS.contains(n)).map(|(_, p, n)| (*p, *n))
+    netlist::PINS
+        .iter()
+        .filter(move |(r, _, n)| *r == refdes && GPIO_NETS.contains(n))
+        .map(|(_, p, n)| (*p, *n))
 }
-
 
 /// Board features: touch electrode between the microphones on the bottom
 /// copper, SWD test pads on the bottom next to the SoC's debug pins.
@@ -386,13 +455,31 @@ fn place_features(p: &Project, parts: &mut Vec<PartPos>) {
             .and_then(|x| part_footprint(p, &x.refdes).map(|f| x.x + f.courtyard[0]))
             .unwrap_or(w);
         let x = usb_left - 0.5 - 3.75;
-        parts.push(PartPos { refdes: "E1".into(), x: snap(x, g), y: snap(h - 0.6 - 2.25, g), rot: 0.0, side: "bottom".into() });
+        parts.push(PartPos {
+            refdes: "E1".into(),
+            x: snap(x, g),
+            y: snap(h - 0.6 - 2.25, g),
+            rot: 0.0,
+            side: "bottom".into(),
+        });
     }
     if let Some(soc) = get("U1", parts) {
         if feats.contains(&"TP1") {
             // on the bottom copper under the SoC body, next to its debug pins
-            parts.push(PartPos { refdes: "TP1".into(), x: snap(soc.x - 2.25, g), y: snap(soc.y - 2.25, g), rot: 0.0, side: "bottom".into() });
-            parts.push(PartPos { refdes: "TP2".into(), x: snap(soc.x - 2.25, g), y: snap(soc.y + 2.25, g), rot: 0.0, side: "bottom".into() });
+            parts.push(PartPos {
+                refdes: "TP1".into(),
+                x: snap(soc.x - 2.25, g),
+                y: snap(soc.y - 2.25, g),
+                rot: 0.0,
+                side: "bottom".into(),
+            });
+            parts.push(PartPos {
+                refdes: "TP2".into(),
+                x: snap(soc.x - 2.25, g),
+                y: snap(soc.y + 2.25, g),
+                rot: 0.0,
+                side: "bottom".into(),
+            });
         }
     }
 }
@@ -404,7 +491,9 @@ fn place_features(p: &Project, parts: &mut Vec<PartPos>) {
 /// Assign each GPIO signal to an SoC pin by minimum total Manhattan distance
 /// from the pad (pushed 1 mm outward) to the signal's other pins.
 pub fn assign_gpio(p: &Project, parts: &[PartPos]) -> Vec<(String, String)> {
-    let Some(soc) = parts.iter().find(|x| x.refdes == "U1") else { return vec![] };
+    let Some(soc) = parts.iter().find(|x| x.refdes == "U1") else {
+        return vec![];
+    };
     let Some(fp) = part_footprint(p, "U1") else { return vec![] };
     let pin_pos = |r: &str, pin: &str| -> Option<(f64, f64)> {
         let pp = parts.iter().find(|x| x.refdes == r)?;
@@ -416,7 +505,11 @@ pub fn assign_gpio(p: &Project, parts: &[PartPos]) -> Vec<(String, String)> {
     // signals that have at least one peripheral pin on the board
     let mut sigs: Vec<(&str, (f64, f64))> = Vec::new();
     for n in GPIO_NETS {
-        let pts: Vec<(f64, f64)> = netlist::PINS.iter().filter(|(r, _, nn)| nn == n && *r != "U1").filter_map(|(r, pin, _)| pin_pos(r, pin)).collect();
+        let pts: Vec<(f64, f64)> = netlist::PINS
+            .iter()
+            .filter(|(r, _, nn)| nn == n && *r != "U1")
+            .filter_map(|(r, pin, _)| pin_pos(r, pin))
+            .collect();
         if pts.is_empty() {
             continue;
         }
@@ -436,7 +529,11 @@ pub fn assign_gpio(p: &Project, parts: &[PartPos]) -> Vec<(String, String)> {
             let (dx, dy) = rot_pt(pd.x, pd.y, soc.rot);
             // escape point 1 mm outside the pad
             let n = (dx.hypot(dy)).max(1e-9);
-            let (ex, ey) = if dx.abs() > dy.abs() { (dx.signum(), 0.0) } else { (0.0, dy.signum()) };
+            let (ex, ey) = if dx.abs() > dy.abs() {
+                (dx.signum(), 0.0)
+            } else {
+                (0.0, dy.signum())
+            };
             let _ = n;
             (pd.num.clone(), soc.x + dx + ex, soc.y + dy + ey)
         })
@@ -504,7 +601,14 @@ pub fn assign_gpio(p: &Project, parts: &[PartPos]) -> Vec<(String, String)> {
             break;
         }
         // forbid the pin of the pair whose signal has the better alternative
-        let second_best = |row: usize, not: usize| cost[row].iter().enumerate().filter(|(k, _)| *k != not && !assign.contains(k)).map(|(_, c)| *c).fold(f64::INFINITY, f64::min);
+        let second_best = |row: usize, not: usize| {
+            cost[row]
+                .iter()
+                .enumerate()
+                .filter(|(k, _)| *k != not && !assign.contains(k))
+                .map(|(_, c)| *c)
+                .fold(f64::INFINITY, f64::min)
+        };
         let ra = second_best(a, assign[a]) - cost[a][assign[a]];
         let rb = second_best(b2, assign[b2]) - cost[b2][assign[b2]];
         let k = if ra <= rb { assign[a] } else { assign[b2] };
@@ -512,7 +616,10 @@ pub fn assign_gpio(p: &Project, parts: &[PartPos]) -> Vec<(String, String)> {
         apply(&mut cost, &forbidden);
         assign = hungarian(&cost);
     }
-    sigs.iter().zip(assign).map(|((n, _), k)| (n.to_string(), pins[k].0.clone())).collect()
+    sigs.iter()
+        .zip(assign)
+        .map(|((n, _), k)| (n.to_string(), pins[k].0.clone()))
+        .collect()
 }
 
 /// Minimum-cost assignment of rows to distinct columns (rows ≤ columns),
@@ -651,7 +758,13 @@ pub fn anneal(p: &Project, iterations: usize, seed: u64) -> AnnealResult {
     let g = 0.25;
     let anchor = |r: &str| -> bool {
         let fp = part_footprint(p, r).map(|f| f.name).unwrap_or_default();
-        r == "U1" || fp.starts_with("USB") || fp.starts_with("FPC") || fp.starts_with("JST") || fp.starts_with("ANT") || fp.starts_with("MIC") || super::netlist::BOARD_FEATURES.contains(&r)
+        r == "U1"
+            || fp.starts_with("USB")
+            || fp.starts_with("FPC")
+            || fp.starts_with("JST")
+            || fp.starts_with("ANT")
+            || fp.starts_with("MIC")
+            || super::netlist::BOARD_FEATURES.contains(&r)
     };
     let fps: Vec<Footprint> = base.parts.iter().map(|pp| part_footprint(p, &pp.refdes).unwrap()).collect();
     let movable: Vec<usize> = (0..base.parts.len()).filter(|&i| !anchor(&base.parts[i].refdes)).collect();
@@ -692,8 +805,15 @@ pub fn anneal(p: &Project, iterations: usize, seed: u64) -> AnnealResult {
         }
         (x1 - x0) + (y1 - y0)
     };
-    let boxes = |parts: &[PartPos]| -> Vec<[f64; 4]> { parts.iter().zip(fps.iter()).map(|(pp, fp)| place_box(fp.courtyard, pp.x, pp.y, pp.rot)).collect() };
-    let area_ov = |a: [f64; 4], b: [f64; 4]| -> f64 { ((a[2].min(b[2]) - a[0].max(b[0])).max(0.0)) * ((a[3].min(b[3]) - a[1].max(b[1])).max(0.0)) };
+    let boxes = |parts: &[PartPos]| -> Vec<[f64; 4]> {
+        parts
+            .iter()
+            .zip(fps.iter())
+            .map(|(pp, fp)| place_box(fp.courtyard, pp.x, pp.y, pp.rot))
+            .collect()
+    };
+    let area_ov =
+        |a: [f64; 4], b: [f64; 4]| -> f64 { ((a[2].min(b[2]) - a[0].max(b[0])).max(0.0)) * ((a[3].min(b[3]) - a[1].max(b[1])).max(0.0)) };
     let out_of_board = |a: [f64; 4]| -> f64 {
         let ww = a[2] - a[0];
         let hh = a[3] - a[1];
@@ -768,7 +888,9 @@ pub fn anneal(p: &Project, iterations: usize, seed: u64) -> AnnealResult {
         movable: movable.iter().map(|&i| cur[i].refdes.clone()).collect(),
         final_overlap: 0.0,
     };
-    let nets_of: Vec<Vec<usize>> = (0..cur.len()).map(|pi| (0..nets.len()).filter(|&ni| nets[ni].iter().any(|x| x.0 == pi)).collect()).collect();
+    let nets_of: Vec<Vec<usize>> = (0..cur.len())
+        .map(|pi| (0..nets.len()).filter(|&ni| nets[ni].iter().any(|x| x.0 == pi)).collect())
+        .collect();
     let mut accepted = 0usize;
     let mut tried = 0usize;
     if movable.is_empty() {
@@ -812,7 +934,10 @@ pub fn anneal(p: &Project, iterations: usize, seed: u64) -> AnnealResult {
             old_parts[j].x = cur[i].x;
             old_parts[j].y = cur[i].y;
         }
-        let dh: f64 = affected.iter().map(|&ni| net_hpwl(&cur, &nets[ni]) - net_hpwl(&old_parts, &nets[ni])).sum();
+        let dh: f64 = affected
+            .iter()
+            .map(|&ni| net_hpwl(&cur, &nets[ni]) - net_hpwl(&old_parts, &nets[ni]))
+            .sum();
         let bx_new = boxes(&cur);
         let bx_old = boxes(&old_parts);
         let mut d_o = 0.0;
@@ -846,7 +971,14 @@ pub fn anneal(p: &Project, iterations: usize, seed: u64) -> AnnealResult {
             tried = 0;
         }
         if it % frame_every == 0 || it + 1 == iterations {
-            res.frames.push(AnnealFrame { iteration: it, temperature: t, hpwl: cur_h, overlap: cur_o.max(0.0), cost: cur_h + lambda * cur_o, parts: movable.iter().map(|&k| cur[k].clone()).collect() });
+            res.frames.push(AnnealFrame {
+                iteration: it,
+                temperature: t,
+                hpwl: cur_h,
+                overlap: cur_o.max(0.0),
+                cost: cur_h + lambda * cur_o,
+                parts: movable.iter().map(|&k| cur[k].clone()).collect(),
+            });
         }
         t *= alpha;
     }
@@ -872,7 +1004,10 @@ fn legalize(parts: &mut [PartPos], fps: &[Footprint], movable: &[usize], keepout
         let bx = |pp: &PartPos, fp: &Footprint| place_box(fp.courtyard, pp.x, pp.y, pp.rot);
         let bad = |parts: &[PartPos], i: usize| {
             let b = bx(&parts[i], &fps[i]);
-            b[0] < 0.1 || b[1] < 0.1 || b[2] > w - 0.1 || b[3] > h - 0.1
+            b[0] < 0.1
+                || b[1] < 0.1
+                || b[2] > w - 0.1
+                || b[3] > h - 0.1
                 || keepouts.iter().any(|k| overlaps(b, *k, 0.0))
                 || (0..parts.len()).any(|j| j != i && parts[j].side == parts[i].side && overlaps(b, bx(&parts[j], &fps[j]), 0.0))
         };
@@ -923,7 +1058,12 @@ mod tests {
         for i in 0..a.parts.len() {
             let bi = place_box(fps[i].courtyard, a.parts[i].x, a.parts[i].y, a.parts[i].rot);
             let slack = if fps[i].name.starts_with("USB") { 0.5 } else { 0.0 };
-            assert!(bi[0] >= 0.0 && bi[2] <= p.design.pcb.width_mm + slack && bi[1] >= 0.0 && bi[3] <= p.design.pcb.height_mm, "{} {:?}", a.parts[i].refdes, bi);
+            assert!(
+                bi[0] >= 0.0 && bi[2] <= p.design.pcb.width_mm + slack && bi[1] >= 0.0 && bi[3] <= p.design.pcb.height_mm,
+                "{} {:?}",
+                a.parts[i].refdes,
+                bi
+            );
             for j in i + 1..a.parts.len() {
                 if a.parts[i].side != a.parts[j].side {
                     continue;

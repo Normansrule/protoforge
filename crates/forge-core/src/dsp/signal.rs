@@ -65,7 +65,11 @@ pub struct SignalSpec {
 
 impl Default for SignalSpec {
     fn default() -> Self {
-        SignalSpec { fs: 16000.0, n: 2048, components: vec![Component::default()] }
+        SignalSpec {
+            fs: 16000.0,
+            n: 2048,
+            components: vec![Component::default()],
+        }
     }
 }
 
@@ -140,7 +144,11 @@ pub fn generate(spec: &SignalSpec) -> Signal {
                     // Fourier series truncated below Nyquist
                     let mut h = 1;
                     while (h as f64) * c.freq < nyq {
-                        let (coef, skip) = if square { (4.0 / (PI * h as f64), h % 2 == 0) } else { (2.0 / (PI * h as f64) * if h % 2 == 0 { -1.0 } else { 1.0 }, false) };
+                        let (coef, skip) = if square {
+                            (4.0 / (PI * h as f64), h % 2 == 0)
+                        } else {
+                            (2.0 / (PI * h as f64) * if h % 2 == 0 { -1.0 } else { 1.0 }, false)
+                        };
                         if !skip {
                             let w = 2.0 * PI * c.freq * h as f64 / fs;
                             for (i, v) in x.iter_mut().enumerate() {
@@ -152,7 +160,16 @@ pub fn generate(spec: &SignalSpec) -> Signal {
                 } else {
                     for (i, v) in x.iter_mut().enumerate() {
                         let cyc = (c.freq * i as f64 / fs + ph0 / (2.0 * PI)).rem_euclid(1.0);
-                        *v += c.amp * if square { if cyc < 0.5 { 1.0 } else { -1.0 } } else { 2.0 * ((cyc + 0.5).rem_euclid(1.0)) - 1.0 };
+                        *v += c.amp
+                            * if square {
+                                if cyc < 0.5 {
+                                    1.0
+                                } else {
+                                    -1.0
+                                }
+                            } else {
+                                2.0 * ((cyc + 0.5).rem_euclid(1.0)) - 1.0
+                            };
                     }
                 }
             }
@@ -205,8 +222,18 @@ mod tests {
             fs: 8000.0,
             n: 8000,
             components: vec![
-                Component { kind: ComponentKind::Tone, freq: 440.0, amp: 1.0, ..Default::default() },
-                Component { kind: ComponentKind::Noise, amp: 0.1, seed: 5, ..Default::default() },
+                Component {
+                    kind: ComponentKind::Tone,
+                    freq: 440.0,
+                    amp: 1.0,
+                    ..Default::default()
+                },
+                Component {
+                    kind: ComponentKind::Noise,
+                    amp: 0.1,
+                    seed: 5,
+                    ..Default::default()
+                },
             ],
         };
         let a = generate(&spec);
@@ -222,7 +249,13 @@ mod tests {
         let spec = SignalSpec {
             fs,
             n: 4096,
-            components: vec![Component { kind: ComponentKind::Square, freq: 1000.0, amp: 1.0, bandlimited: true, ..Default::default() }],
+            components: vec![Component {
+                kind: ComponentKind::Square,
+                freq: 1000.0,
+                amp: 1.0,
+                bandlimited: true,
+                ..Default::default()
+            }],
         };
         let s = generate(&spec);
         let sp = super::super::fft::spectrum(&s.x, fs, super::super::fft::WindowKind::Blackman, 0.0, None);

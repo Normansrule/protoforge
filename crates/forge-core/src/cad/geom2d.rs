@@ -348,11 +348,18 @@ pub fn raw_offset(poly: &[P2], d: f64, join: Join, arc_tol: f64) -> (Vec<P2>, bo
         })
         .collect();
     let overlap = |th: f64| if d < 0.0 { th > 1e-12 } else { th < -1e-12 };
-    let setback: Vec<f64> = turn.iter().map(|&th| if overlap(th) { d.abs() * (0.5 * th.abs()).tan() } else { 0.0 }).collect();
+    let setback: Vec<f64> = turn
+        .iter()
+        .map(|&th| if overlap(th) { d.abs() * (0.5 * th.abs()).tan() } else { 0.0 })
+        .collect();
     let clean = (0..n).all(|i| setback[i] + setback[(i + 1) % n] <= dist(poly[i], poly[(i + 1) % n]) + 1e-12)
         && turn.iter().all(|t| t.abs() < PI - 1e-3);
     let r = d.abs();
-    let step = if r > arc_tol { 2.0 * (1.0 - arc_tol / r).clamp(-1.0, 1.0).acos() } else { PI / 2.0 };
+    let step = if r > arc_tol {
+        2.0 * (1.0 - arc_tol / r).clamp(-1.0, 1.0).acos()
+    } else {
+        PI / 2.0
+    };
     let mut out = Vec::with_capacity(n * 2);
     for i in 0..n {
         let a = poly[(i + n - 1) % n];
@@ -546,7 +553,11 @@ fn bridge_hole(pts: &[P2], poly: Vec<usize>, hole: &[usize]) -> Vec<usize> {
     let ea = poly[best_edge];
     let eb = poly[(best_edge + 1) % n];
     // Candidate: the edge endpoint with larger x.
-    let (mut p_pos, mut p_idx) = if pts[ea][0] > pts[eb][0] { (best_edge, ea) } else { ((best_edge + 1) % n, eb) };
+    let (mut p_pos, mut p_idx) = if pts[ea][0] > pts[eb][0] {
+        (best_edge, ea)
+    } else {
+        ((best_edge + 1) % n, eb)
+    };
     if dist(best_pt, pts[p_idx]) > 1e-12 {
         // Look for reflex vertices inside triangle (m, i, p); pick the one
         // with the smallest angle to the ray.
@@ -806,13 +817,24 @@ mod tests {
         let got = tri_area(&pts, &tris);
         assert!((got - expect).abs() < 1e-6 * expect.abs(), "{got} vs {expect}");
         assert_eq!(tris.len(), outer.len() + h1.len() + h2.len() + 2 * 2 - 2);
-        assert!(tris.iter().all(|t| orient(pts[t[0] as usize], pts[t[1] as usize], pts[t[2] as usize]) > -1e-9));
+        assert!(tris
+            .iter()
+            .all(|t| orient(pts[t[0] as usize], pts[t[1] as usize], pts[t[2] as usize]) > -1e-9));
     }
 
     #[test]
     fn triangulates_concave_polygon() {
         // A "C" shape.
-        let c = vec![[0.0, 0.0], [10.0, 0.0], [10.0, 2.0], [2.0, 2.0], [2.0, 8.0], [10.0, 8.0], [10.0, 10.0], [0.0, 10.0]];
+        let c = vec![
+            [0.0, 0.0],
+            [10.0, 0.0],
+            [10.0, 2.0],
+            [2.0, 2.0],
+            [2.0, 8.0],
+            [10.0, 8.0],
+            [10.0, 10.0],
+            [0.0, 10.0],
+        ];
         let tris = triangulate(&c, &[]);
         assert_eq!(tris.len(), 6);
         assert!((tri_area(&c, &tris) - area(&c)).abs() < 1e-9);

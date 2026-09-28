@@ -20,7 +20,11 @@ use crate::math::{C64, PI};
 pub fn lfilter(b: &[f64], a: &[f64], x: &[f64]) -> Vec<f64> {
     let a0 = a.first().copied().filter(|v| v.abs() > 1e-300).unwrap_or(1.0);
     let b: Vec<f64> = b.iter().map(|v| v / a0).collect();
-    let a: Vec<f64> = if a.is_empty() { vec![1.0] } else { a.iter().map(|v| v / a0).collect() };
+    let a: Vec<f64> = if a.is_empty() {
+        vec![1.0]
+    } else {
+        a.iter().map(|v| v / a0).collect()
+    };
     let n = b.len().max(a.len());
     let mut z = vec![0.0; n];
     let bk = |k: usize| b.get(k).copied().unwrap_or(0.0);
@@ -95,7 +99,10 @@ pub fn grid(fs: f64, n: usize, log: bool) -> Vec<f64> {
 /// Frequency response of b/a on the frequencies `f` (Hz).
 pub fn freqz(b: &[f64], a: &[f64], fs: f64, f: &[f64]) -> FreqResponse {
     let a = if a.is_empty() { &[1.0][..] } else { a };
-    let mut out = FreqResponse { f: f.to_vec(), ..Default::default() };
+    let mut out = FreqResponse {
+        f: f.to_vec(),
+        ..Default::default()
+    };
     let mut prev_phase = 0.0;
     let mut unwrap_off = 0.0;
     let mut last_gd = 0.0;
@@ -122,7 +129,11 @@ pub fn freqz(b: &[f64], a: &[f64], fs: f64, f: &[f64]) -> FreqResponse {
         let unwrapped = ph + unwrap_off;
         prev_phase = unwrapped;
         out.phase_deg.push(unwrapped.to_degrees());
-        let gd = if bs.abs() > 1e-9 && as_.abs() > 1e-12 { (bd / bs).re - (ad / as_).re } else { last_gd };
+        let gd = if bs.abs() > 1e-9 && as_.abs() > 1e-12 {
+            (bd / bs).re - (ad / as_).re
+        } else {
+            last_gd
+        };
         let gd = gd.clamp(-1e4, 1e4);
         last_gd = gd;
         out.group_delay.push(gd);
@@ -132,7 +143,13 @@ pub fn freqz(b: &[f64], a: &[f64], fs: f64, f: &[f64]) -> FreqResponse {
 
 /// Frequency response of a biquad cascade (avoids forming a high-order polynomial).
 pub fn sos_freqz(sos: &[Biquad], fs: f64, f: &[f64]) -> FreqResponse {
-    let mut total = FreqResponse { f: f.to_vec(), mag: vec![1.0; f.len()], mag_db: vec![0.0; f.len()], phase_deg: vec![0.0; f.len()], group_delay: vec![0.0; f.len()] };
+    let mut total = FreqResponse {
+        f: f.to_vec(),
+        mag: vec![1.0; f.len()],
+        mag_db: vec![0.0; f.len()],
+        phase_deg: vec![0.0; f.len()],
+        group_delay: vec![0.0; f.len()],
+    };
     for s in sos {
         let r = freqz(&s.b, &s.a, fs, f);
         for i in 0..f.len() {
@@ -180,7 +197,14 @@ pub fn quantize_with(c: &[f64], bits: u32, frac_bits: u32) -> QFormat {
     let codes: Vec<i64> = c.iter().map(|v| ((v * scale).round() as i64).clamp(lo, hi)).collect();
     let values: Vec<f64> = codes.iter().map(|&q| q as f64 / scale).collect();
     let max_error = c.iter().zip(&values).fold(0.0f64, |m, (a, b)| m.max((a - b).abs()));
-    QFormat { bits, int_bits: bits - 1 - frac_bits, frac_bits, codes, values, max_error }
+    QFormat {
+        bits,
+        int_bits: bits - 1 - frac_bits,
+        frac_bits,
+        codes,
+        values,
+        max_error,
+    }
 }
 
 /// Round a signal to `bits` with full scale ±1 (saturating).
@@ -215,7 +239,15 @@ mod tests {
 
     #[test]
     fn symmetric_fir_group_delay_is_half_length() {
-        let h = crate::dsp::fir::windowed_sinc(crate::dsp::fir::Band::Lowpass, 31, 1000.0, 0.0, 8000.0, crate::dsp::fft::WindowKind::Hamming, 0.0);
+        let h = crate::dsp::fir::windowed_sinc(
+            crate::dsp::fir::Band::Lowpass,
+            31,
+            1000.0,
+            0.0,
+            8000.0,
+            crate::dsp::fft::WindowKind::Hamming,
+            0.0,
+        );
         let r = freqz(&h, &[1.0], 8000.0, &[100.0, 500.0, 900.0]);
         for g in r.group_delay {
             assert!((g - 15.0).abs() < 1e-6);

@@ -58,7 +58,14 @@ pub struct ChainOptions {
 
 impl Default for ChainOptions {
     fn default() -> Self {
-        ChainOptions { cic_order: 0, cic_m: 1, halfband_taps: 0, fir_taps: 0, stop_weight: 200.0, target_db: 60.0 }
+        ChainOptions {
+            cic_order: 0,
+            cic_m: 1,
+            halfband_taps: 0,
+            fir_taps: 0,
+            stop_weight: 200.0,
+            target_db: 60.0,
+        }
     }
 }
 
@@ -189,7 +196,10 @@ pub fn design_chain(audio: &AudioParams, opt: &ChainOptions) -> ChainDesign {
     let mut notes = Vec::new();
     let fs_out = pdm / d as f64;
     if (fs_out - audio.sample_rate_hz).abs() > 1.0 {
-        notes.push(format!("pdm_clock / decimation = {fs_out:.0} Hz differs from sample_rate_hz = {:.0} Hz; using {fs_out:.0} Hz", audio.sample_rate_hz));
+        notes.push(format!(
+            "pdm_clock / decimation = {fs_out:.0} Hz differs from sample_rate_hz = {:.0} Hz; using {fs_out:.0} Hz",
+            audio.sample_rate_hz
+        ));
     }
     let fir_decim = if d.is_multiple_of(2) && d >= 4 { 2 } else { 1 };
     let use_hb = opt.halfband_taps > 0 && (d / fir_decim).is_multiple_of(2) && d / fir_decim >= 4;
@@ -204,7 +214,9 @@ pub fn design_chain(audio: &AudioParams, opt: &ChainOptions) -> ChainDesign {
         // margin (the FIR's pass-band droop compensation eats ~1 dB of it).
         // With a half-band stage the CIC only has to protect the bands around
         // multiples of its own output rate.
-        (2..=8).find(|&n| cic_alias_floor(n, r, m, pdm, f_voice) >= opt.target_db + 3.0).unwrap_or(8)
+        (2..=8)
+            .find(|&n| cic_alias_floor(n, r, m, pdm, f_voice) >= opt.target_db + 3.0)
+            .unwrap_or(8)
     };
     let cic_out = pdm / r as f64;
     let hb = if use_hb { halfband(opt.halfband_taps) } else { vec![] };
@@ -227,12 +239,23 @@ pub fn design_chain(audio: &AudioParams, opt: &ChainOptions) -> ChainDesign {
     let mut fir = least_squares(
         taps,
         |f| if f <= pn { 1.0 / prev(f).max(1e-3) } else { 0.0 },
-        |f| if f <= pn { 1.0 } else if f >= sn { w_stop } else { 0.0 },
+        |f| {
+            if f <= pn {
+                1.0
+            } else if f >= sn {
+                w_stop
+            } else {
+                0.0
+            }
+        },
         2048,
     );
     if fir.len() != taps {
         // even length requested: least_squares returns odd; trim symmetric ends
-        notes.push(format!("final FIR uses {} taps (type-I linear phase needs an odd length)", fir.len()));
+        notes.push(format!(
+            "final FIR uses {} taps (type-I linear phase needs an odd length)",
+            fir.len()
+        ));
     }
     let g0 = fir.iter().sum::<f64>();
     if g0.abs() > 1e-9 {
@@ -265,11 +288,27 @@ pub fn design_chain(audio: &AudioParams, opt: &ChainOptions) -> ChainDesign {
 pub fn min_taps_for(audio: &AudioParams, opt: &ChainOptions, target_db: f64) -> Option<usize> {
     let f_voice = audio.voice_band_hi_hz;
     // the CIC floor does not depend on the FIR, so probe with a tiny one
-    let probe = design_chain(audio, &ChainOptions { fir_taps: 3, ..opt.clone() });
+    let probe = design_chain(
+        audio,
+        &ChainOptions {
+            fir_taps: 3,
+            ..opt.clone()
+        },
+    );
     if probe.cic_only_floor_db(f_voice) < target_db {
         return None;
     }
-    let ok = |taps: usize| design_chain(audio, &ChainOptions { fir_taps: taps, ..opt.clone() }).stopband_db(f_voice).0 >= target_db;
+    let ok = |taps: usize| {
+        design_chain(
+            audio,
+            &ChainOptions {
+                fir_taps: taps,
+                ..opt.clone()
+            },
+        )
+        .stopband_db(f_voice)
+        .0 >= target_db
+    };
     // The least-squares attenuation is not strictly monotonic in the length,
     // so scan short odd lengths exhaustively, then bisect beyond 63 taps.
     let mut taps = 3;
@@ -374,7 +413,15 @@ pub struct SimOptions {
 
 impl Default for SimOptions {
     fn default() -> Self {
-        SimOptions { modulator_order: 2, tone_hz: 1000.0, amplitude: 0.5, n_out: 512, interferer_hz: 0.0, interferer_amp: 0.2, strip_bits: 384 }
+        SimOptions {
+            modulator_order: 2,
+            tone_hz: 1000.0,
+            amplitude: 0.5,
+            n_out: 512,
+            interferer_hz: 0.0,
+            interferer_amp: 0.2,
+            strip_bits: 384,
+        }
     }
 }
 
@@ -419,7 +466,10 @@ pub struct ChainSim {
 
 fn decimate_trace(freq: &[f64], db: &[f64], max_pts: usize) -> Trace {
     if freq.len() <= max_pts {
-        return Trace { freq: freq.to_vec(), db: db.to_vec() };
+        return Trace {
+            freq: freq.to_vec(),
+            db: db.to_vec(),
+        };
     }
     // keep the max within each bucket so tones stay visible
     let step = freq.len() as f64 / max_pts as f64;
@@ -461,7 +511,9 @@ fn sine_fit_sndr(x: &[f64], f: f64, fs: f64) -> f64 {
         x1 += v;
     }
     let a = vec![vec![ss, sc, s1], vec![sc, cc, c1], vec![s1, c1, n as f64]];
-    let Some(p) = crate::math::solve(a, vec![xs, xc, x1]) else { return 0.0 };
+    let Some(p) = crate::math::solve(a, vec![xs, xc, x1]) else {
+        return 0.0;
+    };
     let mut sig = 0.0;
     let mut err = 0.0;
     for (i, &v) in x.iter().enumerate() {
@@ -522,7 +574,10 @@ pub fn simulate(audio: &AudioParams, opt: &ChainOptions, sim: &SimOptions) -> Ch
     } else {
         fir_filter(&design.halfband, &cic_f).into_iter().step_by(2).collect()
     };
-    let out_full: Vec<f64> = fir_filter(&design.fir, &mid).into_iter().step_by(design.fir_decim as usize).collect();
+    let out_full: Vec<f64> = fir_filter(&design.fir, &mid)
+        .into_iter()
+        .step_by(design.fir_decim as usize)
+        .collect();
     let skip = settle.min(out_full.len());
     let out_x: Vec<f64> = out_full[skip..].to_vec();
     let fs_out = design.fs_out;
@@ -535,15 +590,36 @@ pub fn simulate(audio: &AudioParams, opt: &ChainOptions, sim: &SimOptions) -> Ch
     let nyq = pdm / 2.0;
     let resp_freq: Vec<f64> = (0..=900).map(|i| nyq * i as f64 / 900.0).collect();
     let dbv = |g: f64| (20.0 * g.max(1e-12).log10()).max(-200.0);
-    let resp_cic_db: Vec<f64> = resp_freq.iter().map(|&f| dbv(cic_mag(f, pdm, design.cic_order, design.cic_r, design.cic_m))).collect();
-    let resp_hb_db: Vec<f64> = if design.halfband.is_empty() { vec![] } else { resp_freq.iter().map(|&f| dbv(super::fft::dtft(&design.halfband, f / design.cic_out_hz).abs())).collect() };
-    let resp_fir_db: Vec<f64> = resp_freq.iter().map(|&f| dbv(super::fft::dtft(&design.fir, f / design.fir_in_hz).abs())).collect();
+    let resp_cic_db: Vec<f64> = resp_freq
+        .iter()
+        .map(|&f| dbv(cic_mag(f, pdm, design.cic_order, design.cic_r, design.cic_m)))
+        .collect();
+    let resp_hb_db: Vec<f64> = if design.halfband.is_empty() {
+        vec![]
+    } else {
+        resp_freq
+            .iter()
+            .map(|&f| dbv(super::fft::dtft(&design.halfband, f / design.cic_out_hz).abs()))
+            .collect()
+    };
+    let resp_fir_db: Vec<f64> = resp_freq
+        .iter()
+        .map(|&f| dbv(super::fft::dtft(&design.fir, f / design.fir_in_hz).abs()))
+        .collect();
     let resp_total_db: Vec<f64> = resp_freq.iter().map(|&f| dbv(design.total_mag(f))).collect();
     let pass_freq: Vec<f64> = (0..=200).map(|i| fs_out / 2.0 * i as f64 / 200.0).collect();
-    let pass_cic_db: Vec<f64> = pass_freq.iter().map(|&f| dbv(cic_mag(f, pdm, design.cic_order, design.cic_r, design.cic_m))).collect();
+    let pass_cic_db: Vec<f64> = pass_freq
+        .iter()
+        .map(|&f| dbv(cic_mag(f, pdm, design.cic_order, design.cic_r, design.cic_m)))
+        .collect();
     let pass_total_db: Vec<f64> = pass_freq.iter().map(|&f| dbv(design.total_mag(f))).collect();
     let ripple = {
-        let v: Vec<f64> = pass_freq.iter().zip(&pass_total_db).filter(|(f, _)| **f >= audio.voice_band_lo_hz.min(f_voice) && **f <= f_voice).map(|(_, d)| *d).collect();
+        let v: Vec<f64> = pass_freq
+            .iter()
+            .zip(&pass_total_db)
+            .filter(|(f, _)| **f >= audio.voice_band_lo_hz.min(f_voice) && **f <= f_voice)
+            .map(|(_, d)| *d)
+            .collect();
         let mx = v.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
         let mn = v.iter().cloned().fold(f64::INFINITY, f64::min);
         if v.is_empty() {
@@ -570,7 +646,10 @@ pub fn simulate(audio: &AudioParams, opt: &ChainOptions, sim: &SimOptions) -> Ch
         pass_freq,
         pass_cic_db,
         pass_total_db,
-        strip_bits: bits[strip_off..strip_off + strip].iter().map(|&b| if b > 0 { 1 } else { 0 }).collect(),
+        strip_bits: bits[strip_off..strip_off + strip]
+            .iter()
+            .map(|&b| if b > 0 { 1 } else { 0 })
+            .collect(),
         strip_input: x[strip_off..strip_off + strip].to_vec(),
         pdm_spectrum: pdm_trace,
         ntf_db,
@@ -629,7 +708,14 @@ mod tests {
         for order in [1, 2] {
             let b: Vec<f64> = sigma_delta(&x, order).into_iter().map(|v| v as f64).collect();
             let p = welch_psd(&b, pdm, WindowKind::Blackman, 0.0, 4096, 0.5);
-            let band = |lo: f64, hi: f64| p.freq.iter().zip(&p.psd).filter(|(f, _)| **f >= lo && **f < hi).map(|(_, v)| v).sum::<f64>();
+            let band = |lo: f64, hi: f64| {
+                p.freq
+                    .iter()
+                    .zip(&p.psd)
+                    .filter(|(f, _)| **f >= lo && **f < hi)
+                    .map(|(_, v)| v)
+                    .sum::<f64>()
+            };
             let low = band(5_000.0, 8_000.0);
             let high = band(300_000.0, 303_000.0);
             assert!(high > 100.0 * low, "order {order}: {low} vs {high}");
@@ -649,14 +735,34 @@ mod tests {
         assert!(sim.passband_ripple_db < 1.0, "ripple {}", sim.passband_ripple_db);
         let min = sim.min_taps_60db.expect("reachable");
         assert!((3..=31).contains(&min), "min taps {min}");
-        let dmin = design_chain(&p.design.audio, &ChainOptions { fir_taps: min, ..Default::default() });
+        let dmin = design_chain(
+            &p.design.audio,
+            &ChainOptions {
+                fir_taps: min,
+                ..Default::default()
+            },
+        );
         assert!(dmin.stopband_db(4000.0).0 >= 60.0);
         for shorter in (3..min).step_by(2) {
-            let d = design_chain(&p.design.audio, &ChainOptions { fir_taps: shorter, ..Default::default() });
+            let d = design_chain(
+                &p.design.audio,
+                &ChainOptions {
+                    fir_taps: shorter,
+                    ..Default::default()
+                },
+            );
             assert!(d.stopband_db(4000.0).0 < 60.0, "{shorter} taps already pass");
         }
         // a 3rd-order CIC cannot reach 60 dB in the bands the FIR cannot touch
-        assert!(min_taps_for(&p.design.audio, &ChainOptions { cic_order: 3, ..Default::default() }, 60.0).is_none());
+        assert!(min_taps_for(
+            &p.design.audio,
+            &ChainOptions {
+                cic_order: 3,
+                ..Default::default()
+            },
+            60.0
+        )
+        .is_none());
         let pk = sim.out_x.iter().fold(0.0f64, |m, v| m.max(v.abs()));
         assert!((pk - 0.5).abs() < 0.05, "output amplitude {pk}");
     }

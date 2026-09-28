@@ -199,7 +199,13 @@ pub fn ls_band(band: Band, taps: usize, f1: f64, f2: f64, transition_hz: f64, fs
             Band::Bandpass | Band::Bandstop => {
                 let pass = f >= c1 + t && f <= c2 - t;
                 let stop = f <= c1 - t || f >= c2 + t;
-                let r = if pass { Some(true) } else if stop { Some(false) } else { None };
+                let r = if pass {
+                    Some(true)
+                } else if stop {
+                    Some(false)
+                } else {
+                    None
+                };
                 if band == Band::Bandstop {
                     r.map(|v| !v)
                 } else {
@@ -257,7 +263,10 @@ mod tests {
         // β for 60 dB = 0.1102·51.3 = 5.653
         assert!((d.beta - 5.653).abs() < 0.01);
         // stop band from 6 kHz: every point ≤ −59 dB (Kaiser's formula is an estimate)
-        let worst = (0..200).map(|i| 6000.0 + i as f64 * 50.0).map(|f| 20.0 * dtft(&d.h, f / fs).abs().log10()).fold(-400.0, f64::max);
+        let worst = (0..200)
+            .map(|i| 6000.0 + i as f64 * 50.0)
+            .map(|f| 20.0 * dtft(&d.h, f / fs).abs().log10())
+            .fold(-400.0, f64::max);
         assert!(worst < -58.0, "worst stop band {worst}");
     }
 

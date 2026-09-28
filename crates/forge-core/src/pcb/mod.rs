@@ -62,7 +62,13 @@ pub fn placement(p: &Project) -> Vec<Placed> {
     r.parts
         .iter()
         .filter(|pp| !netlist::BOARD_FEATURES.contains(&pp.refdes.as_str()))
-        .map(|pp| Placed { refdes: pp.refdes.clone(), x_mm: pp.x, y_mm: pp.y, rot_deg: pp.rot, side: pp.side.clone() })
+        .map(|pp| Placed {
+            refdes: pp.refdes.clone(),
+            x_mm: pp.x,
+            y_mm: pp.y,
+            rot_deg: pp.rot,
+            side: pp.side.clone(),
+        })
         .collect()
 }
 
@@ -171,17 +177,41 @@ pub struct Strategy {
 }
 
 pub const STRATEGIES: &[Strategy] = &[
-    Strategy { name: "power first, bottom = short vertical hops", power_first: true, bot_cost: (40, 16), iterations: 24 },
-    Strategy { name: "signals first, bottom = short vertical hops", power_first: false, bot_cost: (40, 16), iterations: 24 },
-    Strategy { name: "signals first, cheaper bottom layer", power_first: false, bot_cost: (24, 14), iterations: 24 },
-    Strategy { name: "power first, cheaper bottom layer", power_first: true, bot_cost: (24, 14), iterations: 24 },
+    Strategy {
+        name: "power first, bottom = short vertical hops",
+        power_first: true,
+        bot_cost: (40, 16),
+        iterations: 24,
+    },
+    Strategy {
+        name: "signals first, bottom = short vertical hops",
+        power_first: false,
+        bot_cost: (40, 16),
+        iterations: 24,
+    },
+    Strategy {
+        name: "signals first, cheaper bottom layer",
+        power_first: false,
+        bot_cost: (24, 14),
+        iterations: 24,
+    },
+    Strategy {
+        name: "power first, cheaper bottom layer",
+        power_first: true,
+        bot_cost: (24, 14),
+        iterations: 24,
+    },
 ];
 
 fn net_order(b: &board::Board, power_first: bool) -> Vec<u16> {
     let hp = |ni: usize| -> f64 {
         let ps: Vec<&BoardPad> = b.pads.iter().filter(|p| p.net_id as usize == ni).collect();
-        let (x0, x1) = ps.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |a, p| (a.0.min(p.x), a.1.max(p.x)));
-        let (y0, y1) = ps.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |a, p| (a.0.min(p.y), a.1.max(p.y)));
+        let (x0, x1) = ps
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |a, p| (a.0.min(p.x), a.1.max(p.x)));
+        let (y0, y1) = ps
+            .iter()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |a, p| (a.0.min(p.y), a.1.max(p.y)));
         (x1 - x0) + (y1 - y0)
     };
     let mut v: Vec<(u32, f64, u16)> = Vec::new();
@@ -198,7 +228,13 @@ fn net_order(b: &board::Board, power_first: bool) -> Vec<u16> {
             NetClass::Rf => 0,
             NetClass::Power if n.name == "SW" => 1,
             NetClass::Signal => 2,
-            NetClass::Power => if pf { 1 } else { 3 },
+            NetClass::Power => {
+                if pf {
+                    1
+                } else {
+                    3
+                }
+            }
             NetClass::Ground => 9,
         };
         v.push((pri, hp(i), i as u16));
@@ -387,24 +423,43 @@ pub fn route_phase(p: &Project, parts: &[PartPos], gpio: &[(String, String)], st
     let mut gpio_final: Vec<(String, Option<String>)> = Vec::new();
     for (net, _) in &gpio {
         let nid = b0.nets.iter().position(|x| &x.name == net).map(|i| i as u16);
-        let claimed = nid.and_then(|nid| rt.claim.iter().position(|&c| c == nid)).map(|k| b0.pads[pool[k]].pin.clone());
+        let claimed = nid
+            .and_then(|nid| rt.claim.iter().position(|&c| c == nid))
+            .map(|k| b0.pads[pool[k]].pin.clone());
         gpio_final.push((net.clone(), claimed));
     }
     let taken: Vec<String> = gpio_final.iter().filter_map(|g| g.1.clone()).collect();
-    let mut free: Vec<String> = pool.iter().map(|&pi| b0.pads[pi].pin.clone()).filter(|p| !taken.contains(p)).collect();
+    let mut free: Vec<String> = pool
+        .iter()
+        .map(|&pi| b0.pads[pi].pin.clone())
+        .filter(|p| !taken.contains(p))
+        .collect();
     let gpio_final: Vec<(String, String)> = gpio_final
         .into_iter()
         .map(|(net, pin)| {
             let pin = pin.unwrap_or_else(|| {
                 let want = gpio.iter().find(|g| g.0 == net).map(|g| g.1.clone()).unwrap_or_default();
                 let k = free.iter().position(|p| *p == want).unwrap_or(0);
-                if free.is_empty() { want } else { free.remove(k) }
+                if free.is_empty() {
+                    want
+                } else {
+                    free.remove(k)
+                }
             });
             (net, pin)
         })
         .collect();
     drop(rt);
-    Routed { key: cache_key_hex(p), strategy_index: STRATEGIES.iter().position(|s| s.name == strat.name).unwrap_or(0), gpio: gpio_final, tracks, vias, status, ripups, expansions }
+    Routed {
+        key: cache_key_hex(p),
+        strategy_index: STRATEGIES.iter().position(|s| s.name == strat.name).unwrap_or(0),
+        gpio: gpio_final,
+        tracks,
+        vias,
+        status,
+        ripups,
+        expansions,
+    }
 }
 
 /// Derive the full layout (pours, connectivity, DRC, statistics) from routed copper.
@@ -417,10 +472,20 @@ pub fn finalize(p: &Project, parts: &[PartPos], r: &Routed) -> Layout {
     let (ripups, expansions) = (r.ripups, r.expansions);
     let b = board::build(p, &parts, &gpio);
     for t in tracks.iter_mut() {
-        t.net_id = b.nets.iter().position(|x| x.name == t.net).map(|i| i as u16).unwrap_or(u16::MAX - 2);
+        t.net_id = b
+            .nets
+            .iter()
+            .position(|x| x.name == t.net)
+            .map(|i| i as u16)
+            .unwrap_or(u16::MAX - 2);
     }
     for v in vias.iter_mut() {
-        v.net_id = b.nets.iter().position(|x| x.name == v.net).map(|i| i as u16).unwrap_or(u16::MAX - 2);
+        v.net_id = b
+            .nets
+            .iter()
+            .position(|x| x.name == v.net)
+            .map(|i| i as u16)
+            .unwrap_or(u16::MAX - 2);
     }
     let pour_top = pour::compute(&b, &tracks, &vias, 0);
     let pour = pour::compute(&b, &tracks, &vias, 1);
@@ -447,7 +512,11 @@ pub fn finalize(p: &Project, parts: &[PartPos], r: &Routed) -> Layout {
     let len_top: f64 = tracks.iter().filter(|t| t.layer == 0).map(|t| t.length()).sum();
     let len_bot: f64 = tracks.iter().filter(|t| t.layer == 1).map(|t| t.length()).sum();
     let comps: Vec<&PlacedPart> = b.parts.iter().filter(|x| !x.feature).collect();
-    let smd_joints = b.pads.iter().filter(|x| x.drill <= 0.0 && !netlist::BOARD_FEATURES.contains(&x.refdes.as_str())).count();
+    let smd_joints = b
+        .pads
+        .iter()
+        .filter(|x| x.drill <= 0.0 && !netlist::BOARD_FEATURES.contains(&x.refdes.as_str()))
+        .count();
     let tht_joints = b.pads.iter().filter(|x| x.drill > 0.0).count();
     let mut uniq: Vec<(String, String)> = Vec::new();
     for c in p.components.iter().filter(|c| c.on_pcb) {
@@ -457,7 +526,11 @@ pub fn finalize(p: &Project, parts: &[PartPos], r: &Routed) -> Layout {
         }
     }
     let stats = Stats {
-        routed_pct: if conn.connections == 0 { 100.0 } else { 100.0 * conn.routed as f64 / conn.connections as f64 },
+        routed_pct: if conn.connections == 0 {
+            100.0
+        } else {
+            100.0 * conn.routed as f64 / conn.connections as f64
+        },
         connections: conn.connections,
         routed: conn.routed,
         drc_violations: violations.len(),
@@ -479,7 +552,12 @@ pub fn finalize(p: &Project, parts: &[PartPos], r: &Routed) -> Layout {
         ..Default::default()
     };
     Layout {
-        board: BoardInfo { width: b.width, height: b.height, thickness: p.design.pcb.thickness_mm, layers: p.design.pcb.layers },
+        board: BoardInfo {
+            width: b.width,
+            height: b.height,
+            thickness: p.design.pcb.thickness_mm,
+            layers: p.design.pcb.layers,
+        },
         rules: b.rules.clone(),
         parts: b.parts.clone(),
         pads: b.pads.clone(),
@@ -507,7 +585,10 @@ fn swap_pool(b: &board::Board, gpio: &[(String, String)]) -> (Vec<usize>, Vec<u1
         .filter(|(_, pd)| pd.refdes == "U1" && !netlist::SOC_RESERVED.contains(&pd.pin.as_str()))
         .map(|(i, _)| i)
         .collect();
-    let swap: Vec<u16> = gpio.iter().filter_map(|(n, _)| b.nets.iter().position(|x| &x.name == n).map(|i| i as u16)).collect();
+    let swap: Vec<u16> = gpio
+        .iter()
+        .filter_map(|(n, _)| b.nets.iter().position(|x| &x.name == n).map(|i| i as u16))
+        .collect();
     (pool, swap)
 }
 
@@ -539,7 +620,15 @@ fn ground_connect(b: &board::Board, rt: &mut route::Router) -> (pour::Pour, pour
         // 1) stitching vias: wherever a top region and a bottom region belong
         //    to different ground groups, one via merges them (union–find
         //    over the groups keeps it to one via per merge).
-        let ng = groups.region_group.iter().flatten().copied().chain(groups.pad_group.iter().map(|x| x.1)).max().unwrap_or(0) + 1;
+        let ng = groups
+            .region_group
+            .iter()
+            .flatten()
+            .copied()
+            .chain(groups.pad_group.iter().map(|x| x.1))
+            .max()
+            .unwrap_or(0)
+            + 1;
         let mut uf: Vec<usize> = (0..ng).collect();
         fn find(uf: &mut [usize], a: usize) -> usize {
             let mut r = a;
@@ -551,7 +640,9 @@ fn ground_connect(b: &board::Board, rt: &mut route::Router) -> (pour::Pour, pour
         }
         for c in 0..n {
             let (x, y) = rt.xy(c);
-            let (Some(a), Some(bb)) = (group_of(0, x, y), group_of(1, x, y)) else { continue };
+            let (Some(a), Some(bb)) = (group_of(0, x, y), group_of(1, x, y)) else {
+                continue;
+            };
             let (ra, rb) = (find(&mut uf, a), find(&mut uf, bb));
             if ra == rb {
                 continue;
@@ -561,7 +652,11 @@ fn ground_connect(b: &board::Board, rt: &mut route::Router) -> (pour::Pour, pour
                 progress = true;
             }
         }
-        let fixed: Vec<usize> = minors.iter().copied().filter(|&g| find(&mut uf, g) == find(&mut uf, main)).collect();
+        let fixed: Vec<usize> = minors
+            .iter()
+            .copied()
+            .filter(|&g| find(&mut uf, g) == find(&mut uf, main))
+            .collect();
         // 2) routed bridges for groups a via could not join
         let mut main_nodes: Vec<usize> = Vec::new();
         for c in 0..n {
@@ -612,7 +707,11 @@ pub fn route_trace(p: &Project, net: &str, placement_override: Option<Vec<PartPo
         None => (pr.parts, pr.gpio),
     };
     let b = board::build(p, &parts, &gpio);
-    let ni = b.nets.iter().position(|n| n.name == net).ok_or_else(|| format!("unknown net `{net}`"))? as u16;
+    let ni = b
+        .nets
+        .iter()
+        .position(|n| n.name == net)
+        .ok_or_else(|| format!("unknown net `{net}`"))? as u16;
     if ni == b.gnd {
         return Err("GND is a pour connected by vias — pick a signal or power net".into());
     }
@@ -745,7 +844,12 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
     }
     let l = layout(p);
     let s = &l.stats;
-    let unrouted: Vec<String> = l.connectivity.nets.iter().flat_map(|n| n.unconnected.iter().map(move |u| format!("{} ({})", u, n.net))).collect();
+    let unrouted: Vec<String> = l
+        .connectivity
+        .nets
+        .iter()
+        .flat_map(|n| n.unconnected.iter().map(move |u| format!("{} ({})", u, n.net)))
+        .collect();
     let mut kinds: Vec<(String, usize)> = Vec::new();
     for v in &l.drc {
         if let Some(k) = kinds.iter_mut().find(|k| k.0 == v.kind) {
@@ -828,14 +932,21 @@ mod tests {
     fn baked_route_matches_router() {
         let p = Project::iris();
         let baked = baked_route().expect("baked route parses");
-        assert_eq!(baked.key, cache_key_hex(&p), "baked route is stale: run `cargo test -p forge-core regenerate_baked_route -- --ignored`");
+        assert_eq!(
+            baked.key,
+            cache_key_hex(&p),
+            "baked route is stale: run `cargo test -p forge-core regenerate_baked_route -- --ignored`"
+        );
         let pr = place::constructive(&p);
         let fresh = route_phase(&p, &pr.parts, &pr.gpio, &STRATEGIES[baked.strategy_index]);
         assert_eq!(fresh.gpio, baked.gpio);
         assert_eq!(fresh.tracks.len(), baked.tracks.len());
         assert_eq!(fresh.vias.len(), baked.vias.len());
         for (a, b) in fresh.tracks.iter().zip(baked.tracks.iter()) {
-            assert!(a.net == b.net && a.layer == b.layer && (a.x0 - b.x0).abs() < 1e-9 && (a.y1 - b.y1).abs() < 1e-9, "track differs: {a:?} vs {b:?}");
+            assert!(
+                a.net == b.net && a.layer == b.layer && (a.x0 - b.x0).abs() < 1e-9 && (a.y1 - b.y1).abs() < 1e-9,
+                "track differs: {a:?} vs {b:?}"
+            );
         }
     }
 

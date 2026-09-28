@@ -44,11 +44,17 @@ pub fn mul(a: &Mat, b: &Mat) -> Mat {
 }
 
 pub fn add(a: &Mat, b: &Mat) -> Mat {
-    a.iter().zip(b).map(|(x, y)| x.iter().zip(y).map(|(p, q)| p + q).collect()).collect()
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| x.iter().zip(y).map(|(p, q)| p + q).collect())
+        .collect()
 }
 
 pub fn sub(a: &Mat, b: &Mat) -> Mat {
-    a.iter().zip(b).map(|(x, y)| x.iter().zip(y).map(|(p, q)| p - q).collect()).collect()
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| x.iter().zip(y).map(|(p, q)| p - q).collect())
+        .collect()
 }
 
 pub fn scale(a: &Mat, k: f64) -> Mat {

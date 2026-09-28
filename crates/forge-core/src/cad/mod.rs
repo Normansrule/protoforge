@@ -41,8 +41,8 @@ pub mod geom2d;
 pub mod mesh;
 pub mod solid;
 
-pub use mesh::{Mesh, Part};
 use mesh::{MassProps, MeshCheck, MeshF32};
+pub use mesh::{Mesh, Part};
 
 thread_local! {
     static FRAME_CACHE: RefCell<Option<(String, Rc<frame::FrameGeom>)>> = const { RefCell::new(None) };
@@ -67,7 +67,12 @@ pub fn frame_parts(p: &Project) -> Vec<Part> {
     frame_geom(p)
         .parts
         .iter()
-        .map(|b| Part { name: b.name.clone(), mesh: b.assembly.clone(), color: b.color.clone(), explode: b.explode })
+        .map(|b| Part {
+            name: b.name.clone(),
+            mesh: b.assembly.clone(),
+            color: b.color.clone(),
+            explode: b.explode,
+        })
         .collect()
 }
 
@@ -78,7 +83,12 @@ pub fn frame_parts_print(p: &Project) -> Vec<Part> {
     frame_geom(p)
         .parts
         .iter()
-        .map(|b| Part { name: b.name.clone(), mesh: b.print.clone(), color: b.color.clone(), explode: [0.0; 3] })
+        .map(|b| Part {
+            name: b.name.clone(),
+            mesh: b.print.clone(),
+            color: b.color.clone(),
+            explode: [0.0; 3],
+        })
         .collect()
 }
 
@@ -105,7 +115,11 @@ struct PartsIn {
 
 impl Default for PartsIn {
     fn default() -> Self {
-        PartsIn { project: None, orientation: "assembly".into(), display: true }
+        PartsIn {
+            project: None,
+            orientation: "assembly".into(),
+            display: true,
+        }
     }
 }
 
@@ -216,7 +230,13 @@ struct StlIn {
 
 impl Default for StlIn {
     fn default() -> Self {
-        StlIn { project: None, part: "front".into(), binary: true, orientation: "print".into(), enclosure: None }
+        StlIn {
+            project: None,
+            part: "front".into(),
+            binary: true,
+            orientation: "print".into(),
+            enclosure: None,
+        }
     }
 }
 
@@ -245,8 +265,16 @@ fn named_mesh(i: &StlIn) -> Result<(String, Mesh), String> {
     }
     let p = i.project.clone().unwrap_or_else(Project::iris);
     let geom = frame_geom(&p);
-    let b = geom.parts.iter().find(|b| b.name == i.part).ok_or_else(|| format!("unknown part `{}`", i.part))?;
-    let m = if i.orientation == "assembly" { b.assembly.clone() } else { b.print.clone() };
+    let b = geom
+        .parts
+        .iter()
+        .find(|b| b.name == i.part)
+        .ok_or_else(|| format!("unknown part `{}`", i.part))?;
+    let m = if i.orientation == "assembly" {
+        b.assembly.clone()
+    } else {
+        b.print.clone()
+    };
     Ok((b.name.clone(), m))
 }
 
@@ -255,10 +283,22 @@ fn stl(i: StlIn) -> Result<FileOut, String> {
     let tris = m.triangle_count();
     if i.binary {
         let bytes = export::stl_binary(&m, &name);
-        Ok(FileOut { filename: format!("iris_{name}.stl"), bytes: bytes.len(), base64: Some(export::base64(&bytes)), text: None, triangles: tris })
+        Ok(FileOut {
+            filename: format!("iris_{name}.stl"),
+            bytes: bytes.len(),
+            base64: Some(export::base64(&bytes)),
+            text: None,
+            triangles: tris,
+        })
     } else {
         let text = export::stl_ascii(&m, &name);
-        Ok(FileOut { filename: format!("iris_{name}_ascii.stl"), bytes: text.len(), base64: None, text: Some(text), triangles: tris })
+        Ok(FileOut {
+            filename: format!("iris_{name}_ascii.stl"),
+            bytes: text.len(),
+            base64: None,
+            text: Some(text),
+            triangles: tris,
+        })
     }
 }
 
@@ -271,7 +311,10 @@ struct ObjIn {
 
 impl Default for ObjIn {
     fn default() -> Self {
-        ObjIn { project: None, orientation: "assembly".into() }
+        ObjIn {
+            project: None,
+            orientation: "assembly".into(),
+        }
     }
 }
 
@@ -285,7 +328,13 @@ fn obj(i: ObjIn) -> Result<FileOut, String> {
         .collect();
     let text = export::obj(&meshes);
     let tris = meshes.iter().map(|(_, m)| m.triangle_count()).sum();
-    Ok(FileOut { filename: "iris_frame.obj".into(), bytes: text.len(), base64: None, text: Some(text), triangles: tris })
+    Ok(FileOut {
+        filename: "iris_frame.obj".into(),
+        bytes: text.len(),
+        base64: None,
+        text: Some(text),
+        triangles: tris,
+    })
 }
 
 /// Lay print-oriented parts out on a bed with simple shelf packing.
@@ -326,8 +375,16 @@ fn three_mf(i: ProjectIn) -> Result<ThreeMfOut, String> {
     let geom = frame_geom(&i.project);
     let meshes: Vec<Mesh> = geom.parts.iter().map(|b| b.print.clone()).collect();
     let placed = arrange_on_bed(&meshes, [256.0, 256.0], 6.0);
-    let items: Vec<(&str, &Mesh, &str)> = geom.parts.iter().zip(&placed).map(|(b, m)| (b.name.as_str(), m, b.color.as_str())).collect();
-    Ok(ThreeMfOut { files: export::three_mf(&items, &format!("{} frame", i.project.meta.name)), filename: "iris_frame.3mf".into() })
+    let items: Vec<(&str, &Mesh, &str)> = geom
+        .parts
+        .iter()
+        .zip(&placed)
+        .map(|(b, m)| (b.name.as_str(), m, b.color.as_str()))
+        .collect();
+    Ok(ThreeMfOut {
+        files: export::three_mf(&items, &format!("{} frame", i.project.meta.name)),
+        filename: "iris_frame.3mf".into(),
+    })
 }
 
 #[derive(Serialize)]
@@ -355,12 +412,28 @@ fn mass(i: ProjectIn) -> Result<MassOut, String> {
     let parts: Vec<MassRow> = geom
         .parts
         .iter()
-        .map(|b| MassRow { name: b.name.clone(), label: b.label.clone(), mass: b.assembly.mass_props(density) })
+        .map(|b| MassRow {
+            name: b.name.clone(),
+            label: b.label.clone(),
+            mass: b.assembly.mass_props(density),
+        })
         .collect();
     let total = total_props(&parts.iter().map(|r| r.mass.clone()).collect::<Vec<_>>());
-    let comps = p.components.iter().map(|c| (c.refdes.clone(), c.name.clone(), c.mass_g * c.qty, c.location.clone())).collect();
+    let comps = p
+        .components
+        .iter()
+        .map(|c| (c.refdes.clone(), c.name.clone(), c.mass_g * c.qty, c.location.clone()))
+        .collect();
     let comp = p.component_mass_g();
-    Ok(MassOut { frame_mass_g: total.mass_g, wearable_mass_g: total.mass_g + comp, total, parts, components: comps, components_mass_g: comp, layout: geom.layout.clone() })
+    Ok(MassOut {
+        frame_mass_g: total.mass_g,
+        wearable_mass_g: total.mass_g + comp,
+        total,
+        parts,
+        components: comps,
+        components_mass_g: comp,
+        layout: geom.layout.clone(),
+    })
 }
 
 #[derive(Deserialize)]
@@ -396,7 +469,10 @@ struct TriOut {
 
 fn triangulate_api(i: TriIn) -> Result<TriOut, String> {
     let (outer, holes) = if i.outer.len() >= 3 {
-        (geom2d::oriented(i.outer, true), i.holes.into_iter().map(|h| geom2d::oriented(h, false)).collect::<Vec<_>>())
+        (
+            geom2d::oriented(i.outer, true),
+            i.holes.into_iter().map(|h| geom2d::oriented(h, false)).collect::<Vec<_>>(),
+        )
     } else {
         let p = i.project.unwrap_or_else(Project::iris);
         let (o, l, r) = frame::front_profile(&p);
@@ -410,7 +486,12 @@ fn triangulate_api(i: TriIn) -> Result<TriOut, String> {
         loop_sizes.push(h.len());
     }
     let area = geom2d::area(&outer) + holes.iter().map(|h| geom2d::area(h)).sum::<f64>();
-    Ok(TriOut { points, loop_sizes, triangles, area_mm2: area })
+    Ok(TriOut {
+        points,
+        loop_sizes,
+        triangles,
+        area_mm2: area,
+    })
 }
 
 #[derive(Deserialize, Default)]
@@ -436,7 +517,10 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         "cad.triangulate" => handle(input, triangulate_api),
         "cad.enclosure_defaults" => Some(crate::api::to_value(enclosure::EnclosureParams::default())),
         "cad.validate" => handle(input, |i: ValidateIn| {
-            Ok(ValidateOut { check: i.mesh.validate(), mass: i.mesh.mass_props(i.density_g_cm3.unwrap_or(1.24)) })
+            Ok(ValidateOut {
+                check: i.mesh.validate(),
+                mass: i.mesh.mass_props(i.density_g_cm3.unwrap_or(1.24)),
+            })
         }),
         _ => None,
     }
@@ -457,14 +541,33 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
             p.design.frame.material,
             density
         )),
-        Metric::new("cad.pod_inner_length_mm", "Electronics pod usable inner length", l.pod_usable_len_mm, "mm", "cad").with_note(&format!(
+        Metric::new(
+            "cad.pod_inner_length_mm",
+            "Electronics pod usable inner length",
+            l.pod_usable_len_mm,
+            "mm",
+            "cad",
+        )
+        .with_note(&format!(
             "cavity {:.1} mm long at the floor, corner radius {:.2} mm, for a {:.1} mm tall board",
             l.pod_cavity_len_floor_mm, l.pod_cavity_corner_r_mm, p.design.pcb.height_mm
         )),
-        Metric::new("cad.pod_inner_width_mm", "Electronics pod inner depth", l.pod_cavity_depth_mm, "mm", "cad")
-            .with_note("floor to the lid's inner face"),
-        Metric::new("cad.pod_inner_height_mm", "Electronics pod inner height", l.pod_cavity_height_floor_mm, "mm", "cad")
-            .with_note("at the floor, where draft makes the cavity smallest"),
+        Metric::new(
+            "cad.pod_inner_width_mm",
+            "Electronics pod inner depth",
+            l.pod_cavity_depth_mm,
+            "mm",
+            "cad",
+        )
+        .with_note("floor to the lid's inner face"),
+        Metric::new(
+            "cad.pod_inner_height_mm",
+            "Electronics pod inner height",
+            l.pod_cavity_height_floor_mm,
+            "mm",
+            "cad",
+        )
+        .with_note("at the floor, where draft makes the cavity smallest"),
         Metric::new("cad.frame_volume_cm3", "Frame material volume", vol / 1000.0, "cm³", "cad"),
     ]
 }
@@ -516,15 +619,26 @@ mod tests {
     #[test]
     fn dispatch_round_trips() {
         let p = serde_json::to_value(Project::iris()).unwrap();
-        let out = dispatch("cad.parts", &serde_json::json!({"project": p, "orientation": "print"})).unwrap().unwrap();
+        let out = dispatch("cad.parts", &serde_json::json!({"project": p, "orientation": "print"}))
+            .unwrap()
+            .unwrap();
         assert_eq!(out["parts"].as_array().unwrap().len(), 6);
-        let stl = dispatch("cad.stl", &serde_json::json!({"project": p, "part": "lid_r"})).unwrap().unwrap();
+        let stl = dispatch("cad.stl", &serde_json::json!({"project": p, "part": "lid_r"}))
+            .unwrap()
+            .unwrap();
         assert!(stl["base64"].as_str().unwrap().len() > 100);
-        assert!(dispatch("cad.fit", &serde_json::json!({"face_width_mm": 140, "pd_mm": 64})).unwrap().is_ok());
+        assert!(dispatch("cad.fit", &serde_json::json!({"face_width_mm": 140, "pd_mm": 64}))
+            .unwrap()
+            .is_ok());
         assert!(dispatch("cad.enclosure", &serde_json::json!({})).unwrap().is_ok());
         assert!(dispatch("cad.3mf", &serde_json::json!({"project": p})).unwrap().is_ok());
         let tri = dispatch("cad.triangulate", &serde_json::json!({"project": p})).unwrap().unwrap();
-        let n: usize = tri["loop_sizes"].as_array().unwrap().iter().map(|x| x.as_u64().unwrap() as usize).sum();
+        let n: usize = tri["loop_sizes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_u64().unwrap() as usize)
+            .sum();
         assert_eq!(tri["triangles"].as_array().unwrap().len(), n + 2);
         assert!(dispatch("cad.nope", &serde_json::json!({})).is_none());
     }

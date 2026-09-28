@@ -63,13 +63,19 @@ pub fn head_pose(t: f64) -> HeadPose {
     let env = walk_env(t);
     let w2 = 2.0 * PI * 2.0; // step frequency 2 Hz
     let w1 = 2.0 * PI * 1.0; // stride (left/right) 1 Hz
-    // yaw: look right, left, centre; scan while walking; look around
-    let yaw = mv(t, 4.0, 1.0, 0.0, 40.0) + mv(t, 8.0, 1.2, 0.0, -70.0) + mv(t, 12.0, 1.0, 0.0, 30.0)
+                             // yaw: look right, left, centre; scan while walking; look around
+    let yaw = mv(t, 4.0, 1.0, 0.0, 40.0)
+        + mv(t, 8.0, 1.2, 0.0, -70.0)
+        + mv(t, 12.0, 1.0, 0.0, 30.0)
         + 3.0 * env * (w1 * t).sin()
         + mv(t, 47.0, 1.2, 0.0, 60.0)
         + mv(t, 51.0, 1.5, 0.0, -60.0);
     // pitch: glance down to read, walking bob, "yes" nods
-    let nods = if (55.0..57.0).contains(&t) { 10.0 * (2.0 * PI * 1.5 * (t - 55.0)).sin() * (PI * (t - 55.0) / 2.0).sin() } else { 0.0 };
+    let nods = if (55.0..57.0).contains(&t) {
+        10.0 * (2.0 * PI * 1.5 * (t - 55.0)).sin() * (PI * (t - 55.0) / 2.0).sin()
+    } else {
+        0.0
+    };
     let pitch = mv(t, 14.0, 0.6, 0.0, -20.0) + mv(t, 17.0, 0.6, 0.0, 20.0) + 1.5 * env * (w2 * t + 0.4).sin() + nods;
     // roll: tilt gesture (UC-3 scroll) and walking sway
     let roll = mv(t, 30.0, 1.0, 0.0, 12.0) + mv(t, 34.0, 1.0, 0.0, -12.0) + 1.2 * env * (w1 * t).sin();
@@ -79,7 +85,10 @@ pub fn head_pose(t: f64) -> HeadPose {
     let x_fluct = -0.09 / w2 * (w2 * t).cos() * env;
     let y = 0.018 * (w1 * t).sin() * env;
     let z = -0.013 * (w2 * t).sin() * env; // up is −z
-    HeadPose { rpy: [roll.to_radians(), pitch.to_radians(), yaw.to_radians()], pos: [x_nominal + x_fluct, y, z] }
+    HeadPose {
+        rpy: [roll.to_radians(), pitch.to_radians(), yaw.to_radians()],
+        pos: [x_nominal + x_fluct, y, z],
+    }
 }
 
 /// ∫₀ᵗ walk_env, computed in closed form piecewise (min-jerk integral).
@@ -176,7 +185,11 @@ fn euler_rates(rpy: [f64; 3], w: [f64; 3]) -> [f64; 3] {
     let (sp, cp) = rpy[1].sin_cos();
     let cp = if cp.abs() < 1e-6 { 1e-6f64.copysign(cp) } else { cp };
     let tp = sp / cp;
-    [w[0] + (w[1] * sr + w[2] * cr) * tp, w[1] * cr - w[2] * sr, (w[1] * sr + w[2] * cr) / cp]
+    [
+        w[0] + (w[1] * sr + w[2] * cr) * tp,
+        w[1] * cr - w[2] * sr,
+        (w[1] * sr + w[2] * cr) / cp,
+    ]
 }
 
 fn accel_tilt(f: [f64; 3]) -> [f64; 2] {
@@ -205,7 +218,15 @@ pub struct HeadInput {
 
 impl Default for HeadInput {
     fn default() -> Self {
-        HeadInput { imu: ImuParams::default(), duration_s: 60.0, seed: 42, kf_motion_deg: 2.0, kf_bias_rw: 0.002, out_hz: 50.0, sweep: false }
+        HeadInput {
+            imu: ImuParams::default(),
+            duration_s: 60.0,
+            seed: 42,
+            kf_motion_deg: 2.0,
+            kf_bias_rw: 0.002,
+            out_hz: 50.0,
+            sweep: false,
+        }
     }
 }
 
@@ -267,7 +288,10 @@ struct Kf1 {
 
 impl Kf1 {
     fn new(angle: f64) -> Kf1 {
-        Kf1 { x: [angle, 0.0], p: [[1e-4, 0.0], [0.0, (1.0f64).to_radians().powi(2)]] }
+        Kf1 {
+            x: [angle, 0.0],
+            p: [[1e-4, 0.0], [0.0, (1.0f64).to_radians().powi(2)]],
+        }
     }
     fn predict(&mut self, rate: f64, dt: f64, q_angle: f64, q_bias: f64) {
         self.x[0] += (rate - self.x[1]) * dt;
@@ -287,7 +311,10 @@ impl Kf1 {
         self.x[0] += k0 * y;
         self.x[1] += k1 * y;
         let p = self.p;
-        self.p = [[(1.0 - k0) * p[0][0], (1.0 - k0) * p[0][1]], [p[1][0] - k1 * p[0][0], p[1][1] - k1 * p[0][1]]];
+        self.p = [
+            [(1.0 - k0) * p[0][0], (1.0 - k0) * p[0][1]],
+            [p[1][0] - k1 * p[0][0], p[1][1] - k1 * p[0][1]],
+        ];
     }
 }
 
@@ -300,7 +327,11 @@ fn run(inp: &HeadInput, alpha: f64, record: Option<&mut HeadResult>) -> Sim {
     let mut rng = Rng::new(inp.seed);
     let sg = (imu.gyro_noise_dps_rthz.max(0.0) * rate.sqrt()).to_radians();
     let sa = imu.accel_noise_mg_rthz.max(0.0) * rate.sqrt() * 1e-3 * G;
-    let bias = [imu.gyro_bias_dps.to_radians(), -imu.gyro_bias_dps.to_radians(), imu.gyro_bias_dps.to_radians()];
+    let bias = [
+        imu.gyro_bias_dps.to_radians(),
+        -imu.gyro_bias_dps.to_radians(),
+        imu.gyro_bias_dps.to_radians(),
+    ];
     let alpha = alpha.clamp(0.0, 1.0);
     let decim = ((rate / inp.out_hz.clamp(5.0, 500.0)).round() as usize).max(1);
 
@@ -320,7 +351,11 @@ fn run(inp: &HeadInput, alpha: f64, record: Option<&mut HeadResult>) -> Sim {
     for k in 0..n {
         let t = k as f64 * dt;
         let (truth, w, f) = tr[k];
-        let wm = [w[0] + bias[0] + sg * rng.normal(), w[1] + bias[1] + sg * rng.normal(), w[2] + bias[2] + sg * rng.normal()];
+        let wm = [
+            w[0] + bias[0] + sg * rng.normal(),
+            w[1] + bias[1] + sg * rng.normal(),
+            w[2] + bias[2] + sg * rng.normal(),
+        ];
         let fm = [f[0] + sa * rng.normal(), f[1] + sa * rng.normal(), f[2] + sa * rng.normal()];
         let acc = accel_tilt(fm);
         // gyro only
@@ -377,7 +412,9 @@ fn run(inp: &HeadInput, alpha: f64, record: Option<&mut HeadResult>) -> Sim {
             }
         }
     }
-    Sim { rms_cf: ((sse[2][0] + sse[2][1]) / (2.0 * n as f64)).sqrt().to_degrees() }
+    Sim {
+        rms_cf: ((sse[2][0] + sse[2][1]) / (2.0 * n as f64)).sqrt().to_degrees(),
+    }
 }
 
 pub fn head_tracking(inp: &HeadInput) -> HeadResult {
@@ -392,15 +429,44 @@ pub fn head_tracking(inp: &HeadInput) -> HeadResult {
             ("kf", "Kalman filter (angle + bias)", true),
         ]
         .iter()
-        .map(|(id, name, y)| Estimate { id: (*id).into(), name: (*name).into(), has_yaw: *y, ..Default::default() })
+        .map(|(id, name, y)| Estimate {
+            id: (*id).into(),
+            name: (*name).into(),
+            has_yaw: *y,
+            ..Default::default()
+        })
         .collect(),
         events: vec![
-            Segment { t0: 4.0, t1: 13.0, label: "look around (yaw)".into() },
-            Segment { t0: 14.0, t1: 17.6, label: "glance down".into() },
-            Segment { t0: 20.0, t1: 45.0, label: "walking".into() },
-            Segment { t0: 30.0, t1: 35.0, label: "tilt gesture".into() },
-            Segment { t0: 47.0, t1: 52.5, label: "look around".into() },
-            Segment { t0: 55.0, t1: 57.0, label: "nods".into() },
+            Segment {
+                t0: 4.0,
+                t1: 13.0,
+                label: "look around (yaw)".into(),
+            },
+            Segment {
+                t0: 14.0,
+                t1: 17.6,
+                label: "glance down".into(),
+            },
+            Segment {
+                t0: 20.0,
+                t1: 45.0,
+                label: "walking".into(),
+            },
+            Segment {
+                t0: 30.0,
+                t1: 35.0,
+                label: "tilt gesture".into(),
+            },
+            Segment {
+                t0: 47.0,
+                t1: 52.5,
+                label: "look around".into(),
+            },
+            Segment {
+                t0: 55.0,
+                t1: 57.0,
+                label: "nods".into(),
+            },
         ],
         cf_crossover_hz: (1.0 - a) / (2.0 * PI * a.max(1e-9) * dt),
         cf_tau_s: a * dt / (1.0 - a).max(1e-9),
@@ -411,8 +477,13 @@ pub fn head_tracking(inp: &HeadInput) -> HeadResult {
     };
     run(inp, a, Some(&mut r));
     if inp.sweep {
-        let alphas = [0.5, 0.7, 0.8, 0.9, 0.93, 0.95, 0.96, 0.97, 0.98, 0.985, 0.99, 0.993, 0.995, 0.997, 0.998, 0.999];
-        let fast = HeadInput { duration_s: inp.duration_s, ..inp.clone() };
+        let alphas = [
+            0.5, 0.7, 0.8, 0.9, 0.93, 0.95, 0.96, 0.97, 0.98, 0.985, 0.99, 0.993, 0.995, 0.997, 0.998, 0.999,
+        ];
+        let fast = HeadInput {
+            duration_s: inp.duration_s,
+            ..inp.clone()
+        };
         r.sweep = alphas.iter().map(|&al| (al, run(&fast, al, None).rms_cf)).collect();
     }
     r
@@ -420,7 +491,10 @@ pub fn head_tracking(inp: &HeadInput) -> HeadResult {
 
 /// The metric: RMS tilt (pitch/roll) error of the complementary filter.
 pub fn head_rms_err_deg(imu: &ImuParams) -> f64 {
-    let inp = HeadInput { imu: imu.clone(), ..Default::default() };
+    let inp = HeadInput {
+        imu: imu.clone(),
+        ..Default::default()
+    };
     run(&inp, imu.fusion_alpha, None).rms_cf
 }
 

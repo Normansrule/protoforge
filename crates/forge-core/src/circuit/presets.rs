@@ -147,7 +147,15 @@ impl LB {
         LB(Layout::default())
     }
     fn part(&mut self, el: &str, sym: &str, x: f64, y: f64, dir: &str) -> &mut Self {
-        self.0.parts.push(Part { el: el.into(), sym: sym.into(), x, y, dir: dir.into(), members: vec![el.into()], ..Default::default() });
+        self.0.parts.push(Part {
+            el: el.into(),
+            sym: sym.into(),
+            x,
+            y,
+            dir: dir.into(),
+            members: vec![el.into()],
+            ..Default::default()
+        });
         self
     }
     /// Put the last part's label on another side.
@@ -171,7 +179,11 @@ impl LB {
         self
     }
     fn wire(&mut self, node: &str, pts: &[(f64, f64)], flow: &[(&str, f64)]) -> &mut Self {
-        self.0.wires.push(Wire { node: node.into(), pts: pts.iter().map(|(x, y)| [*x, *y]).collect(), flow: flow.iter().map(|(e, s)| (e.to_string(), *s)).collect() });
+        self.0.wires.push(Wire {
+            node: node.into(),
+            pts: pts.iter().map(|(x, y)| [*x, *y]).collect(),
+            flow: flow.iter().map(|(e, s)| (e.to_string(), *s)).collect(),
+        });
         self
     }
     fn gnd(&mut self, x: f64, y: f64) -> &mut Self {
@@ -179,15 +191,33 @@ impl LB {
         self
     }
     fn label(&mut self, text: &str, x: f64, y: f64, node: Option<&str>) -> &mut Self {
-        self.0.labels.push(Label { text: text.into(), x, y, node: node.map(|s| s.into()), port: false });
+        self.0.labels.push(Label {
+            text: text.into(),
+            x,
+            y,
+            node: node.map(|s| s.into()),
+            port: false,
+        });
         self
     }
     fn port(&mut self, text: &str, x: f64, y: f64, node: &str) -> &mut Self {
-        self.0.labels.push(Label { text: text.into(), x, y, node: Some(node.into()), port: true });
+        self.0.labels.push(Label {
+            text: text.into(),
+            x,
+            y,
+            node: Some(node.into()),
+            port: true,
+        });
         self
     }
     fn boxed(&mut self, x: f64, y: f64, w: f64, h: f64, label: &str) -> &mut Self {
-        self.0.boxes.push(LBox { x, y, w, h, label: label.into() });
+        self.0.boxes.push(LBox {
+            x,
+            y,
+            w,
+            h,
+            label: label.into(),
+        });
         self
     }
     fn done(self) -> Layout {
@@ -219,17 +249,51 @@ fn resolve_pins(layout: &mut Layout, nl: &parser::Netlist) {
         p.pins = match p.sym.as_str() {
             "nmos" | "pmos" => {
                 let gx = if p.dir == "left" { x + 2.0 } else { x - 2.0 };
-                let (top, bot) = if p.sym == "nmos" { (("d", 0), ("s", 2)) } else { (("s", 2), ("d", 0)) };
+                let (top, bot) = if p.sym == "nmos" {
+                    (("d", 0), ("s", 2))
+                } else {
+                    (("s", 2), ("d", 0))
+                };
                 vec![
-                    Pin { name: top.0.into(), node: get(top.1), x, y: y - 2.0 },
-                    Pin { name: "g".into(), node: get(1), x: gx, y },
-                    Pin { name: bot.0.into(), node: get(bot.1), x, y: y + 2.0 },
+                    Pin {
+                        name: top.0.into(),
+                        node: get(top.1),
+                        x,
+                        y: y - 2.0,
+                    },
+                    Pin {
+                        name: "g".into(),
+                        node: get(1),
+                        x: gx,
+                        y,
+                    },
+                    Pin {
+                        name: bot.0.into(),
+                        node: get(bot.1),
+                        x,
+                        y: y + 2.0,
+                    },
                 ]
             }
             "opamp" => vec![
-                Pin { name: "in+".into(), node: get(0), x: x - 3.0, y: y - 1.0 },
-                Pin { name: "in-".into(), node: get(1), x: x - 3.0, y: y + 1.0 },
-                Pin { name: "out".into(), node: get(2), x: x + 3.0, y },
+                Pin {
+                    name: "in+".into(),
+                    node: get(0),
+                    x: x - 3.0,
+                    y: y - 1.0,
+                },
+                Pin {
+                    name: "in-".into(),
+                    node: get(1),
+                    x: x - 3.0,
+                    y: y + 1.0,
+                },
+                Pin {
+                    name: "out".into(),
+                    node: get(2),
+                    x: x + 3.0,
+                    y,
+                },
             ],
             sym => {
                 let (dx, dy) = dir_vec(&p.dir);
@@ -238,7 +302,20 @@ fn resolve_pins(layout: &mut Layout, nl: &parser::Netlist) {
                     "vsource" | "battery" | "vcvs" => ("+", "-"),
                     _ => ("1", "2"),
                 };
-                vec![Pin { name: n1.into(), node: get(0), x: x - 2.0 * dx, y: y - 2.0 * dy }, Pin { name: n2.into(), node: get(1), x: x + 2.0 * dx, y: y + 2.0 * dy }]
+                vec![
+                    Pin {
+                        name: n1.into(),
+                        node: get(0),
+                        x: x - 2.0 * dx,
+                        y: y - 2.0 * dy,
+                    },
+                    Pin {
+                        name: n2.into(),
+                        node: get(1),
+                        x: x + 2.0 * dx,
+                        y: y + 2.0 * dy,
+                    },
+                ]
             }
         };
         for pin in &p.pins {
@@ -273,11 +350,23 @@ fn resolve_pins(layout: &mut Layout, nl: &parser::Netlist) {
 // ---------------------------------------------------------------------------
 
 fn ps(name: &str, label: &str, value: f64, min: f64, max: f64, unit: &str, log: bool) -> ParamSpec {
-    ParamSpec { name: name.into(), label: label.into(), value, min, max, unit: unit.into(), log, hint: String::new() }
+    ParamSpec {
+        name: name.into(),
+        label: label.into(),
+        value,
+        min,
+        max,
+        unit: unit.into(),
+        log,
+        hint: String::new(),
+    }
 }
 
 fn link(lab: &str, label: &str) -> Link {
-    Link { lab: lab.into(), label: label.into() }
+    Link {
+        lab: lab.into(),
+        label: label.into(),
+    }
 }
 
 const RAIL: &str = "Iris 1.8 V rail - display turn-on load step
@@ -586,10 +675,19 @@ fn buck_layout() -> Layout {
         .wire("0", &[(31.0, 13.0), (31.0, 17.0)], &[("Rload", 1.0)])
         .wire("0", &[(15.0, 15.0), (15.0, 17.0)], &[("Vg1", 1.0)])
         .wire("0", &[(20.5, 15.0), (20.5, 17.0)], &[("Vg2", 1.0)]);
-    b.gnd(1.0, 17.0).gnd(6.0, 17.0).gnd(9.0, 17.0).gnd(15.0, 17.0).gnd(20.5, 17.0).gnd(26.0, 17.0).gnd(31.0, 17.0);
+    b.gnd(1.0, 17.0)
+        .gnd(6.0, 17.0)
+        .gnd(9.0, 17.0)
+        .gnd(15.0, 17.0)
+        .gnd(20.5, 17.0)
+        .gnd(26.0, 17.0)
+        .gnd(31.0, 17.0);
     b.port("g1 → S1", 15.0, 11.0, "g1").port("g2 → S2", 20.5, 11.0, "g2");
-    b.boxed(13.2, 9.9, 11.6, 5.9, "gate drive + dead time").boxed(2.6, 1.6, 8.6, 13.0, "power stage");
-    b.label("VIN", 1.6, 2.4, Some("vin")).label("SW", 10.0, 6.4, Some("sw")).label("VOUT", 26.6, 6.4, Some("out"));
+    b.boxed(13.2, 9.9, 11.6, 5.9, "gate drive + dead time")
+        .boxed(2.6, 1.6, 8.6, 13.0, "power stage");
+    b.label("VIN", 1.6, 2.4, Some("vin"))
+        .label("SW", 10.0, 6.4, Some("sw"))
+        .label("VOUT", 26.6, 6.4, Some("out"));
     b.done()
 }
 
@@ -625,7 +723,9 @@ fn vbat_layout() -> Layout {
     }
     b.port("sample", 15.0, 10.0, "samp").port("reset", 30.5, 10.0, "rst");
     b.boxed(12.0, 5.4, 23.4, 11.8, "SoC ADC · sample-and-hold");
-    b.label("VBAT", 2.6, 1.4, Some("bat")).label("ADC pin", 6.6, 7.4, Some("adc")).label("hold", 20.6, 7.4, Some("hold"));
+    b.label("VBAT", 2.6, 1.4, Some("bat"))
+        .label("ADC pin", 6.6, 7.4, Some("adc"))
+        .label("hold", 20.6, 7.4, Some("hold"));
     b.done()
 }
 
@@ -647,7 +747,9 @@ fn irled_layout() -> Layout {
         .wire("g", &[(9.0, 13.0), (11.0, 13.0)], &[("Rg", 1.0)])
         .wire("gp", &[(2.0, 14.0), (2.0, 13.0), (5.0, 13.0)], &[("Vpwm", -1.0)]);
     b.gnd(19.0, 18.0).gnd(13.0, 18.0).gnd(11.0, 18.0).gnd(2.0, 18.0);
-    b.label("3.3 V rail", 19.6, 6.4, Some("vdd")).label("GPIO", 0.4, 12.4, Some("gp")).label("drain", 13.6, 10.9, Some("d"));
+    b.label("3.3 V rail", 19.6, 6.4, Some("vdd"))
+        .label("GPIO", 0.4, 12.4, Some("gp"))
+        .label("drain", 13.6, 10.9, Some("d"));
     b.done()
 }
 
@@ -675,7 +777,9 @@ fn touch_layout() -> Layout {
         .wire("0", &[(2.0, 11.0), (2.0, 13.0)], &[("Vdrv", 1.0)]);
     b.gnd(2.0, 13.0).gnd(15.0, 8.0).gnd(15.0, 15.0).gnd(26.0, 15.0).gnd(30.0, 15.0);
     b.boxed(19.8, 7.4, 12.2, 9.6, "finger + human body");
-    b.label("pad · no touch", 16.0, 2.4, Some("pad_nf")).label("pad · finger", 15.6, 9.4, Some("pad_f")).label("GPIO", 2.6, 2.4, Some("drv"));
+    b.label("pad · no touch", 16.0, 2.4, Some("pad_nf"))
+        .label("pad · finger", 15.6, 9.4, Some("pad_f"))
+        .label("GPIO", 2.6, 2.4, Some("drv"));
     b.done()
 }
 
@@ -698,7 +802,9 @@ fn cmos_layout() -> Layout {
         .wire("0", &[(1.0, 12.0), (1.0, 14.0)], &[("Vin", 1.0)])
         .wire("0", &[(22.0, 8.0), (22.0, 14.0)], &[("Vdd", 1.0)]);
     b.gnd(10.0, 14.0).gnd(18.0, 14.0).gnd(1.0, 14.0).gnd(22.0, 14.0);
-    b.label("VDD", 22.6, 0.8, Some("vdd")).label("IN", 1.6, 6.4, Some("in")).label("OUT", 13.0, 6.4, Some("out"));
+    b.label("VDD", 22.6, 0.8, Some("vdd"))
+        .label("IN", 1.6, 6.4, Some("in"))
+        .label("OUT", 13.0, 6.4, Some("out"));
     b.done()
 }
 
@@ -748,7 +854,10 @@ fn opamp_layout() -> Layout {
 
 fn rlc_layout() -> Layout {
     let mut b = LB::new();
-    b.part("V1", "vsource", 2.0, 7.0, "down").part("R1", "resistor", 6.0, 3.0, "right").part("L1", "inductor", 10.0, 3.0, "right").part("C1", "capacitor", 14.0, 7.0, "down");
+    b.part("V1", "vsource", 2.0, 7.0, "down")
+        .part("R1", "resistor", 6.0, 3.0, "right")
+        .part("L1", "inductor", 10.0, 3.0, "right")
+        .part("C1", "capacitor", 14.0, 7.0, "down");
     b.wire("in", &[(2.0, 5.0), (2.0, 3.0), (4.0, 3.0)], &[("V1", -1.0)])
         .wire("b", &[(12.0, 3.0), (14.0, 3.0), (14.0, 5.0)], &[("L1", 1.0)])
         .wire("0", &[(2.0, 9.0), (2.0, 11.0)], &[("V1", 1.0)])
@@ -760,7 +869,10 @@ fn rlc_layout() -> Layout {
 
 fn rect_layout() -> Layout {
     let mut b = LB::new();
-    b.part("V1", "vsource", 2.0, 7.0, "down").part("D1", "diode", 6.0, 3.0, "right").part("C1", "capacitor", 10.0, 6.0, "down").part("Rl", "resistor", 14.0, 6.0, "down");
+    b.part("V1", "vsource", 2.0, 7.0, "down")
+        .part("D1", "diode", 6.0, 3.0, "right")
+        .part("C1", "capacitor", 10.0, 6.0, "down")
+        .part("Rl", "resistor", 14.0, 6.0, "down");
     b.wire("in", &[(2.0, 5.0), (2.0, 3.0), (4.0, 3.0)], &[("V1", -1.0)])
         .wire("out", &[(8.0, 3.0), (10.0, 3.0)], &[("D1", 1.0)])
         .wire("out", &[(10.0, 3.0), (10.0, 4.0)], &[("C1", 1.0)])
@@ -983,12 +1095,21 @@ pub fn human_value(name: &str) -> Option<f64> {
     let toks: Vec<&str> = name.split_whitespace().collect();
     for i in (0..toks.len()).rev() {
         let t = toks[i];
-        let numlen = t.char_indices().take_while(|(_, c)| c.is_ascii_digit() || *c == '.').map(|(k, c)| k + c.len_utf8()).last().unwrap_or(0);
+        let numlen = t
+            .char_indices()
+            .take_while(|(_, c)| c.is_ascii_digit() || *c == '.')
+            .map(|(k, c)| k + c.len_utf8())
+            .last()
+            .unwrap_or(0);
         if numlen == 0 {
             continue;
         }
         let Ok(v) = t[..numlen].parse::<f64>() else { continue };
-        let rest = if numlen < t.len() { &t[numlen..] } else { toks.get(i + 1).copied().unwrap_or("") };
+        let rest = if numlen < t.len() {
+            &t[numlen..]
+        } else {
+            toks.get(i + 1).copied().unwrap_or("")
+        };
         let scale = if rest.to_lowercase().starts_with("meg") {
             1e6
         } else {
@@ -1115,7 +1236,12 @@ struct Extra {
 }
 
 fn ann(r: &mut Extra, plot: &str, axis: &str, value: f64, label: &str) {
-    r.ann.push(Annotation { plot: plot.into(), axis: axis.into(), value, label: label.into() });
+    r.ann.push(Annotation {
+        plot: plot.into(),
+        axis: axis.into(),
+        value,
+        label: label.into(),
+    });
 }
 
 fn measure(id: &str, r: &mut SimResult) {
@@ -1142,39 +1268,76 @@ fn measure(id: &str, r: &mut SimResult) {
 
 fn measure_rail(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
     let vnom = prm(r, "vnom");
-    let (Some(tr), Some(v), Some(vb)) = (r.tran.as_ref(), r.tv("vload"), r.tv("vbuck")) else { return };
+    let (Some(tr), Some(v), Some(vb)) = (r.tran.as_ref(), r.tv("vload"), r.tv("vbuck")) else {
+        return;
+    };
     let t = &tr.time;
     let tend = *t.last().unwrap_or(&0.0);
     let t_step = 10e-6;
     if let Some((mn, tmn, _, _)) = min_max(t, v, 0.0, tend) {
         let droop = (vnom - mn) * 1e3;
-        m.push(Measurement::new("rail_droop_mv", "Max droop at load (VLOAD)", droop, "mV").note(format!("minimum {} at t = {}; requirement R-012 ≤ 50 mV", fmt_si(mn, "V"), fmt_si(tmn, "s"))).check(droop <= 50.0));
+        m.push(
+            Measurement::new("rail_droop_mv", "Max droop at load (VLOAD)", droop, "mV")
+                .note(format!(
+                    "minimum {} at t = {}; requirement R-012 ≤ 50 mV",
+                    fmt_si(mn, "V"),
+                    fmt_si(tmn, "s")
+                ))
+                .check(droop <= 50.0),
+        );
         ann(an, "tran", "x", tmn, "worst droop");
     }
     if let Some((mn, _, _, _)) = min_max(t, vb, 0.0, tend) {
-        m.push(Measurement::new("vbuck_droop_mv", "Droop at regulator output (VBUCK)", (vnom - mn) * 1e3, "mV").note("before the PCB trace"));
+        m.push(
+            Measurement::new("vbuck_droop_mv", "Droop at regulator output (VBUCK)", (vnom - mn) * 1e3, "mV").note("before the PCB trace"),
+        );
     }
     let vfinal = *v.last().unwrap() as f64;
-    m.push(Measurement::new("static_drop_mv", "Static drop after the step", (vnom - vfinal) * 1e3, "mV").note("load-regulation + trace IR drop at the new load"));
+    m.push(
+        Measurement::new("static_drop_mv", "Static drop after the step", (vnom - vfinal) * 1e3, "mV")
+            .note("load-regulation + trace IR drop at the new load"),
+    );
     if let Some(ts) = settle_time(t, v, vfinal, 1e-3, t_step) {
-        m.push(Measurement::new("recovery_us", "Recovery to within 1 mV", (ts - t_step) * 1e6, "µs"));
+        m.push(Measurement::new(
+            "recovery_us",
+            "Recovery to within 1 mV",
+            (ts - t_step) * 1e6,
+            "µs",
+        ));
     }
     let (fc, c, istep, ibase) = (prm(r, "fc"), prm(r, "cout"), prm(r, "istep"), prm(r, "ibase"));
     let z0 = 1.0 / (2.0 * std::f64::consts::PI * fc * c);
-    m.push(Measurement::new("estimate_mv", "Hand estimate ΔI/(2π·fc·C)", (istep - ibase) * z0 * 1e3, "mV").note(format!("|Zout| peak ≈ 1/(2π·fc·C) = {}", fmt_si(z0, "Ω"))));
+    m.push(
+        Measurement::new("estimate_mv", "Hand estimate ΔI/(2π·fc·C)", (istep - ibase) * z0 * 1e3, "mV")
+            .note(format!("|Zout| peak ≈ 1/(2π·fc·C) = {}", fmt_si(z0, "Ω"))),
+    );
     ann(an, "tran", "y", vnom - 0.05, "−50 mV limit");
     ann(an, "tran", "x", t_step, "step");
     an.window = Some([t_step - 3e-6, tend]);
 }
 
 fn measure_buck(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
-    let (fsw, vin, vout_set, l, c, esr, iout) = (prm(r, "fsw"), prm(r, "vin"), prm(r, "vout"), prm(r, "l"), prm(r, "cout"), prm(r, "esr"), prm(r, "iout"));
+    let (fsw, vin, vout_set, l, c, esr, iout) = (
+        prm(r, "fsw"),
+        prm(r, "vin"),
+        prm(r, "vout"),
+        prm(r, "l"),
+        prm(r, "cout"),
+        prm(r, "esr"),
+        prm(r, "iout"),
+    );
     let tsw = 1.0 / fsw;
-    let (Some(tr), Some(v), Some(il)) = (r.tran.as_ref(), r.tv("out"), r.ti("L1")) else { return };
+    let (Some(tr), Some(v), Some(il)) = (r.tran.as_ref(), r.tv("out"), r.ti("L1")) else {
+        return;
+    };
     let t = &tr.time;
     let tend = *t.last().unwrap_or(&0.0);
     if let Some(pp) = ripple_pp(t, v, tsw, 4, tend) {
-        m.push(Measurement::new("buck_ripple_mv", "Output ripple (peak-to-peak)", pp * 1e3, "mV").note("worst single cycle of the last four; requirement R-013 ≤ 30 mV").check(pp * 1e3 <= 30.0));
+        m.push(
+            Measurement::new("buck_ripple_mv", "Output ripple (peak-to-peak)", pp * 1e3, "mV")
+                .note("worst single cycle of the last four; requirement R-013 ≤ 30 mV")
+                .check(pp * 1e3 <= 30.0),
+        );
     }
     let t0 = tend - 4.0 * tsw;
     if let Some(avg) = average(t, v, t0, tend) {
@@ -1183,10 +1346,21 @@ fn measure_buck(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
     if let Some((mn, _, mx, _)) = min_max(t, il, tend - tsw, tend) {
         let duty = prm(r, "duty");
         let theory = (vin - vout_set) * duty / (l * fsw);
-        m.push(Measurement::new("il_ripple_ma", "Inductor ripple current ΔI", (mx - mn) * 1e3, "mA").note(format!("theory (Vin−Vout)·D/(L·f) = {}", fmt_si(theory, "A"))));
+        m.push(
+            Measurement::new("il_ripple_ma", "Inductor ripple current ΔI", (mx - mn) * 1e3, "mA")
+                .note(format!("theory (Vin−Vout)·D/(L·f) = {}", fmt_si(theory, "A"))),
+        );
         m.push(Measurement::new("il_peak_ma", "Peak inductor current", mx * 1e3, "mA").note("size L1's saturation current above this"));
         let cap = theory / (8.0 * fsw * c);
-        m.push(Measurement::new("ripple_theory_mv", "Hand estimate ΔI/(8fC) + ΔI·ESR", (cap + theory * esr) * 1e3, "mV").note(format!("capacitive {} + ESR {}", fmt_si(cap, "V"), fmt_si(theory * esr, "V"))));
+        m.push(
+            Measurement::new(
+                "ripple_theory_mv",
+                "Hand estimate ΔI/(8fC) + ΔI·ESR",
+                (cap + theory * esr) * 1e3,
+                "mV",
+            )
+            .note(format!("capacitive {} + ESR {}", fmt_si(cap, "V"), fmt_si(theory * esr, "V"))),
+        );
     }
     if let (Some(iin), Some(vv)) = (r.ti("Vin"), r.tv("out")) {
         let pin = average(t, iin, t0, tend).map(|i| -i * vin);
@@ -1195,35 +1369,74 @@ fn measure_buck(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
         let pout = average(t, &v2, t0, tend);
         if let (Some(pi), Some(po)) = (pin, pout) {
             if pi > 0.0 {
-                m.push(Measurement::new("efficiency_pct", "Power-stage efficiency", 100.0 * po / pi, "%").note(format!("Pout {} / Pin {} (conduction + dead-time losses only)", fmt_si(po, "W"), fmt_si(pi, "W"))));
+                m.push(
+                    Measurement::new("efficiency_pct", "Power-stage efficiency", 100.0 * po / pi, "%").note(format!(
+                        "Pout {} / Pin {} (conduction + dead-time losses only)",
+                        fmt_si(po, "W"),
+                        fmt_si(pi, "W")
+                    )),
+                );
             }
         }
     }
-    m.push(Measurement::new("duty_pct", "Duty cycle D", 100.0 * prm(r, "duty"), "%").note("open loop: D = (Vout + I·R + dead-time loss)/Vin"));
+    m.push(
+        Measurement::new("duty_pct", "Duty cycle D", 100.0 * prm(r, "duty"), "%").note("open loop: D = (Vout + I·R + dead-time loss)/Vin"),
+    );
     let _ = iout;
     an.window = Some([tend - 3.0 * tsw, tend]);
 }
 
 fn measure_vbat(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
-    let (vbat, rtop, rbot, cf, chold, fs, tacq) = (prm(r, "vbat"), prm(r, "rtop"), prm(r, "rbot"), prm(r, "cf"), prm(r, "chold"), prm(r, "fs"), prm(r, "tacq"));
+    let (vbat, rtop, rbot, cf, chold, fs, tacq) = (
+        prm(r, "vbat"),
+        prm(r, "rtop"),
+        prm(r, "rbot"),
+        prm(r, "cf"),
+        prm(r, "chold"),
+        prm(r, "fs"),
+        prm(r, "tacq"),
+    );
     if let Some(i) = r.op_i("R1") {
         let ua = i * 1e6;
-        m.push(Measurement::new("vbat_divider_ua", "Divider current at full charge", ua, "µA").note(format!("= {} / ({} + {}); requirement R-014 ≤ 2 µA", fmt_si(vbat, "V"), fmt_si(rtop, "Ω"), fmt_si(rbot, "Ω"))).check(ua <= 2.0));
+        m.push(
+            Measurement::new("vbat_divider_ua", "Divider current at full charge", ua, "µA")
+                .note(format!(
+                    "= {} / ({} + {}); requirement R-014 ≤ 2 µA",
+                    fmt_si(vbat, "V"),
+                    fmt_si(rtop, "Ω"),
+                    fmt_si(rbot, "Ω")
+                ))
+                .check(ua <= 2.0),
+        );
         let mah_year = i * 1e3 * 8760.0;
         m.push(Measurement::new("drain_mah_year", "Charge drained per year", mah_year, "mAh").note("always-on divider during storage"));
     }
     let vfinal = vbat * rbot / (rtop + rbot);
     let rail = 1.8;
-    m.push(Measurement::new("adc_peak_v", "ADC pin at full charge", vfinal, "V").note(if vfinal > rail { format!("exceeds the {rail} V SoC rail / ADC range — lower the ratio, e.g. R1 1.5 MΩ, R2 1.0 MΩ") } else { "within the 1.8 V ADC range".into() }).check(vfinal <= rail));
+    m.push(
+        Measurement::new("adc_peak_v", "ADC pin at full charge", vfinal, "V")
+            .note(if vfinal > rail {
+                format!("exceeds the {rail} V SoC rail / ADC range — lower the ratio, e.g. R1 1.5 MΩ, R2 1.0 MΩ")
+            } else {
+                "within the 1.8 V ADC range".into()
+            })
+            .check(vfinal <= rail),
+    );
     let tau = rtop * rbot / (rtop + rbot) * cf;
     m.push(Measurement::new("tau_ms", "Time constant (R1‖R2)·C6", tau * 1e3, "ms"));
     let lsb = 1.8 / 4096.0;
     if let (Some(tr), Some(v)) = (r.tran.as_ref(), r.tv("adc")) {
         let t = &tr.time;
         if let Some(ts) = settle_time(t, v, vfinal, lsb, 0.0) {
-            m.push(Measurement::new("settle_ms", "Settling to 1 LSB (12-bit, 1.8 V)", ts * 1e3, "ms").note(format!("1 LSB = {}", fmt_si(lsb, "V"))));
+            m.push(
+                Measurement::new("settle_ms", "Settling to 1 LSB (12-bit, 1.8 V)", ts * 1e3, "ms")
+                    .note(format!("1 LSB = {}", fmt_si(lsb, "V"))),
+            );
         } else {
-            m.push(Measurement::new("settle_ms", "Settling to 1 LSB (12-bit, 1.8 V)", f64::NAN, "ms").note("not settled within the simulated time"));
+            m.push(
+                Measurement::new("settle_ms", "Settling to 1 LSB (12-bit, 1.8 V)", f64::NAN, "ms")
+                    .note("not settled within the simulated time"),
+            );
         }
         // kick-back at the last complete sample
         let tend = *t.last().unwrap();
@@ -1232,10 +1445,20 @@ fn measure_vbat(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
             let ts = n / fs;
             let before = at(t, v, ts - 1e-7, false).unwrap_or(0.0);
             if let Some((mn, _, _, _)) = min_max(t, v, ts, ts + 3.0 * tacq) {
-                m.push(Measurement::new("kickback_uv", "Sample kick-back on the ADC pin", (before - mn) * 1e6, "µV").note(format!("theory V·Chold/(C6+Chold) = {}", fmt_si(before * chold / (cf + chold), "V"))));
+                m.push(
+                    Measurement::new("kickback_uv", "Sample kick-back on the ADC pin", (before - mn) * 1e6, "µV").note(format!(
+                        "theory V·Chold/(C6+Chold) = {}",
+                        fmt_si(before * chold / (cf + chold), "V")
+                    )),
+                );
             }
             if let (Some(h), Some(vh)) = (at(t, r.tv("hold").unwrap(), ts + tacq, false), at(t, v, ts + tacq, false)) {
-                m.push(Measurement::new("acq_error_lsb", "Hold-capacitor error at end of acquisition", (vh - h).abs() / lsb, "LSB"));
+                m.push(Measurement::new(
+                    "acq_error_lsb",
+                    "Hold-capacitor error at end of acquisition",
+                    (vh - h).abs() / lsb,
+                    "LSB",
+                ));
             }
         }
         ann(an, "tran", "y", vfinal, "final value");
@@ -1243,23 +1466,34 @@ fn measure_vbat(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
 }
 
 fn measure_irled(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
-    let (Some(tr), Some(id), Some(va), Some(vd)) = (r.tran.as_ref(), r.ti("D1"), r.tv("a"), r.tv("d")) else { return };
+    let (Some(tr), Some(id), Some(va), Some(vd)) = (r.tran.as_ref(), r.ti("D1"), r.tv("a"), r.tv("d")) else {
+        return;
+    };
     let t = &tr.time;
     let tend = *t.last().unwrap();
-    let Some((_, _, imax, tmax)) = min_max(t, id, 0.0, tend) else { return };
+    let Some((_, _, imax, tmax)) = min_max(t, id, 0.0, tend) else {
+        return;
+    };
     let k = t.iter().position(|x| *x >= tmax).unwrap_or(0);
     let vf = (va[k] - vd[k]) as f64;
     let vds = vd[k] as f64;
     m.push(Measurement::new("led_peak_ma", "LED pulse current", imax * 1e3, "mA"));
     m.push(Measurement::new("led_vf", "LED forward voltage", vf, "V"));
-    m.push(Measurement::new("vds_on_mv", "MOSFET Vds(on)", vds * 1e3, "mV").note(format!("Rds(on) = {}", fmt_si(vds / imax.max(1e-12), "Ω"))));
+    m.push(
+        Measurement::new("vds_on_mv", "MOSFET Vds(on)", vds * 1e3, "mV").note(format!("Rds(on) = {}", fmt_si(vds / imax.max(1e-12), "Ω"))),
+    );
     let fpwm = prm(r, "fpwm");
     let per = 1.0 / fpwm;
     if let Some(avg) = average(t, id, 50e-6, 50e-6 + per) {
         m.push(Measurement::new("led_avg_ma", "Average LED current", avg * 1e3, "mA").note("what the battery budget sees"));
     }
     let rled = prm(r, "rled");
-    m.push(Measurement::new("prled_mw", "Rled dissipation (pulse)", imax * imax * rled * 1e3, "mW"));
+    m.push(Measurement::new(
+        "prled_mw",
+        "Rled dissipation (pulse)",
+        imax * imax * rled * 1e3,
+        "mW",
+    ));
     let lo = crossing(t, id, 0.1 * imax, true, 50e-6);
     let hi = crossing(t, id, 0.9 * imax, true, 50e-6);
     if let (Some(a), Some(b)) = (lo, hi) {
@@ -1271,7 +1505,9 @@ fn measure_irled(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
 fn measure_touch(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
     let (vdd, rr, cpad, cf, cb) = (prm(r, "vdd"), prm(r, "r"), prm(r, "cpad"), prm(r, "cfinger"), prm(r, "cbody"));
     let vth = 0.7 * vdd;
-    let (Some(tr), Some(a), Some(b)) = (r.tran.as_ref(), r.tv("pad_nf"), r.tv("pad_f")) else { return };
+    let (Some(tr), Some(a), Some(b)) = (r.tran.as_ref(), r.tv("pad_nf"), r.tv("pad_f")) else {
+        return;
+    };
     let t = &tr.time;
     let td = 2e-6;
     let ta = crossing(t, a, vth, true, td);
@@ -1279,19 +1515,33 @@ fn measure_touch(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
     let k = (1.0f64 / 0.3).ln();
     let ceff = cf * cb / (cf + cb);
     if let Some(ta) = ta {
-        m.push(Measurement::new("t_nf_us", "Threshold crossing · no touch", (ta - td) * 1e6, "µs").note(format!("theory R·C·ln(1/0.3) = {}", fmt_si(rr * cpad * k, "s"))));
+        m.push(
+            Measurement::new("t_nf_us", "Threshold crossing · no touch", (ta - td) * 1e6, "µs")
+                .note(format!("theory R·C·ln(1/0.3) = {}", fmt_si(rr * cpad * k, "s"))),
+        );
         ann(an, "tran", "x", ta, "no touch");
     }
     if let Some(tb) = tb {
-        m.push(Measurement::new("t_f_us", "Threshold crossing · finger", (tb - td) * 1e6, "µs").note(format!("theory R·(C + Cf‖Cb)·ln(1/0.3) = {}", fmt_si(rr * (cpad + ceff) * k, "s"))));
+        m.push(
+            Measurement::new("t_f_us", "Threshold crossing · finger", (tb - td) * 1e6, "µs")
+                .note(format!("theory R·(C + Cf‖Cb)·ln(1/0.3) = {}", fmt_si(rr * (cpad + ceff) * k, "s"))),
+        );
         ann(an, "tran", "x", tb, "finger");
     }
     if let (Some(ta), Some(tb)) = (ta, tb) {
         let dt = tb - ta;
         m.push(Measurement::new("delta_us", "Touch signal Δt", dt * 1e6, "µs"));
-        m.push(Measurement::new("counts_16mhz", "Δ counts @ 16 MHz timer", dt * 16e6, "counts").note("well above count noise → robust detection"));
+        m.push(
+            Measurement::new("counts_16mhz", "Δ counts @ 16 MHz timer", dt * 16e6, "counts")
+                .note("well above count noise → robust detection"),
+        );
     }
-    m.push(Measurement::new("ceff_pf", "Finger adds (Cf in series with Cbody)", ceff * 1e12, "pF"));
+    m.push(Measurement::new(
+        "ceff_pf",
+        "Finger adds (Cf in series with Cbody)",
+        ceff * 1e12,
+        "pF",
+    ));
     ann(an, "tran", "y", vth, "GPIO threshold 0.7·VDD");
     an.window = Some([0.0, 70e-6]);
 }
@@ -1315,7 +1565,10 @@ fn measure_cmos(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
         let xm: Vec<f64> = (1..x.len()).map(|k| 0.5 * (x[k] + x[k - 1])).collect();
         let gain = slope.iter().cloned().fold(0.0f64, |a, s| a.max(-s));
         let vil = (1..slope.len()).find(|&k| slope[k - 1] > -1.0 && slope[k] <= -1.0).map(|k| xm[k]);
-        let vih = (1..slope.len()).rev().find(|&k| slope[k - 1] <= -1.0 && slope[k] > -1.0).map(|k| xm[k]);
+        let vih = (1..slope.len())
+            .rev()
+            .find(|&k| slope[k - 1] <= -1.0 && slope[k] > -1.0)
+            .map(|k| xm[k]);
         let voh = y[0] as f64;
         let vol = *y.last().unwrap() as f64;
         if let Some(vm) = vm {
@@ -1345,7 +1598,12 @@ fn measure_cmos(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
             // energy from VDD over one full input period (2 ns, starting at 0.1 ns)
             if let Some(avg) = average(t, idd, 0.1e-9, 2.1e-9) {
                 let e = -avg * vdd * 2e-9;
-                m.push(Measurement::new("energy_fj", "Energy per cycle from VDD", e * 1e15, "fJ").note(format!("≈ C·VDD² = {} for the load cap alone", fmt_si(prm(r, "cl") * vdd * vdd, "J"))));
+                m.push(
+                    Measurement::new("energy_fj", "Energy per cycle from VDD", e * 1e15, "fJ").note(format!(
+                        "≈ C·VDD² = {} for the load cap alone",
+                        fmt_si(prm(r, "cl") * vdd * vdd, "J")
+                    )),
+                );
             }
         }
     }
@@ -1363,7 +1621,11 @@ fn measure_rcaa(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
         ann_x.push((f3, "−3 dB"));
     }
     let db = |x: f64| 20.0 * (x / g0).log10();
-    for (fx, key, label) in [(8e3, "att_nyq_db", "Gain at Nyquist (8 kHz)"), (prm(r, "fint"), "att_int_db", "Gain at the interferer"), (16e3, "att_fs_db", "Gain at fs (16 kHz)")] {
+    for (fx, key, label) in [
+        (8e3, "att_nyq_db", "Gain at Nyquist (8 kHz)"),
+        (prm(r, "fint"), "att_int_db", "Gain at the interferer"),
+        (16e3, "att_fs_db", "Gain at fs (16 kHz)"),
+    ] {
         if let Some(g) = at(f, mag, fx, true) {
             m.push(Measurement::new(key, label, db(g), "dB"));
         }
@@ -1376,7 +1638,10 @@ fn measure_rcaa(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
         let p1 = (b - disc.sqrt()) / (2.0 * a);
         let p2 = (b + disc.sqrt()) / (2.0 * a);
         let tp = 2.0 * std::f64::consts::PI;
-        m.push(Measurement::new("poles_khz", "Pole frequencies", p1 / tp / 1e3, "kHz").note(format!("and {} (real poles of the loaded RC ladder)", fmt_si(p2 / tp, "Hz"))));
+        m.push(
+            Measurement::new("poles_khz", "Pole frequencies", p1 / tp / 1e3, "kHz")
+                .note(format!("and {} (real poles of the loaded RC ladder)", fmt_si(p2 / tp, "Hz"))),
+        );
     }
     ann_x.push((8e3, "fs/2"));
     ann_x.push((prm(r, "fint"), "interferer"));
@@ -1393,10 +1658,18 @@ fn measure_opamp(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
         let mag = ac.mag[oi].clone();
         let g1k = at(&f, &mag, 1e3, true).unwrap_or(f64::NAN);
         let ideal = 1.0 + rf / rg;
-        m.push(Measurement::new("gain_1k", "Gain at 1 kHz", g1k, "V/V").note(format!("{:.2} dB; ideal 1 + Rf/Rg = {:.3}, finite-A0 theory A0/(1+A0·β) = {:.3}", 20.0 * g1k.log10(), ideal, a0 / (1.0 + a0 * beta))));
+        m.push(Measurement::new("gain_1k", "Gain at 1 kHz", g1k, "V/V").note(format!(
+            "{:.2} dB; ideal 1 + Rf/Rg = {:.3}, finite-A0 theory A0/(1+A0·β) = {:.3}",
+            20.0 * g1k.log10(),
+            ideal,
+            a0 / (1.0 + a0 * beta)
+        )));
         let g0 = mag[0] as f64;
         if let Some(f3) = f_3db(&f, &mag, g0) {
-            m.push(Measurement::new("bw_khz", "Closed-loop bandwidth (−3 dB)", f3 / 1e3, "kHz").note(format!("theory ≈ GBW·β = {}", fmt_si(gbw * beta, "Hz"))));
+            m.push(
+                Measurement::new("bw_khz", "Closed-loop bandwidth (−3 dB)", f3 / 1e3, "kHz")
+                    .note(format!("theory ≈ GBW·β = {}", fmt_si(gbw * beta, "Hz"))),
+            );
             m.push(Measurement::new("gbw_mhz", "Measured gain × bandwidth", g0 * f3 / 1e6, "MHz"));
             ann(an, "ac", "x", f3, "−3 dB");
         }
@@ -1423,7 +1696,10 @@ fn measure_rlc(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
                 (re.hypot(im) / rr) as f32
             })
             .collect();
-        let (kmax, imax) = cur.iter().enumerate().fold((0, 0.0f32), |acc, (k, v)| if *v > acc.1 { (k, *v) } else { acc });
+        let (kmax, imax) = cur
+            .iter()
+            .enumerate()
+            .fold((0, 0.0f32), |acc, (k, v)| if *v > acc.1 { (k, *v) } else { acc });
         let fpk = ac.freq[kmax];
         let lvl = imax as f64 / std::f64::consts::SQRT_2;
         // half-power frequencies, interpolated in log-frequency
@@ -1435,7 +1711,10 @@ fn measure_rlc(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
         };
         let lo = (1..=kmax).rev().find(|&k| (cur[k - 1] as f64) < lvl).map(|k| lerp(k - 1, k));
         let hi = (kmax + 1..cur.len()).find(|&k| (cur[k] as f64) < lvl).map(|k| lerp(k - 1, k));
-        m.push(Measurement::new("f0_khz", "Resonance (current peak)", fpk / 1e3, "kHz").note(format!("theory 1/(2π√LC) = {}", fmt_si(f0, "Hz"))));
+        m.push(
+            Measurement::new("f0_khz", "Resonance (current peak)", fpk / 1e3, "kHz")
+                .note(format!("theory 1/(2π√LC) = {}", fmt_si(f0, "Hz"))),
+        );
         if let (Some(lo), Some(hi)) = (lo, hi) {
             m.push(Measurement::new("q", "Q = f0 / bandwidth", fpk / (hi - lo), "").note(format!("theory (1/R)·√(L/C) = {q:.2}")));
         }
@@ -1454,7 +1733,12 @@ fn measure_rlc(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
         }
         if zc.len() >= 3 {
             let per = (zc[zc.len() - 1] - zc[0]) / (zc.len() - 1) as f64;
-            m.push(Measurement::new("ring_khz", "Ringing frequency (step response)", 1e-3 / per, "kHz").note(format!("damped f0·√(1 − 1/(4Q²)) = {}", fmt_si(f0 * (1.0 - 1.0 / (4.0 * q * q)).max(0.0).sqrt(), "Hz"))));
+            m.push(
+                Measurement::new("ring_khz", "Ringing frequency (step response)", 1e-3 / per, "kHz").note(format!(
+                    "damped f0·√(1 − 1/(4Q²)) = {}",
+                    fmt_si(f0 * (1.0 - 1.0 / (4.0 * q * q)).max(0.0).sqrt(), "Hz")
+                )),
+            );
         }
         let tend = *t.last().unwrap();
         if let Some((_, _, mx, _)) = min_max(t, vb, 0.0, tend) {
@@ -1465,13 +1749,21 @@ fn measure_rlc(r: &SimResult, m: &mut Vec<Measurement>, an: &mut Extra) {
 
 fn measure_rect(r: &SimResult, m: &mut Vec<Measurement>, _an: &mut Extra) {
     let (f, c, rl) = (prm(r, "f"), prm(r, "c"), prm(r, "rl"));
-    let (Some(tr), Some(vo)) = (r.tran.as_ref(), r.tv("out")) else { return };
+    let (Some(tr), Some(vo)) = (r.tran.as_ref(), r.tv("out")) else {
+        return;
+    };
     let t = &tr.time;
     let tend = *t.last().unwrap();
     let per = 1.0 / f;
     if let Some((mn, _, mx, _)) = min_max(t, vo, tend - per, tend) {
-        m.push(Measurement::new("vout_peak", "Output peak", mx, "V").note(format!("input peak {} minus the diode drop", fmt_si(prm(r, "vpk"), "V"))));
-        m.push(Measurement::new("ripple_v", "Ripple (last cycle)", mx - mn, "V").note(format!("theory ≈ Vpk/(f·R·C) = {}", fmt_si(mx / (f * rl * c), "V"))));
+        m.push(
+            Measurement::new("vout_peak", "Output peak", mx, "V")
+                .note(format!("input peak {} minus the diode drop", fmt_si(prm(r, "vpk"), "V"))),
+        );
+        m.push(
+            Measurement::new("ripple_v", "Ripple (last cycle)", mx - mn, "V")
+                .note(format!("theory ≈ Vpk/(f·R·C) = {}", fmt_si(mx / (f * rl * c), "V"))),
+        );
     }
     if let Some(avg) = average(t, vo, tend - per, tend) {
         m.push(Measurement::new("vout_avg", "Average output", avg, "V"));
@@ -1488,7 +1780,11 @@ fn measure_rect(r: &SimResult, m: &mut Vec<Measurement>, _an: &mut Extra) {
 // ---------------------------------------------------------------------------
 
 fn metric_from(p: &Project, id: &str, key: &str, metric: &str, label: &str, unit: &str, op_only: bool) -> Option<Metric> {
-    let res = if op_only { run_op_only(id, p) } else { run(id, &BTreeMap::new(), None, Some(p)) };
+    let res = if op_only {
+        run_op_only(id, p)
+    } else {
+        run(id, &BTreeMap::new(), None, Some(p))
+    };
     match res {
         Ok(r) => {
             let mm = r.measurements.iter().find(|x| x.key == key)?;
@@ -1501,9 +1797,33 @@ fn metric_from(p: &Project, id: &str, key: &str, metric: &str, label: &str, unit
 /// `circuit.rail_droop_mv`, `circuit.buck_ripple_mv`, `circuit.vbat_divider_ua`.
 pub fn metrics(p: &Project) -> Vec<Metric> {
     [
-        metric_from(p, "rail_load_step", "rail_droop_mv", "circuit.rail_droop_mv", "1.8 V rail droop on display turn-on", "mV", false),
-        metric_from(p, "buck_converter", "buck_ripple_mv", "circuit.buck_ripple_mv", "Buck output ripple (p-p)", "mV", false),
-        metric_from(p, "vbat_divider", "vbat_divider_ua", "circuit.vbat_divider_ua", "Battery-sense divider current", "uA", true),
+        metric_from(
+            p,
+            "rail_load_step",
+            "rail_droop_mv",
+            "circuit.rail_droop_mv",
+            "1.8 V rail droop on display turn-on",
+            "mV",
+            false,
+        ),
+        metric_from(
+            p,
+            "buck_converter",
+            "buck_ripple_mv",
+            "circuit.buck_ripple_mv",
+            "Buck output ripple (p-p)",
+            "mV",
+            false,
+        ),
+        metric_from(
+            p,
+            "vbat_divider",
+            "vbat_divider_ua",
+            "circuit.vbat_divider_ua",
+            "Battery-sense divider current",
+            "uA",
+            true,
+        ),
     ]
     .into_iter()
     .flatten()

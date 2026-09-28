@@ -64,7 +64,9 @@ impl ImplChoice {
             Some("cla") => AdderKind::Cla,
             _ => AdderKind::Ripple,
         });
-        let pipeline = self.pipeline.unwrap_or_else(|| p.design.extra.get("chip_fir_pipeline").and_then(|v| v.as_bool()).unwrap_or(false));
+        let pipeline = self
+            .pipeline
+            .unwrap_or_else(|| p.design.extra.get("chip_fir_pipeline").and_then(|v| v.as_bool()).unwrap_or(false));
         let encoding = self.encoding.unwrap_or_else(|| match extra_str(p, "chip_fsm_encoding").as_deref() {
             Some("one_hot") => Encoding::OneHot,
             _ => Encoding::Binary,
@@ -114,7 +116,15 @@ pub fn iris_dsp(p: &Project, ch: &ImplChoice, test_len: usize) -> Result<IrisDsp
     let chain = crate::dsp::pdm::design_chain(&p.design.audio, &Default::default());
     let (coeffs, source) = match &ch.coeffs {
         Some(v) if !v.is_empty() => (v.clone(), "custom coefficients".to_string()),
-        _ => (chain.fir.clone(), format!("DSP Lab decimation FIR ({} taps at {:.0} Hz, ↓{})", chain.fir.len(), chain.fir_in_hz, chain.fir_decim)),
+        _ => (
+            chain.fir.clone(),
+            format!(
+                "DSP Lab decimation FIR ({} taps at {:.0} Hz, ↓{})",
+                chain.fir.len(),
+                chain.fir_in_hz,
+                chain.fir_decim
+            ),
+        ),
     };
     let gd = p.design.chip.gate_delay_ns;
     let clock = p.design.chip.clock_mhz;
@@ -131,15 +141,40 @@ pub fn iris_dsp(p: &Project, ch: &ImplChoice, test_len: usize) -> Result<IrisDsp
         test_len,
     };
     let fir = firgen::generate(&coeffs, &opt)?;
-    let alt = firgen::generate(&coeffs, &FirGenOptions { arch: if c.arch == Arch::Mac { Arch::Transposed } else { Arch::Mac }, test_len: 40, ..opt.clone() })?;
-    let cic = CicSpec { order: chain.cic_order, rate: chain.cic_r * if chain.halfband.is_empty() { 1 } else { 2 }, diff_delay: chain.cic_m, width: chain.cic_register_bits };
+    let alt = firgen::generate(
+        &coeffs,
+        &FirGenOptions {
+            arch: if c.arch == Arch::Mac { Arch::Transposed } else { Arch::Mac },
+            test_len: 40,
+            ..opt.clone()
+        },
+    )?;
+    let cic = CicSpec {
+        order: chain.cic_order,
+        rate: chain.cic_r * if chain.halfband.is_empty() { 1 } else { 2 },
+        diff_delay: chain.cic_m,
+        width: chain.cic_register_bits,
+    };
     let f = fsm::gesture_fsm(c.tap_ms, c.long_ms, c.gap_ms);
     let common = |firc: firgen::BlockCost| {
-        vec![firgen::cic_cost(&cic, c.adder, gd), firc, firgen::fsm_block(&f, c.encoding, gd), firgen::glue_cost(clock, gd)]
+        vec![
+            firgen::cic_cost(&cic, c.adder, gd),
+            firc,
+            firgen::fsm_block(&f, c.encoding, gd),
+            firgen::glue_cost(clock, gd),
+        ]
     };
     let summary = firgen::summarize(common(fir.cost.clone()), clock, p.design.chip.cell_budget, c.arch);
     let alternative = firgen::summarize(common(alt.cost.clone()), clock, p.design.chip.cell_budget, alt.arch);
-    Ok(IrisDsp { choice: c, coeff_source: source, cic, fir, fsm: f, summary, alternative })
+    Ok(IrisDsp {
+        choice: c,
+        coeff_source: source,
+        cic,
+        fir,
+        fsm: f,
+        summary,
+        alternative,
+    })
 }
 
 // ------------------------------------------------------------------ API inputs
@@ -165,7 +200,14 @@ struct SimIn {
 }
 impl Default for SimIn {
     fn default() -> Self {
-        SimIn { circuit: "rca4".into(), custom: None, logic: None, stimulus: None, delay_scale: 1.0, glitch_ns: 4.0 }
+        SimIn {
+            circuit: "rca4".into(),
+            custom: None,
+            logic: None,
+            stimulus: None,
+            delay_scale: 1.0,
+            glitch_ns: 4.0,
+        }
     }
 }
 
@@ -194,7 +236,18 @@ struct FsmIn {
 }
 impl Default for FsmIn {
     fn default() -> Self {
-        FsmIn { tap_ms: 250, long_ms: 600, gap_ms: 250, encoding: Encoding::Binary, trace: "mixed".into(), touch: vec![], state: 0, timer: 0, verilog: true, gate_delay_ns: 0.25 }
+        FsmIn {
+            tap_ms: 250,
+            long_ms: 600,
+            gap_ms: 250,
+            encoding: Encoding::Binary,
+            trace: "mixed".into(),
+            touch: vec![],
+            state: 0,
+            timer: 0,
+            verilog: true,
+            gate_delay_ns: 0.25,
+        }
     }
 }
 
@@ -213,9 +266,17 @@ struct FsmOut {
 fn run_fsm(i: FsmIn) -> Result<FsmOut, String> {
     let f = fsm::gesture_fsm(i.tap_ms.clamp(10, 5000), i.long_ms.clamp(20, 10000), i.gap_ms.clamp(10, 5000));
     f.validate()?;
-    let touch: Vec<bool> = if i.touch.is_empty() { fsm::scripted(&i.trace) } else { i.touch.iter().map(|&v| v != 0).collect() };
+    let touch: Vec<bool> = if i.touch.is_empty() {
+        fsm::scripted(&i.trace)
+    } else {
+        i.touch.iter().map(|&v| v != 0).collect()
+    };
     let trace = fsm::simulate(&f, &touch, i.state, i.timer);
-    let (verilog, testbench) = if i.verilog { (Some(fsm::verilog(&f, i.encoding)), Some(fsm::testbench(&f, &touch))) } else { (None, None) };
+    let (verilog, testbench) = if i.verilog {
+        (Some(fsm::verilog(&f, i.encoding)), Some(fsm::testbench(&f, &touch)))
+    } else {
+        (None, None)
+    };
     Ok(FsmOut {
         timer_bits: f.timer_bits(),
         state_bits: f.state_bits(),
@@ -238,7 +299,9 @@ struct TtOut {
 fn test_pdm_bits(p: &Project, n_out: usize) -> Vec<bool> {
     let a = &p.design.audio;
     let n = n_out * a.decimation.max(1) as usize;
-    let x: Vec<f64> = (0..n).map(|i| 0.5 * (2.0 * std::f64::consts::PI * 1000.0 * i as f64 / a.pdm_clock_hz).sin()).collect();
+    let x: Vec<f64> = (0..n)
+        .map(|i| 0.5 * (2.0 * std::f64::consts::PI * 1000.0 * i as f64 / a.pdm_clock_hz).sin())
+        .collect();
     crate::dsp::pdm::sigma_delta(&x, 2).into_iter().map(|b| b > 0).collect()
 }
 
@@ -248,14 +311,46 @@ pub fn tiny_tapeout(p: &Project, ch: &ImplChoice) -> Result<(Vec<tt::File>, Iris
     let bits = test_pdm_bits(p, 48);
     let touch = fsm::scripted("mixed");
     let files = vec![
-        tt::File { name: "tt_um_iris_dsp.v".into(), content: tt::top_verilog(&d.cic, &d.fir, p.design.chip.clock_mhz) },
-        tt::File { name: "iris_cic.v".into(), content: firgen::cic_verilog(&d.cic) },
-        tt::File { name: "iris_fir.v".into(), content: d.fir.verilog.clone() },
-        tt::File { name: "iris_gesture_fsm.v".into(), content: fsm::verilog(&d.fsm, d.choice.encoding) },
-        tt::File { name: "tb_iris_fir.v".into(), content: d.fir.testbench.clone() },
-        tt::File { name: "tb_iris_gesture_fsm.v".into(), content: fsm::testbench(&d.fsm, &touch) },
-        tt::File { name: "tb_tt_um_iris_dsp.v".into(), content: tt::top_testbench(&d.cic, &d.fir, &codes, &bits) },
-        tt::File { name: "README.md".into(), content: tt::readme(&d.cic, &d.fir, &d.fsm, d.choice.encoding, p.design.chip.clock_mhz, d.summary.total_cells, d.summary.critical_ns) },
+        tt::File {
+            name: "tt_um_iris_dsp.v".into(),
+            content: tt::top_verilog(&d.cic, &d.fir, p.design.chip.clock_mhz),
+        },
+        tt::File {
+            name: "iris_cic.v".into(),
+            content: firgen::cic_verilog(&d.cic),
+        },
+        tt::File {
+            name: "iris_fir.v".into(),
+            content: d.fir.verilog.clone(),
+        },
+        tt::File {
+            name: "iris_gesture_fsm.v".into(),
+            content: fsm::verilog(&d.fsm, d.choice.encoding),
+        },
+        tt::File {
+            name: "tb_iris_fir.v".into(),
+            content: d.fir.testbench.clone(),
+        },
+        tt::File {
+            name: "tb_iris_gesture_fsm.v".into(),
+            content: fsm::testbench(&d.fsm, &touch),
+        },
+        tt::File {
+            name: "tb_tt_um_iris_dsp.v".into(),
+            content: tt::top_testbench(&d.cic, &d.fir, &codes, &bits),
+        },
+        tt::File {
+            name: "README.md".into(),
+            content: tt::readme(
+                &d.cic,
+                &d.fir,
+                &d.fsm,
+                d.choice.encoding,
+                p.design.chip.clock_mhz,
+                d.summary.total_cells,
+                d.summary.critical_ns,
+            ),
+        },
     ];
     Ok((files, d))
 }
@@ -264,7 +359,16 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
     match method {
         "chip.minimize" => handle(input, |i: logic::MinimizeInput| logic::minimize(&i)),
         "chip.circuits" => handle(input, |_: Value| {
-            Ok(sim::BUILTINS.iter().filter_map(|n| sim::builtin(n)).map(|c| CircuitInfo { name: c.name, title: c.title, description: c.description, inputs: c.inputs }).collect::<Vec<_>>())
+            Ok(sim::BUILTINS
+                .iter()
+                .filter_map(|n| sim::builtin(n))
+                .map(|c| CircuitInfo {
+                    name: c.name,
+                    title: c.title,
+                    description: c.description,
+                    inputs: c.inputs,
+                })
+                .collect::<Vec<_>>())
         }),
         "chip.simulate" => handle(input, |i: SimIn| {
             let mut c = if let Some(c) = i.custom {
@@ -278,7 +382,11 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
             if let Some(s) = i.stimulus {
                 c.stimulus = s;
             }
-            Ok(sim::simulate(&c, if i.delay_scale > 0.0 { i.delay_scale } else { 1.0 }, if i.glitch_ns > 0.0 { i.glitch_ns } else { 4.0 }))
+            Ok(sim::simulate(
+                &c,
+                if i.delay_scale > 0.0 { i.delay_scale } else { 1.0 },
+                if i.glitch_ns > 0.0 { i.glitch_ns } else { 4.0 },
+            ))
         }),
         "chip.fsm" => handle(input, run_fsm),
         "chip.iris_dsp" => handle(input, |i: DspIn| {
@@ -322,12 +430,27 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
             s.critical_desc,
             d.choice.adder,
             s.clock_period_ns,
-            if d.choice.arch == Arch::Mac { "transposed-form" } else { "decimating MAC" },
+            if d.choice.arch == Arch::Mac {
+                "transposed-form"
+            } else {
+                "decimating MAC"
+            },
             d.alternative.critical_ns
         )),
-        Metric::new("chip.est_cells", "IRIS-DSP estimated standard cells", s.total_cells.round(), "cells", "chip").with_note(&format!(
+        Metric::new(
+            "chip.est_cells",
+            "IRIS-DSP estimated standard cells",
+            s.total_cells.round(),
+            "cells",
+            "chip",
+        )
+        .with_note(&format!(
             "{}; {arch} FIR, {}-bit coefficients, {}-bit data (alternative architecture: {:.0} cells)",
-            s.blocks.iter().map(|b| format!("{} {:.0}", b.name, b.cells)).collect::<Vec<_>>().join(", "),
+            s.blocks
+                .iter()
+                .map(|b| format!("{} {:.0}", b.name, b.cells))
+                .collect::<Vec<_>>()
+                .join(", "),
             d.choice.coeff_bits,
             d.choice.data_bits,
             d.alternative.total_cells
@@ -348,7 +471,10 @@ mod tests {
         let get = |k: &str| m.iter().find(|x| x.key == k).unwrap().value;
         let cp = get("chip.critical_path_ns");
         let cells = get("chip.est_cells");
-        eprintln!("chip metrics in {dt:?}: {cp:.2} ns, {cells} cells\n  {}\n  {}", m[0].note, m[1].note);
+        eprintln!(
+            "chip metrics in {dt:?}: {cp:.2} ns, {cells} cells\n  {}\n  {}",
+            m[0].note, m[1].note
+        );
         assert!(cp > 5.0 && cp <= 20.0, "critical path {cp}");
         assert!(cells > 500.0 && cells <= 3000.0, "cells {cells}");
         // switching to the transposed form fails timing with ripple adders
@@ -362,11 +488,27 @@ mod tests {
     fn tiny_tapeout_package_is_complete() {
         let (files, d) = tiny_tapeout(&Project::iris(), &ImplChoice::default()).unwrap();
         let names: Vec<&str> = files.iter().map(|f| f.name.as_str()).collect();
-        for n in ["tt_um_iris_dsp.v", "iris_cic.v", "iris_fir.v", "iris_gesture_fsm.v", "README.md", "tb_tt_um_iris_dsp.v"] {
+        for n in [
+            "tt_um_iris_dsp.v",
+            "iris_cic.v",
+            "iris_fir.v",
+            "iris_gesture_fsm.v",
+            "README.md",
+            "tb_tt_um_iris_dsp.v",
+        ] {
             assert!(names.contains(&n), "{n}");
         }
         let top = &files[0].content;
-        for port in ["input  wire [7:0] ui_in", "output wire [7:0] uo_out", "input  wire [7:0] uio_in", "output wire [7:0] uio_out", "output wire [7:0] uio_oe", "input  wire       ena", "input  wire       clk", "input  wire       rst_n"] {
+        for port in [
+            "input  wire [7:0] ui_in",
+            "output wire [7:0] uo_out",
+            "input  wire [7:0] uio_in",
+            "output wire [7:0] uio_out",
+            "output wire [7:0] uio_oe",
+            "input  wire       ena",
+            "input  wire       clk",
+            "input  wire       rst_n",
+        ] {
             assert!(top.contains(port), "missing port {port}");
         }
         assert!(d.summary.timing_ok && d.summary.area_ok);
@@ -374,13 +516,19 @@ mod tests {
 
     #[test]
     fn dispatch_methods() {
-        let r = dispatch("chip.minimize", &serde_json::json!({"expr": "a b + a c + b c"})).unwrap().unwrap();
+        let r = dispatch("chip.minimize", &serde_json::json!({"expr": "a b + a c + b c"}))
+            .unwrap()
+            .unwrap();
         assert_eq!(r["sop"], "ab + ac + bc");
         let r = dispatch("chip.simulate", &serde_json::json!({"circuit": "rca4"})).unwrap().unwrap();
         assert!(r["waves"].as_array().unwrap().len() > 10);
-        let r = dispatch("chip.simulate", &serde_json::json!({"logic": {"expr": "a^b"}})).unwrap().unwrap();
+        let r = dispatch("chip.simulate", &serde_json::json!({"logic": {"expr": "a^b"}}))
+            .unwrap()
+            .unwrap();
         assert_eq!(r["outputs"][0], "F");
-        let r = dispatch("chip.fsm", &serde_json::json!({"trace": "double_tap", "encoding": "one_hot"})).unwrap().unwrap();
+        let r = dispatch("chip.fsm", &serde_json::json!({"trace": "double_tap", "encoding": "one_hot"}))
+            .unwrap()
+            .unwrap();
         assert_eq!(r["trace"]["events"][0]["output"], "double_tap");
         assert!(dispatch("chip.nope", &Value::Null).is_none());
     }
@@ -394,8 +542,23 @@ mod tests {
         let p = Project::iris();
         for (tag, ch) in [
             ("mac", ImplChoice::default()),
-            ("transposed", ImplChoice { arch: Some(Arch::Transposed), ..Default::default() }),
-            ("transposed_pipe", ImplChoice { arch: Some(Arch::Transposed), pipeline: Some(true), adder: Some(AdderKind::Cla), encoding: Some(Encoding::OneHot), ..Default::default() }),
+            (
+                "transposed",
+                ImplChoice {
+                    arch: Some(Arch::Transposed),
+                    ..Default::default()
+                },
+            ),
+            (
+                "transposed_pipe",
+                ImplChoice {
+                    arch: Some(Arch::Transposed),
+                    pipeline: Some(true),
+                    adder: Some(AdderKind::Cla),
+                    encoding: Some(Encoding::OneHot),
+                    ..Default::default()
+                },
+            ),
         ] {
             let (files, d) = tiny_tapeout(&p, &ch).unwrap();
             let sub = format!("{dir}/{tag}");
@@ -405,7 +568,10 @@ mod tests {
             }
             eprintln!("{tag}: {:.0} cells, {:.2} ns", d.summary.total_cells, d.summary.critical_ns);
             for b in &d.summary.blocks {
-                eprintln!("   {:<24} {:>6.0} cells ({:.0} ff, {:.0} adder, {:.0} other)  {:.2} ns  {}", b.name, b.cells, b.ffs, b.adder_cells, b.other_cells, b.critical_ns, b.critical_desc);
+                eprintln!(
+                    "   {:<24} {:>6.0} cells ({:.0} ff, {:.0} adder, {:.0} other)  {:.2} ns  {}",
+                    b.name, b.cells, b.ffs, b.adder_cells, b.other_cells, b.critical_ns, b.critical_desc
+                );
             }
         }
     }

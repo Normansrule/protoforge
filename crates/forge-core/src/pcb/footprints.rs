@@ -57,13 +57,36 @@ pub struct Footprint {
 }
 
 fn smd(num: impl Into<String>, x: f64, y: f64, w: f64, h: f64) -> PadDef {
-    PadDef { num: num.into(), x, y, w, h, shape: PadShape::Rect, drill: 0.0, paste: 1.0, mech: false }
+    PadDef {
+        num: num.into(),
+        x,
+        y,
+        w,
+        h,
+        shape: PadShape::Rect,
+        drill: 0.0,
+        paste: 1.0,
+        mech: false,
+    }
 }
 fn rr(num: impl Into<String>, x: f64, y: f64, w: f64, h: f64) -> PadDef {
-    PadDef { shape: PadShape::RoundRect, ..smd(num, x, y, w, h) }
+    PadDef {
+        shape: PadShape::RoundRect,
+        ..smd(num, x, y, w, h)
+    }
 }
 fn tht(num: impl Into<String>, x: f64, y: f64, d: f64, drill: f64) -> PadDef {
-    PadDef { num: num.into(), x, y, w: d, h: d, shape: PadShape::Circle, drill, paste: 0.0, mech: false }
+    PadDef {
+        num: num.into(),
+        x,
+        y,
+        w: d,
+        h: d,
+        shape: PadShape::Circle,
+        drill,
+        paste: 0.0,
+        mech: false,
+    }
 }
 fn mech(mut p: PadDef) -> PadDef {
     p.mech = true;
@@ -72,8 +95,20 @@ fn mech(mut p: PadDef) -> PadDef {
 
 /// Every footprint in the library.
 pub const NAMES: &[&str] = &[
-    "QFN-48_6x6", "LGA-14_3x2.5", "MIC_LGA_3.5x2.65", "SOT-23-5", "SOT-23-6", "DFN-6_2x2", "USON-8_2x3", "0402", "0603", "0805",
-    "USB-C_16P", "FPC-24_0.5", "JST-SH-2", "ANT_3216",
+    "QFN-48_6x6",
+    "LGA-14_3x2.5",
+    "MIC_LGA_3.5x2.65",
+    "SOT-23-5",
+    "SOT-23-6",
+    "DFN-6_2x2",
+    "USON-8_2x3",
+    "0402",
+    "0603",
+    "0805",
+    "USB-C_16P",
+    "FPC-24_0.5",
+    "JST-SH-2",
+    "ANT_3216",
 ];
 
 pub fn library() -> Vec<Footprint> {
@@ -362,14 +397,30 @@ mod tests {
     fn pads_inside_courtyard_and_clear_of_each_other() {
         for f in library() {
             for (i, a) in f.pads.iter().enumerate() {
-                assert!(a.x - a.w / 2.0 >= f.courtyard[0] - 1e-9 && a.x + a.w / 2.0 <= f.courtyard[2] + 1e-9, "{} pad {}", f.name, a.num);
-                assert!(a.y - a.h / 2.0 >= f.courtyard[1] - 1e-9 && a.y + a.h / 2.0 <= f.courtyard[3] + 1e-9, "{} pad {}", f.name, a.num);
+                assert!(
+                    a.x - a.w / 2.0 >= f.courtyard[0] - 1e-9 && a.x + a.w / 2.0 <= f.courtyard[2] + 1e-9,
+                    "{} pad {}",
+                    f.name,
+                    a.num
+                );
+                assert!(
+                    a.y - a.h / 2.0 >= f.courtyard[1] - 1e-9 && a.y + a.h / 2.0 <= f.courtyard[3] + 1e-9,
+                    "{} pad {}",
+                    f.name,
+                    a.num
+                );
                 for b in f.pads.iter().skip(i + 1) {
                     let gx = ((a.x - b.x).abs() - (a.w + b.w) / 2.0).max(0.0);
                     let gy = ((a.y - b.y).abs() - (a.h + b.h) / 2.0).max(0.0);
                     let gap = gx.hypot(gy);
                     // Pads of the USB shell share GND; otherwise at least 0.15 mm.
-                    assert!(gap >= 0.15 - 1e-9 || (a.num.starts_with('S') && b.num.starts_with('S')), "{}: {}-{} gap {gap}", f.name, a.num, b.num);
+                    assert!(
+                        gap >= 0.15 - 1e-9 || (a.num.starts_with('S') && b.num.starts_with('S')),
+                        "{}: {}-{} gap {gap}",
+                        f.name,
+                        a.num,
+                        b.num
+                    );
                 }
             }
         }

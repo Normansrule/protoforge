@@ -62,7 +62,13 @@ struct JointMoveIn {
 
 impl Default for JointMoveIn {
     fn default() -> Self {
-        JointMoveIn { q_start: vec![0.0, 0.0], q_goal: vec![90.0, -45.0], v_max: vec![180.0, 240.0], a_max: vec![720.0, 960.0], samples: 200 }
+        JointMoveIn {
+            q_start: vec![0.0, 0.0],
+            q_goal: vec![90.0, -45.0],
+            v_max: vec![180.0, 240.0],
+            a_max: vec![720.0, 960.0],
+            samples: 200,
+        }
     }
 }
 
@@ -85,8 +91,16 @@ fn joint_move(i: JointMoveIn) -> Result<JointMoveOut, String> {
     let d: Vec<f64> = (0..n).map(|k| i.q_goal[k] - i.q_start[k]).collect();
     let (t, profs) = traj::synchronized(&d, &i.v_max, &i.a_max);
     let m = i.samples.clamp(10, 5000);
-    let mut out = JointMoveOut { duration: t, q: vec![vec![]; n], qd: vec![vec![]; n], qdd: vec![vec![]; n], ..Default::default() };
-    out.own_min_time = (0..n).map(|k| traj::Trapezoid::min_time(d[k], i.v_max[k], i.a_max[k]).t_total).collect();
+    let mut out = JointMoveOut {
+        duration: t,
+        q: vec![vec![]; n],
+        qd: vec![vec![]; n],
+        qdd: vec![vec![]; n],
+        ..Default::default()
+    };
+    out.own_min_time = (0..n)
+        .map(|k| traj::Trapezoid::min_time(d[k], i.v_max[k], i.a_max[k]).t_total)
+        .collect();
     for s in 0..m {
         let tt = t * s as f64 / (m - 1) as f64;
         out.t.push(tt);
@@ -114,7 +128,15 @@ struct LineIn {
 
 impl Default for LineIn {
     fn default() -> Self {
-        LineIn { arm: Arm2::default(), from: [1.2, -0.6], to: [0.4, 1.0], v_max: 0.8, a_max: 2.0, elbow_up: false, samples: 150 }
+        LineIn {
+            arm: Arm2::default(),
+            from: [1.2, -0.6],
+            to: [0.4, 1.0],
+            v_max: 0.8,
+            a_max: 2.0,
+            elbow_up: false,
+            samples: 150,
+        }
     }
 }
 
@@ -142,7 +164,11 @@ fn cartesian_line(i: LineIn) -> Result<LineOut, String> {
     let len = (dx * dx + dy * dy).sqrt();
     let tr = traj::Trapezoid::min_time(len, i.v_max, i.a_max);
     let m = i.samples.clamp(10, 2000);
-    let mut out = LineOut { duration: tr.t_total, reachable: true, ..Default::default() };
+    let mut out = LineOut {
+        duration: tr.t_total,
+        reachable: true,
+        ..Default::default()
+    };
     let mut prev: Option<[f64; 2]> = None;
     let dt = tr.t_total.max(1e-9) / (m - 1) as f64;
     for s in 0..m {
@@ -196,7 +222,11 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         "robotics.arm" => handle(input, |i: ArmIn| Ok(arm::query(&i.arm, i.x, i.y, i.elbow_up))),
         "robotics.workspace" => handle(input, |i: WorkspaceIn| {
             let n = if i.n == 0 { 40 } else { i.n };
-            Ok(WorkspaceOut { points: arm::workspace(&i.arm, n), r_min: (i.arm.l1 - i.arm.l2).abs(), r_max: i.arm.l1 + i.arm.l2 })
+            Ok(WorkspaceOut {
+                points: arm::workspace(&i.arm, n),
+                r_min: (i.arm.l1 - i.arm.l2).abs(),
+                r_max: i.arm.l1 + i.arm.l2,
+            })
         }),
         "robotics.profiles" => handle(input, |i: traj::ProfilesIn| Ok(traj::profiles(&i))),
         "robotics.joint_move" => handle(input, joint_move),
@@ -226,7 +256,12 @@ fn metrics_uncached(p: &Project) -> Vec<Metric> {
         return vec![];
     }
     // the lab stores its cell settings in design.extra.pnp (defaults otherwise)
-    let cfg: pnp::PnpConfig = p.design.extra.get("pnp").and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
+    let cfg: pnp::PnpConfig = p
+        .design
+        .extra
+        .get("pnp")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
     let plan = pnp::plan(p, &cfg, false);
     let b = &plan.breakdown;
     vec![Metric::new("robotics.pnp_cycle_s", "Pick-and-place cycle time per board", plan.cycle_s, "s", "robotics").with_note(&format!(

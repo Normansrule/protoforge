@@ -96,7 +96,11 @@ pub fn estimate_fast(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings, density:
 /// Per-layer modelled statistics.
 pub fn debug_layers(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings) -> Vec<LayerStats> {
     let (lo, hi) = mesh.bbox();
-    let m = if lo[2].abs() > 1e-9 { mesh.translated(0.0, 0.0, -lo[2]) } else { mesh.clone() };
+    let m = if lo[2].abs() > 1e-9 {
+        mesh.translated(0.0, 0.0, -lo[2])
+    } else {
+        mesh.clone()
+    };
     let tops = layer_tops(hi[2] - lo[2], st.first_layer_mm, pp.layer_height_mm);
     let idx = TriIndex::new(&m);
     let secs: Vec<Sec> = tops.iter().map(|&(z, h)| section(&idx, z - h / 2.0 + 1e-7)).collect();
@@ -108,7 +112,13 @@ pub fn debug_layers(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings) -> Vec<La
     let n = tops.len();
     let mut per = Vec::with_capacity(n);
     for (i, (&(z, h), s)) in tops.iter().zip(&secs).enumerate() {
-        let mut ls = LayerStats { index: i, z, height: h, area_mm2: s.area, ..Default::default() };
+        let mut ls = LayerStats {
+            index: i,
+            z,
+            height: h,
+            area_mm2: s.area,
+            ..Default::default()
+        };
         if s.loops == 0 {
             per.push(ls);
             continue;
@@ -154,7 +164,10 @@ pub fn debug_layers(mesh: &Mesh, pp: &PrintParams, st: &SliceSettings) -> Vec<La
             };
             let solid = (a_in - a_int).max(0.0);
             let l_in = eroded_len(s, d_inf);
-            for (area, kind, spacing) in [(solid, Kind::SolidInfill, sp), (a_int, Kind::SparseInfill, if rho > 0.0 { sp / rho } else { 0.0 })] {
+            for (area, kind, spacing) in [
+                (solid, Kind::SolidInfill, sp),
+                (a_int, Kind::SparseInfill, if rho > 0.0 { sp / rho } else { 0.0 }),
+            ] {
                 if area <= 1e-9 || spacing <= 0.0 {
                     continue;
                 }

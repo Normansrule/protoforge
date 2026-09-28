@@ -88,9 +88,15 @@ impl Default for Affine {
 }
 
 impl Affine {
-    pub const IDENTITY: Affine = Affine { m: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], t: [0.0; 3] };
+    pub const IDENTITY: Affine = Affine {
+        m: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+        t: [0.0; 3],
+    };
     pub fn translate(x: f64, y: f64, z: f64) -> Affine {
-        Affine { t: [x, y, z], ..Affine::IDENTITY }
+        Affine {
+            t: [x, y, z],
+            ..Affine::IDENTITY
+        }
     }
     pub fn linear(m: [[f64; 3]; 3]) -> Affine {
         Affine { m, t: [0.0; 3] }
@@ -215,7 +221,10 @@ impl Mesh {
     /// Apply an affine map; mirrors (det < 0) flip the winding so normals
     /// stay outward.
     pub fn transformed(&self, a: &Affine) -> Mesh {
-        let mut out = Mesh { positions: Vec::with_capacity(self.positions.len()), indices: self.indices.clone() };
+        let mut out = Mesh {
+            positions: Vec::with_capacity(self.positions.len()),
+            indices: self.indices.clone(),
+        };
         for k in 0..self.vertex_count() {
             let p = a.apply(self.vertex(k as u32));
             out.positions.extend_from_slice(&p);
@@ -378,7 +387,10 @@ impl Mesh {
     }
     /// Compact single-precision copy for the browser.
     pub fn to_f32(&self) -> MeshF32 {
-        MeshF32 { positions: self.positions.iter().map(|&v| ((v * 1e4).round() / 1e4) as f32).collect(), indices: self.indices.clone() }
+        MeshF32 {
+            positions: self.positions.iter().map(|&v| ((v * 1e4).round() / 1e4) as f32).collect(),
+            indices: self.indices.clone(),
+        }
     }
 }
 
@@ -391,7 +403,10 @@ pub struct MeshF32 {
 
 impl MeshF32 {
     pub fn to_mesh(&self) -> Mesh {
-        Mesh { positions: self.positions.iter().map(|&v| v as f64).collect(), indices: self.indices.clone() }
+        Mesh {
+            positions: self.positions.iter().map(|&v| v as f64).collect(),
+            indices: self.indices.clone(),
+        }
     }
 }
 
@@ -401,11 +416,19 @@ mod tests {
 
     pub fn unit_cube() -> Mesh {
         let v = [
-            [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0], [1.0, 0.0, 1.0], [1.0, 1.0, 1.0], [0.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [0.0, 1.0, 1.0],
         ];
         let positions = v.iter().flat_map(|p: &[f64; 3]| p.iter().copied()).collect();
-        let indices = vec![0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7];
+        let indices = vec![
+            0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7,
+        ];
         Mesh { positions, indices }
     }
 

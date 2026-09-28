@@ -183,7 +183,8 @@ fn uic_and_ic_directives() {
 #[test]
 fn sine_source_and_mosfet_amplifier_ac() {
     // common-source stage: |Av| = gm·RD at the bias point
-    let deck = "cs\nVdd vdd 0 3.3\nVin g 0 DC 1 AC 1\nRd vdd d 10k\nM1 d g 0 0 NM W=10u L=1u\n.model NM NMOS(VTO=0.7 KP=100u)\n.ac dec 10 10 1k\n";
+    let deck =
+        "cs\nVdd vdd 0 3.3\nVin g 0 DC 1 AC 1\nRd vdd d 10k\nM1 d g 0 0 NM W=10u L=1u\n.model NM NMOS(VTO=0.7 KP=100u)\n.ac dec 10 10 1k\n";
     let r = sim(deck);
     let id = r.op_i("M1").unwrap();
     let gm = (2.0 * 1e-3 * id).sqrt(); // √(2βId), β = KP·W/L = 1 mA/V²
@@ -218,7 +219,8 @@ fn iris_metrics_are_sane_and_pass() {
 #[test]
 fn every_preset_runs_and_measures() {
     for pr in presets::list(Some(&crate::project::Project::iris())) {
-        let r = presets::run(&pr.id, &BTreeMap::new(), None, Some(&crate::project::Project::iris())).unwrap_or_else(|e| panic!("{}: {e}", pr.id));
+        let r = presets::run(&pr.id, &BTreeMap::new(), None, Some(&crate::project::Project::iris()))
+            .unwrap_or_else(|e| panic!("{}: {e}", pr.id));
         assert!(!r.measurements.is_empty(), "{} has no measurements", pr.id);
         for m in &r.measurements {
             assert!(m.value.is_finite() || m.key == "settle_ms", "{}: {} = {}", pr.id, m.key, m.value);
@@ -233,7 +235,12 @@ fn every_preset_runs_and_measures() {
         }
         for s in &pr.params {
             assert!(r.params.contains_key(&s.name), "{}: slider {} not a .param", pr.id, s.name);
-            assert!(s.value >= s.min && s.value <= s.max, "{}: slider {} default out of range", pr.id, s.name);
+            assert!(
+                s.value >= s.min && s.value <= s.max,
+                "{}: slider {} default out of range",
+                pr.id,
+                s.name
+            );
         }
     }
 }
@@ -293,24 +300,52 @@ fn preset_layouts_are_connected() {
                 assert!(!pin.node.is_empty(), "{}: {} pin {} has no node", pr.id, part.el, pin.name);
                 let by_wire = lay.wires.iter().any(|w| w.node == pin.node && w.pts.iter().any(|q| same(*q, pp)));
                 let by_gnd = pin.node == "0" && lay.grounds.iter().any(|g| same(*g, pp));
-                let by_pin = lay.parts.iter().any(|o| o.el != part.el && o.pins.iter().any(|q| q.node == pin.node && same([q.x, q.y], pp)));
-                let by_port = lay.labels.iter().any(|l| l.port && l.node.as_deref() == Some(pin.node.as_str()) && same([l.x, l.y], pp));
-                assert!(by_wire || by_gnd || by_pin || by_port, "{}: pin {}.{} ({}) at {:?} is not connected", pr.id, part.el, pin.name, pin.node, pp);
+                let by_pin = lay
+                    .parts
+                    .iter()
+                    .any(|o| o.el != part.el && o.pins.iter().any(|q| q.node == pin.node && same([q.x, q.y], pp)));
+                let by_port = lay
+                    .labels
+                    .iter()
+                    .any(|l| l.port && l.node.as_deref() == Some(pin.node.as_str()) && same([l.x, l.y], pp));
+                assert!(
+                    by_wire || by_gnd || by_pin || by_port,
+                    "{}: pin {}.{} ({}) at {:?} is not connected",
+                    pr.id,
+                    part.el,
+                    pin.name,
+                    pin.node,
+                    pp
+                );
             }
         }
         for e in &nl.elements {
             assert!(drawn.contains(&e.name.to_lowercase()), "{}: element {} not drawn", pr.id, e.name);
         }
         for w in &lay.wires {
-            assert!(w.node == "0" || nl.node_index(&w.node).is_some(), "{}: wire on unknown node {}", pr.id, w.node);
+            assert!(
+                w.node == "0" || nl.node_index(&w.node).is_some(),
+                "{}: wire on unknown node {}",
+                pr.id,
+                w.node
+            );
             for (el, _) in &w.flow {
                 assert!(nl.element_index(el).is_some(), "{}: flow element {el} unknown", pr.id);
             }
             for end in [w.pts[0], *w.pts.last().unwrap()] {
-                let pin = lay.parts.iter().any(|p| p.pins.iter().any(|q| q.node == w.node && same([q.x, q.y], end)));
-                let other = lay.wires.iter().any(|o| !std::ptr::eq(o, w) && o.node == w.node && o.pts.iter().any(|q| same(*q, end)));
+                let pin = lay
+                    .parts
+                    .iter()
+                    .any(|p| p.pins.iter().any(|q| q.node == w.node && same([q.x, q.y], end)));
+                let other = lay
+                    .wires
+                    .iter()
+                    .any(|o| !std::ptr::eq(o, w) && o.node == w.node && o.pts.iter().any(|q| same(*q, end)));
                 let gnd = w.node == "0" && lay.grounds.iter().any(|g| same(*g, end));
-                let port = lay.labels.iter().any(|l| l.port && l.node.as_deref() == Some(w.node.as_str()) && same([l.x, l.y], end));
+                let port = lay
+                    .labels
+                    .iter()
+                    .any(|l| l.port && l.node.as_deref() == Some(w.node.as_str()) && same([l.x, l.y], end));
                 assert!(pin || other || gnd || port, "{}: wire {} end {:?} dangles", pr.id, w.node, end);
             }
         }
@@ -334,8 +369,12 @@ fn preset_timings() {
         let r = presets::run(&pr.id, &BTreeMap::new(), None, Some(&p)).unwrap();
         let ms = t0.elapsed().as_secs_f64() * 1e3;
         let st = r.tran.as_ref().map(|t| format!("{:?}", t.stats)).unwrap_or_default();
-        eprintln!("{:22} {ms:7.2} ms  lu={} nr={} pts={} {st}", pr.id, r.stats.lu_solves, r.stats.nr_iterations, r.tran.as_ref().map(|t| t.time.len()).unwrap_or(0));
+        eprintln!(
+            "{:22} {ms:7.2} ms  lu={} nr={} pts={} {st}",
+            pr.id,
+            r.stats.lu_solves,
+            r.stats.nr_iterations,
+            r.tran.as_ref().map(|t| t.time.len()).unwrap_or(0)
+        );
     }
 }
-
-

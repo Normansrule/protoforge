@@ -75,12 +75,29 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         }),
         "rl.power_frontier" => handle(input, |i: FrontierIn| {
             let p = i.project.unwrap_or_else(Project::iris);
-            let lambdas = if i.lambdas.is_empty() { vec![0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4] } else { i.lambdas };
+            let lambdas = if i.lambdas.is_empty() {
+                vec![0.0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+            } else {
+                i.lambdas
+            };
             Ok(lambdas
                 .iter()
                 .map(|&l| {
-                    let r = power::train(&p, &power::PowerConfig { lambda: l, with_dp: false, ..i.config.clone() });
-                    FrontierPoint { lambda: l, life_h: r.learned.life_h, served: r.learned.served, day_utility: r.learned.day_utility, fixed_life_h: r.fixed.life_h }
+                    let r = power::train(
+                        &p,
+                        &power::PowerConfig {
+                            lambda: l,
+                            with_dp: false,
+                            ..i.config.clone()
+                        },
+                    );
+                    FrontierPoint {
+                        lambda: l,
+                        life_h: r.learned.life_h,
+                        served: r.learned.served,
+                        day_utility: r.learned.day_utility,
+                        fixed_life_h: r.fixed.life_h,
+                    }
                 })
                 .collect::<Vec<_>>())
         }),
@@ -94,8 +111,19 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
         return vec![];
     }
     // the lab stores its MDP settings in design.extra.rl_power (defaults otherwise)
-    let cfg: power::PowerConfig = p.design.extra.get("rl_power").and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default();
-    let r = power::train(p, &power::PowerConfig { with_dp: false, ..cfg.clone() });
+    let cfg: power::PowerConfig = p
+        .design
+        .extra
+        .get("rl_power")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    let r = power::train(
+        p,
+        &power::PowerConfig {
+            with_dp: false,
+            ..cfg.clone()
+        },
+    );
     let note = format!(
         "Q-learning ({} episodes) vs fixed BOM duty-cycle policy over simulated days: life {:.2} h → {:.2} h; utility served {:.1} % vs {:.1} %{}",
         cfg.episodes,
@@ -105,7 +133,14 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
         r.fixed.served * 100.0,
         if r.utility_ok { "" } else { " — learned policy lost utility, gain reported as 0" }
     );
-    vec![Metric::new("rl.policy_life_gain_pct", "Battery-life gain of the learned power policy", r.metric_value, "%", "rl").with_note(&note)]
+    vec![Metric::new(
+        "rl.policy_life_gain_pct",
+        "Battery-life gain of the learned power policy",
+        r.metric_value,
+        "%",
+        "rl",
+    )
+    .with_note(&note)]
 }
 
 #[cfg(test)]

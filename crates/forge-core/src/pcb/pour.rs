@@ -97,7 +97,12 @@ pub fn compute(b: &Board, tracks: &[Track], vias: &[Via], layer: u8) -> Pour {
         mark(&Shape::circle(h.x, h.y, h.d / 2.0), r.hole_clearance_mm, &mut clear);
     }
     for k in b.keepouts.iter().filter(|k| k.no_pour && on(k.top, k.bottom)) {
-        let sh = Shape::Rect { cx: (k.rect[0] + k.rect[2]) / 2.0, cy: (k.rect[1] + k.rect[3]) / 2.0, hw: (k.rect[2] - k.rect[0]) / 2.0, hh: (k.rect[3] - k.rect[1]) / 2.0 };
+        let sh = Shape::Rect {
+            cx: (k.rect[0] + k.rect[2]) / 2.0,
+            cy: (k.rect[1] + k.rect[3]) / 2.0,
+            hw: (k.rect[2] - k.rect[0]) / 2.0,
+            hh: (k.rect[3] - k.rect[1]) / 2.0,
+        };
         mark(&sh, 0.0, &mut clear);
     }
     let e = r.edge_clearance_mm + hd;
@@ -228,6 +233,19 @@ pub fn compute(b: &Board, tracks: &[Track], vias: &[Via], layer: u8) -> Pour {
         }
         open = next_open;
     }
-    let label_out: Vec<u32> = (0..nx * ny).map(|q| if filled(q) { remap[label[q]] as u32 } else { u32::MAX }).collect();
-    Pour { layer, cell_mm: c, rects, area_mm2: area, islands_removed, regions: kept, anchors, label: label_out, nx, ny }
+    let label_out: Vec<u32> = (0..nx * ny)
+        .map(|q| if filled(q) { remap[label[q]] as u32 } else { u32::MAX })
+        .collect();
+    Pour {
+        layer,
+        cell_mm: c,
+        rects,
+        area_mm2: area,
+        islands_removed,
+        regions: kept,
+        anchors,
+        label: label_out,
+        nx,
+        ny,
+    }
 }

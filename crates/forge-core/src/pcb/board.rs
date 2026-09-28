@@ -87,7 +87,12 @@ impl BoardPad {
     pub fn shape_geom(&self) -> Shape {
         match self.shape {
             PadShape::Circle => Shape::circle(self.x, self.y, self.w / 2.0),
-            _ => Shape::Rect { cx: self.x, cy: self.y, hw: self.w / 2.0, hh: self.h / 2.0 },
+            _ => Shape::Rect {
+                cx: self.x,
+                cy: self.y,
+                hw: self.w / 2.0,
+                hh: self.h / 2.0,
+            },
         }
     }
     pub fn is_smd(&self) -> bool {
@@ -158,7 +163,17 @@ fn top() -> String {
 /// Footprints for board features (not in the footprint library).
 pub fn feature_footprint(refdes: &str) -> Option<Footprint> {
     use super::footprints::PadDef;
-    let pad = |w: f64, h: f64, shape: PadShape| PadDef { num: "1".into(), x: 0.0, y: 0.0, w, h, shape, drill: 0.0, paste: 0.0, mech: false };
+    let pad = |w: f64, h: f64, shape: PadShape| PadDef {
+        num: "1".into(),
+        x: 0.0,
+        y: 0.0,
+        w,
+        h,
+        shape,
+        drill: 0.0,
+        paste: 0.0,
+        mech: false,
+    };
     match refdes {
         "E1" => Some(Footprint {
             name: "TOUCH_PAD_7x4.5".into(),
@@ -213,7 +228,11 @@ pub fn build(p: &Project, pos: &[PartPos], gpio: &[(String, String)]) -> Board {
         let value = if feature {
             fp.description.clone()
         } else {
-            p.components.iter().find(|c| c.refdes == pp.refdes).map(|c| c.name.clone()).unwrap_or_default()
+            p.components
+                .iter()
+                .find(|c| c.refdes == pp.refdes)
+                .map(|c| c.name.clone())
+                .unwrap_or_default()
         };
         let (px, py) = rot_pt(fp.pin1[0], fp.pin1[1], pp.rot);
         parts.push(PlacedPart {
@@ -233,7 +252,10 @@ pub fn build(p: &Project, pos: &[PartPos], gpio: &[(String, String)]) -> Board {
         fps.push(fp);
     }
     let present = |r: &str, pin: &str| -> bool {
-        parts.iter().zip(fps.iter()).any(|(pp, fp)| pp.refdes == r && fp.pads.iter().any(|pd| pd.num == pin))
+        parts
+            .iter()
+            .zip(fps.iter())
+            .any(|(pp, fp)| pp.refdes == r && fp.pads.iter().any(|pd| pd.num == pin))
     };
     let defs: Vec<NetDef> = netlist::build_nets(p, &present, gpio);
     let nets: Vec<NetInfo> = defs
@@ -253,8 +275,14 @@ pub fn build(p: &Project, pos: &[PartPos], gpio: &[(String, String)]) -> Board {
         let bottom_side = pp.side == "bottom";
         for pd in &fp.pads {
             let (dx, dy) = rot_pt(pd.x, pd.y, pp.rot);
-            let (pw, ph) = if ((pp.rot.round() as i64).rem_euclid(180)) == 90 { (pd.h, pd.w) } else { (pd.w, pd.h) };
-            let net_idx = defs.iter().position(|d| d.pins.iter().any(|(r, pin)| *r == pp.refdes && *pin == pd.num));
+            let (pw, ph) = if ((pp.rot.round() as i64).rem_euclid(180)) == 90 {
+                (pd.h, pd.w)
+            } else {
+                (pd.w, pd.h)
+            };
+            let net_idx = defs
+                .iter()
+                .position(|d| d.pins.iter().any(|(r, pin)| *r == pp.refdes && *pin == pd.num));
             let (net, net_id) = match net_idx {
                 Some(i) => (defs[i].name.clone(), i as u16),
                 None => {
@@ -282,7 +310,12 @@ pub fn build(p: &Project, pos: &[PartPos], gpio: &[(String, String)]) -> Board {
         }
         for hle in &fp.npth {
             let (dx, dy) = rot_pt(hle[0], hle[1], pp.rot);
-            holes.push(Hole { x: pp.x + dx, y: pp.y + dy, d: hle[2], refdes: pp.refdes.clone() });
+            holes.push(Hole {
+                x: pp.x + dx,
+                y: pp.y + dy,
+                d: hle[2],
+                refdes: pp.refdes.clone(),
+            });
         }
     }
     let gnd = nets.iter().position(|n| n.name == "GND").map(|i| i as u16).unwrap_or(u16::MAX);
@@ -310,5 +343,16 @@ pub fn build(p: &Project, pos: &[PartPos], gpio: &[(String, String)]) -> Board {
             no_pour: true,
         });
     }
-    Board { width: w, height: h, rules, parts, pads, nets, keepouts, holes, gnd, net_count: next_id }
+    Board {
+        width: w,
+        height: h,
+        rules,
+        parts,
+        pads,
+        nets,
+        keepouts,
+        holes,
+        gnd,
+        net_count: next_id,
+    }
 }

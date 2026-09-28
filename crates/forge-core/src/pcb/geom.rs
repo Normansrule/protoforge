@@ -24,7 +24,13 @@ pub enum Shape {
 
 impl Shape {
     pub fn circle(x: f64, y: f64, r: f64) -> Shape {
-        Shape::Capsule { ax: x, ay: y, bx: x, by: y, r }
+        Shape::Capsule {
+            ax: x,
+            ay: y,
+            bx: x,
+            by: y,
+            r,
+        }
     }
     /// Axis-aligned bounding box `[xmin, ymin, xmax, ymax]`.
     pub fn bbox(&self) -> [f64; 4] {
@@ -50,7 +56,15 @@ impl Shape {
     /// Distance between two shapes (0 when they touch or overlap).
     pub fn dist(&self, o: &Shape) -> f64 {
         match (*self, *o) {
-            (Shape::Rect { cx, cy, hw, hh }, Shape::Rect { cx: cx2, cy: cy2, hw: hw2, hh: hh2 }) => {
+            (
+                Shape::Rect { cx, cy, hw, hh },
+                Shape::Rect {
+                    cx: cx2,
+                    cy: cy2,
+                    hw: hw2,
+                    hh: hh2,
+                },
+            ) => {
                 let dx = ((cx - cx2).abs() - hw - hw2).max(0.0);
                 let dy = ((cy - cy2).abs() - hh - hh2).max(0.0);
                 dx.hypot(dy)
@@ -77,7 +91,11 @@ pub fn point_rect(px: f64, py: f64, cx: f64, cy: f64, hw: f64, hh: f64) -> f64 {
 pub fn point_seg(px: f64, py: f64, ax: f64, ay: f64, bx: f64, by: f64) -> f64 {
     let (dx, dy) = (bx - ax, by - ay);
     let l2 = dx * dx + dy * dy;
-    let t = if l2 <= 1e-18 { 0.0 } else { (((px - ax) * dx + (py - ay) * dy) / l2).clamp(0.0, 1.0) };
+    let t = if l2 <= 1e-18 {
+        0.0
+    } else {
+        (((px - ax) * dx + (py - ay) * dy) / l2).clamp(0.0, 1.0)
+    };
     (px - (ax + t * dx)).hypot(py - (ay + t * dy))
 }
 
@@ -112,7 +130,12 @@ pub fn seg_rect(x0: f64, y0: f64, x1: f64, y1: f64, cx: f64, cy: f64, hw: f64, h
     let (dx, dy) = (x1 - x0, y1 - y0);
     let (mut t0, mut t1) = (0.0f64, 1.0f64);
     let mut inside = true;
-    for (p, q) in [(-dx, x0 - (cx - hw)), (dx, (cx + hw) - x0), (-dy, y0 - (cy - hh)), (dy, (cy + hh) - y0)] {
+    for (p, q) in [
+        (-dx, x0 - (cx - hw)),
+        (dx, (cx + hw) - x0),
+        (-dy, y0 - (cy - hh)),
+        (dy, (cy + hh) - y0),
+    ] {
         if p.abs() < 1e-15 {
             if q < 0.0 {
                 inside = false;
@@ -156,11 +179,23 @@ impl SpatialHash {
     pub fn new(x0: f64, y0: f64, x1: f64, y1: f64, cell: f64) -> Self {
         let nx = (((x1 - x0) / cell).ceil() as usize).max(1) + 2;
         let ny = (((y1 - y0) / cell).ceil() as usize).max(1) + 2;
-        SpatialHash { cell, nx, ny, x0: x0 - cell, y0: y0 - cell, buckets: vec![Vec::new(); nx * ny] }
+        SpatialHash {
+            cell,
+            nx,
+            ny,
+            x0: x0 - cell,
+            y0: y0 - cell,
+            buckets: vec![Vec::new(); nx * ny],
+        }
     }
     fn range(&self, b: [f64; 4]) -> (usize, usize, usize, usize) {
         let c = |v: f64, o: f64, n: usize| (((v - o) / self.cell).floor().max(0.0) as usize).min(n - 1);
-        (c(b[0], self.x0, self.nx), c(b[1], self.y0, self.ny), c(b[2], self.x0, self.nx), c(b[3], self.y0, self.ny))
+        (
+            c(b[0], self.x0, self.nx),
+            c(b[1], self.y0, self.ny),
+            c(b[2], self.x0, self.nx),
+            c(b[3], self.y0, self.ny),
+        )
     }
     pub fn insert(&mut self, id: usize, b: [f64; 4]) {
         let (i0, j0, i1, j1) = self.range(b);
@@ -190,19 +225,47 @@ mod tests {
 
     #[test]
     fn distances() {
-        let r = Shape::Rect { cx: 0.0, cy: 0.0, hw: 1.0, hh: 0.5 };
+        let r = Shape::Rect {
+            cx: 0.0,
+            cy: 0.0,
+            hw: 1.0,
+            hh: 0.5,
+        };
         assert!((r.dist_point(2.0, 0.0) - 1.0).abs() < 1e-12);
         assert!((r.dist_point(4.0, 4.5) - 5.0).abs() < 1e-12);
-        let t = Shape::Capsule { ax: 3.0, ay: -5.0, bx: 3.0, by: 5.0, r: 0.5 };
+        let t = Shape::Capsule {
+            ax: 3.0,
+            ay: -5.0,
+            bx: 3.0,
+            by: 5.0,
+            r: 0.5,
+        };
         assert!((r.dist(&t) - 1.5).abs() < 1e-12);
         // crossing segment → 0
         assert_eq!(r.dist_seg(-3.0, 0.0, 3.0, 0.2), 0.0);
         // parallel capsules 1 mm apart, radius 0.1 each → 0.8
-        let a = Shape::Capsule { ax: 0.0, ay: 0.0, bx: 5.0, by: 0.0, r: 0.1 };
-        let b = Shape::Capsule { ax: 1.0, ay: 1.0, bx: 4.0, by: 1.0, r: 0.1 };
+        let a = Shape::Capsule {
+            ax: 0.0,
+            ay: 0.0,
+            bx: 5.0,
+            by: 0.0,
+            r: 0.1,
+        };
+        let b = Shape::Capsule {
+            ax: 1.0,
+            ay: 1.0,
+            bx: 4.0,
+            by: 1.0,
+            r: 0.1,
+        };
         assert!((a.dist(&b) - 0.8).abs() < 1e-12);
         // rect to rect diagonal gap (3,4) → 5
-        let r2 = Shape::Rect { cx: 5.0, cy: 5.5, hw: 1.0, hh: 0.5 };
+        let r2 = Shape::Rect {
+            cx: 5.0,
+            cy: 5.5,
+            hw: 1.0,
+            hh: 0.5,
+        };
         assert!((r.dist(&r2) - (3.0f64).hypot(4.5)).abs() < 1e-12);
     }
 }

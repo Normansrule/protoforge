@@ -57,7 +57,11 @@ pub fn analyse(mesh: &Mesh, threshold_deg: f64) -> OverhangReport {
     for t in 0..n {
         let tri = mesh.tri(t);
         let nrm = mesh.face_normal(t);
-        let area = 0.5 * crate::cad::mesh::v_len(crate::cad::mesh::v_cross(crate::cad::mesh::v_sub(tri[1], tri[0]), crate::cad::mesh::v_sub(tri[2], tri[0])));
+        let area = 0.5
+            * crate::cad::mesh::v_len(crate::cad::mesh::v_cross(
+                crate::cad::mesh::v_sub(tri[1], tri[0]),
+                crate::cad::mesh::v_sub(tri[2], tri[0]),
+            ));
         let zmax = tri.iter().map(|p| p[2]).fold(f64::NEG_INFINITY, f64::max);
         let on_bed = zmax - lo[2] < 0.05;
         let mut col = [0.60, 0.66, 0.76];
@@ -100,7 +104,10 @@ pub fn analyse(mesh: &Mesh, threshold_deg: f64) -> OverhangReport {
     r.suggestion = if r.overhang_area_mm2 <= 0.5 {
         "No unsupported overhangs: prints without support in this orientation.".into()
     } else if !r.needs_support {
-        format!("{:.1} mm² of small overhangs — usually bridges fine, no support needed.", r.overhang_area_mm2)
+        format!(
+            "{:.1} mm² of small overhangs — usually bridges fine, no support needed.",
+            r.overhang_area_mm2
+        )
     } else {
         format!(
             "{:.0} mm² steeper than {thr:.0}° from vertical: enable tree/organic supports (Bambu Studio / OrcaSlicer) or re-orient the part.",
@@ -126,18 +133,39 @@ mod tests {
         // it rests on the post.
         let mut t = box_mesh([4.0, 4.0, 0.0], [6.0, 6.0, 5.0]);
         // Subdivide the slab's underside so faces over the post are separate.
-        let slab = crate::cad::solid::extrude(&crate::cad::solid::Region::new(
-            vec![[0.0, 0.0], [4.0, 0.0], [6.0, 0.0], [10.0, 0.0], [10.0, 10.0], [6.0, 10.0], [4.0, 10.0], [0.0, 10.0]], vec![]), 5.0, 7.0);
+        let slab = crate::cad::solid::extrude(
+            &crate::cad::solid::Region::new(
+                vec![
+                    [0.0, 0.0],
+                    [4.0, 0.0],
+                    [6.0, 0.0],
+                    [10.0, 0.0],
+                    [10.0, 10.0],
+                    [6.0, 10.0],
+                    [4.0, 10.0],
+                    [0.0, 10.0],
+                ],
+                vec![],
+            ),
+            5.0,
+            7.0,
+        );
         t.append(&slab);
         let r = analyse(&t, 45.0);
-        assert!(r.overhang_area_mm2 > 70.0 && r.overhang_area_mm2 <= 100.0, "{}", r.overhang_area_mm2);
+        assert!(
+            r.overhang_area_mm2 > 70.0 && r.overhang_area_mm2 <= 100.0,
+            "{}",
+            r.overhang_area_mm2
+        );
         assert!(r.needs_support);
     }
 
     #[test]
     fn tilted_face_threshold() {
         // Rotate a raised box 30° about X: its bottom face is 60° from vertical.
-        let m = box_mesh([-5.0, -5.0, -5.0], [5.0, 5.0, 5.0]).transformed(&Affine::rot_x(30.0)).translated(0.0, 0.0, 20.0);
+        let m = box_mesh([-5.0, -5.0, -5.0], [5.0, 5.0, 5.0])
+            .transformed(&Affine::rot_x(30.0))
+            .translated(0.0, 0.0, 20.0);
         let r = analyse(&m, 45.0);
         assert!((r.max_angle_deg - 60.0).abs() < 1e-6);
         assert!(r.overhang_area_mm2 > 99.0);

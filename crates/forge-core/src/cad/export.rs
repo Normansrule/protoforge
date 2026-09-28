@@ -22,7 +22,11 @@ pub fn base64(bytes: &[u8]) -> String {
         let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
         out.push(B64[(n >> 18) as usize & 63] as char);
         out.push(B64[(n >> 12) as usize & 63] as char);
-        out.push(if chunk.len() > 1 { B64[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 1 {
+            B64[(n >> 6) as usize & 63] as char
+        } else {
+            '='
+        });
         out.push(if chunk.len() > 2 { B64[n as usize & 63] as char } else { '=' });
     }
     out
@@ -115,7 +119,11 @@ pub fn weld(mesh: &Mesh, tol: f64) -> Mesh {
     let mut remap = Vec::with_capacity(mesh.vertex_count());
     for k in 0..mesh.vertex_count() {
         let p = mesh.vertex(k as u32);
-        let key = ((p[0] / tol).round() as i64, (p[1] / tol).round() as i64, (p[2] / tol).round() as i64);
+        let key = (
+            (p[0] / tol).round() as i64,
+            (p[1] / tol).round() as i64,
+            (p[2] / tol).round() as i64,
+        );
         let idx = *map.entry(key).or_insert_with(|| out.add_vertex(p));
         remap.push(idx);
     }
@@ -167,11 +175,22 @@ pub fn three_mf(parts: &[(&str, &Mesh, &str)], title: &str) -> Vec<(String, Stri
     let _ = writeln!(m, "  <metadata name=\"Title\">{}</metadata>", xml_escape(title));
     m.push_str("  <metadata name=\"Application\">Protoforge</metadata>\n  <resources>\n    <basematerials id=\"1\">\n");
     for (name, _, color) in parts {
-        let _ = writeln!(m, "      <base name=\"{}\" displaycolor=\"{}\"/>", xml_escape(name), color.to_uppercase());
+        let _ = writeln!(
+            m,
+            "      <base name=\"{}\" displaycolor=\"{}\"/>",
+            xml_escape(name),
+            color.to_uppercase()
+        );
     }
     m.push_str("    </basematerials>\n");
     for (i, (name, mesh, _)) in parts.iter().enumerate() {
-        let _ = writeln!(m, "    <object id=\"{}\" name=\"{}\" type=\"model\" pid=\"1\" pindex=\"{}\">\n      <mesh>\n        <vertices>", i + 2, xml_escape(name), i);
+        let _ = writeln!(
+            m,
+            "    <object id=\"{}\" name=\"{}\" type=\"model\" pid=\"1\" pindex=\"{}\">\n      <mesh>\n        <vertices>",
+            i + 2,
+            xml_escape(name),
+            i
+        );
         for p in mesh.positions.chunks(3) {
             let _ = writeln!(m, "          <vertex x=\"{:.4}\" y=\"{:.4}\" z=\"{:.4}\"/>", p[0], p[1], p[2]);
         }
@@ -194,7 +213,10 @@ pub fn three_mf(parts: &[(&str, &Mesh, &str)], title: &str) -> Vec<(String, Stri
 }
 
 fn xml_escape(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 #[cfg(test)]

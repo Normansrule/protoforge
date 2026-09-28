@@ -86,7 +86,14 @@ fn triangles(m: &Mesh) -> Vec<Tri> {
         let (a, b, c) = (m.vertex(t[0]), m.vertex(t[1]), m.vertex(t[2]));
         let cr = cross(sub(b, a), sub(c, a));
         let area = 0.5 * norm(cr);
-        v.push(Tri { a, b, c, n: unit(cr), area, centroid: scale(add(add(a, b), c), 1.0 / 3.0) });
+        v.push(Tri {
+            a,
+            b,
+            c,
+            n: unit(cr),
+            area,
+            centroid: scale(add(add(a, b), c), 1.0 / 3.0),
+        });
     }
     v
 }
@@ -171,7 +178,11 @@ fn principal_axes(tris: &[Tri]) -> [V3; 3] {
         }
         v = nv;
     }
-    [[v[0][0], v[1][0], v[2][0]], [v[0][1], v[1][1], v[2][1]], [v[0][2], v[1][2], v[2][2]]]
+    [
+        [v[0][0], v[1][0], v[2][0]],
+        [v[0][1], v[1][1], v[2][1]],
+        [v[0][2], v[1][2], v[2][2]],
+    ]
 }
 
 // ---------------------------------------------------------------------------
@@ -213,7 +224,11 @@ impl Grid3 {
         let ext = sub(hi, lo);
         let maxe = ext[0].max(ext[1]).max(ext[2]).max(1e-6);
         let cell = (maxe / 48.0).max(0.8);
-        let n = [((ext[0] / cell).ceil() as usize).max(1), ((ext[1] / cell).ceil() as usize).max(1), ((ext[2] / cell).ceil() as usize).max(1)];
+        let n = [
+            ((ext[0] / cell).ceil() as usize).max(1),
+            ((ext[1] / cell).ceil() as usize).max(1),
+            ((ext[2] / cell).ceil() as usize).max(1),
+        ];
         let mut cells = vec![Vec::new(); n[0] * n[1] * n[2]];
         for (ti, t) in tris.iter().enumerate() {
             let mut a = [0usize; 3];
@@ -379,21 +394,32 @@ fn draft_stats(tris: &[Tri], d: V3, under: &[bool], sliver: f64) -> DraftStats {
             min_face = i;
         }
     }
-    DraftStats { min_draft, min_face, undercut_area }
+    DraftStats {
+        min_draft,
+        min_face,
+        undercut_area,
+    }
 }
 
 /// Draft analysis of one mesh. `pull = None` chooses the best direction.
 pub fn draft_analysis(name: &str, mesh: &Mesh, pull: Option<V3>, min_draft: f64, with_mesh: bool) -> DraftResult {
     let tris = triangles(mesh);
     if tris.is_empty() {
-        return DraftResult { part: name.into(), ..Default::default() };
+        return DraftResult {
+            part: name.into(),
+            ..Default::default()
+        };
     }
     let (lo, hi) = bbox(mesh);
     let diag = norm(sub(hi, lo)) + 1.0;
     let grid = Grid3::new(&tris, lo, hi);
     let sliver = sliver_threshold(&tris);
     let pa = principal_axes(&tris);
-    let mut cands: Vec<(String, V3)> = vec![("+X".into(), [1.0, 0.0, 0.0]), ("+Y".into(), [0.0, 1.0, 0.0]), ("+Z".into(), [0.0, 0.0, 1.0])];
+    let mut cands: Vec<(String, V3)> = vec![
+        ("+X".into(), [1.0, 0.0, 0.0]),
+        ("+Y".into(), [0.0, 1.0, 0.0]),
+        ("+Z".into(), [0.0, 0.0, 1.0]),
+    ];
     for (k, a) in pa.iter().enumerate() {
         // skip principal axes that coincide with a world axis
         if cands.iter().take(3).any(|(_, w)| dot(*w, *a).abs() > 0.9999) {
@@ -411,9 +437,18 @@ pub fn draft_analysis(name: &str, mesh: &Mesh, pull: Option<V3>, min_draft: f64,
         let under = undercuts(&tris, &grid, d, diag);
         let st = draft_stats(&tris, d, &under, sliver);
         // depth of the part along the pull: shallower pulls are easier to mold
-        let depth = mesh.positions.chunks_exact(3).map(|p| dot([p[0], p[1], p[2]], d)).fold((f64::INFINITY, f64::NEG_INFINITY), |a, x| (a.0.min(x), a.1.max(x)));
+        let depth = mesh
+            .positions
+            .chunks_exact(3)
+            .map(|p| dot([p[0], p[1], p[2]], d))
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |a, x| (a.0.min(x), a.1.max(x)));
         let depth = depth.1 - depth.0;
-        evaluated.push(Candidate { label: label.clone(), dir: d, min_draft_deg: st.min_draft, undercut_area_mm2: st.undercut_area });
+        evaluated.push(Candidate {
+            label: label.clone(),
+            dir: d,
+            min_draft_deg: st.min_draft,
+            undercut_area_mm2: st.undercut_area,
+        });
         let better = match &best {
             None => true,
             Some((_, _, _, b, bd)) => {
@@ -536,7 +571,10 @@ pub struct ThicknessResult {
 /// (largest faces first) — 0 means all faces.
 pub fn thickness(name: &str, mesh: &Mesh, max_samples: usize, with_mesh: bool) -> ThicknessResult {
     let tris = triangles(mesh);
-    let mut r = ThicknessResult { part: name.into(), ..Default::default() };
+    let mut r = ThicknessResult {
+        part: name.into(),
+        ..Default::default()
+    };
     if tris.is_empty() {
         return r;
     }
@@ -561,7 +599,13 @@ pub fn thickness(name: &str, mesh: &Mesh, max_samples: usize, with_mesh: bool) -
         let u = unit(cross(d, helper));
         let v = cross(d, u);
         let k45 = std::f64::consts::FRAC_1_SQRT_2;
-        let dirs = [d, unit(add(scale(d, k45), scale(u, k45))), unit(add(scale(d, k45), scale(u, -k45))), unit(add(scale(d, k45), scale(v, k45))), unit(add(scale(d, k45), scale(v, -k45)))];
+        let dirs = [
+            d,
+            unit(add(scale(d, k45), scale(u, k45))),
+            unit(add(scale(d, k45), scale(u, -k45))),
+            unit(add(scale(d, k45), scale(v, k45))),
+            unit(add(scale(d, k45), scale(v, -k45))),
+        ];
         let mut best: Option<f64> = None;
         for dir in dirs {
             gen = gen.wrapping_add(1);
@@ -577,7 +621,11 @@ pub fn thickness(name: &str, mesh: &Mesh, max_samples: usize, with_mesh: bool) -
         }
     }
     r.sampled_faces = order.len();
-    let mut vals: Vec<(f64, f64)> = order.iter().filter(|&&i| th[i].is_finite()).map(|&i| (th[i], tris[i].area)).collect();
+    let mut vals: Vec<(f64, f64)> = order
+        .iter()
+        .filter(|&&i| th[i].is_finite())
+        .map(|&i| (th[i], tris[i].area))
+        .collect();
     if vals.is_empty() {
         return r;
     }
@@ -626,7 +674,11 @@ pub fn thickness(name: &str, mesh: &Mesh, max_samples: usize, with_mesh: bool) -
     if with_mesh {
         let mut cm = ColoredMesh::default();
         for (i, t) in tris.iter().enumerate() {
-            let col = if th[i].is_finite() { thickness_color(th[i], r.nominal_mm, thin_lim, thick_lim) } else { [0.5, 0.5, 0.55] };
+            let col = if th[i].is_finite() {
+                thickness_color(th[i], r.nominal_mm, thin_lim, thick_lim)
+            } else {
+                [0.5, 0.5, 0.55]
+            };
             for v in [t.a, t.b, t.c] {
                 cm.positions.extend_from_slice(&v);
                 cm.colors.extend_from_slice(&col);
@@ -662,7 +714,11 @@ pub fn projected_area(mesh: &Mesh, d: V3, cell: f64) -> f64 {
     let helper = if d[0].abs() < 0.9 { [1.0, 0.0, 0.0] } else { [0.0, 1.0, 0.0] };
     let u = unit(cross(d, helper));
     let v = cross(d, u);
-    let pts: Vec<(f64, f64)> = mesh.positions.chunks_exact(3).map(|p| (dot([p[0], p[1], p[2]], u), dot([p[0], p[1], p[2]], v))).collect();
+    let pts: Vec<(f64, f64)> = mesh
+        .positions
+        .chunks_exact(3)
+        .map(|p| (dot([p[0], p[1], p[2]], u), dot([p[0], p[1], p[2]], v)))
+        .collect();
     if pts.is_empty() {
         return 0.0;
     }
@@ -731,7 +787,13 @@ pub fn cycle(shot_cm3: f64, wall_mm: f64, depth_mm: f64, m: &Material) -> CycleB
     let fill = 0.4 + shot_cm3 / 25.0;
     let pack = (0.25 * cool).max(1.0);
     let open = 2.5 + 0.02 * depth_mm;
-    CycleBreakdown { fill_s: fill, pack_s: pack, cool_s: cool, open_eject_close_s: open, total_s: fill + pack + cool + open }
+    CycleBreakdown {
+        fill_s: fill,
+        pack_s: pack,
+        cool_s: cool,
+        open_eject_close_s: open,
+        total_s: fill + pack + cool + open,
+    }
 }
 
 /// Indicative tool cost (USD).
@@ -805,14 +867,28 @@ pub struct ProcessOptions {
 
 impl Default for ProcessOptions {
     fn default() -> Self {
-        ProcessOptions { material: "PC".into(), steel: "P20".into(), cavities: 1, min_draft_deg: 1.0, clamp_allowance: 1.1, scrap_pct: 3.0, runner_fraction: 0.15, machine_rate_usd_h: 0.0 }
+        ProcessOptions {
+            material: "PC".into(),
+            steel: "P20".into(),
+            cavities: 1,
+            min_draft_deg: 1.0,
+            clamp_allowance: 1.1,
+            scrap_pct: 3.0,
+            runner_fraction: 0.15,
+            machine_rate_usd_h: 0.0,
+        }
     }
 }
 
 impl ProcessOptions {
     pub fn from_project(p: &Project) -> ProcessOptions {
         let m = &p.design.manufacturing;
-        ProcessOptions { material: m.molding_material.clone(), steel: m.mold_steel.clone(), cavities: m.cavities.max(1), ..Default::default() }
+        ProcessOptions {
+            material: m.molding_material.clone(),
+            steel: m.mold_steel.clone(),
+            cavities: m.cavities.max(1),
+            ..Default::default()
+        }
     }
 }
 
@@ -832,25 +908,50 @@ pub fn process_part(part: &Part, o: &ProcessOptions, samples: usize) -> PartProc
     let cyc = cycle(vol * o.cavities.max(1) as f64 * (1.0 + o.runner_fraction), wall, depth, m);
     // gate: thickest section (fill thick → thin); flow length = farthest vertex
     let gate = th.thick_center.unwrap_or(scale(add(lo, hi), 0.5));
-    let flow = part.mesh.positions.chunks_exact(3).map(|p| norm(sub([p[0], p[1], p[2]], gate))).fold(0.0, f64::max);
+    let flow = part
+        .mesh
+        .positions
+        .chunks_exact(3)
+        .map(|p| norm(sub([p[0], p[1], p[2]], gate)))
+        .fold(0.0, f64::max);
     let flow_ratio = if th.nominal_mm > 0.0 { flow / th.nominal_mm } else { 0.0 };
-    let side_actions = if dr.area_undercut_mm2 > 1.0 { ((dr.undercut_faces as f64).sqrt().ceil() as usize).clamp(1, 4) } else { 0 };
+    let side_actions = if dr.area_undercut_mm2 > 1.0 {
+        ((dr.undercut_faces as f64).sqrt().ceil() as usize).clamp(1, 4)
+    } else {
+        0
+    };
     let tool = tool_cost_usd(area, side_actions, &o.steel, o.cavities);
-    let rate = if o.machine_rate_usd_h > 0.0 { o.machine_rate_usd_h } else { machine_rate_usd_h(tonnes) };
+    let rate = if o.machine_rate_usd_h > 0.0 {
+        o.machine_rate_usd_h
+    } else {
+        machine_rate_usd_h(tonnes)
+    };
     let mat_usd = mass / 1000.0 * (1.0 + o.runner_fraction) * m.price_usd_kg / (1.0 - o.scrap_pct / 100.0);
     let mach_usd = rate * cyc.total_s / 3600.0 / o.cavities.max(1) as f64 / (1.0 - o.scrap_pct / 100.0);
     let mut warnings = Vec::new();
     if dr.min_draft_deg < o.min_draft_deg {
-        warnings.push(format!("Side walls with only {:.2}° draft (need ≥ {:.1}°) — add taper in CAD.", dr.min_draft_deg, o.min_draft_deg));
+        warnings.push(format!(
+            "Side walls with only {:.2}° draft (need ≥ {:.1}°) — add taper in CAD.",
+            dr.min_draft_deg, o.min_draft_deg
+        ));
     }
     if dr.area_undercut_mm2 > 1.0 {
-        warnings.push(format!("{:.0} mm² of undercut surface — needs side actions / lifters (+ tool cost) or a redesign.", dr.area_undercut_mm2));
+        warnings.push(format!(
+            "{:.0} mm² of undercut surface — needs side actions / lifters (+ tool cost) or a redesign.",
+            dr.area_undercut_mm2
+        ));
     }
     if th.max_mm > 0.0 && th.thick_area_mm2 > 0.02 * surface_area(&part.mesh) {
-        warnings.push(format!("Thick sections up to {:.1} mm (nominal {:.1} mm) — core them out to avoid sink marks and long cooling.", th.p95_mm, th.nominal_mm));
+        warnings.push(format!(
+            "Thick sections up to {:.1} mm (nominal {:.1} mm) — core them out to avoid sink marks and long cooling.",
+            th.p95_mm, th.nominal_mm
+        ));
     }
     if flow_ratio > m.max_flow_ratio {
-        warnings.push(format!("Flow length / wall ratio {:.0} exceeds ~{:.0} for {} — add gates or thicken walls.", flow_ratio, m.max_flow_ratio, m.id));
+        warnings.push(format!(
+            "Flow length / wall ratio {:.0} exceeds ~{:.0} for {} — add gates or thicken walls.",
+            flow_ratio, m.max_flow_ratio, m.id
+        ));
     }
     PartProcess {
         part: part.name.clone(),
@@ -875,7 +976,11 @@ pub fn process_part(part: &Part, o: &ProcessOptions, samples: usize) -> PartProc
         shrink_scale: 1.0 / (1.0 - m.shrinkage_pct / 100.0),
         tool_cost_usd: tool,
         shot_life: steel(&o.steel).shot_life,
-        piece: PieceCost { material_usd: mat_usd, machine_usd: mach_usd, total_usd: mat_usd + mach_usd },
+        piece: PieceCost {
+            material_usd: mat_usd,
+            machine_usd: mach_usd,
+            total_usd: mat_usd + mach_usd,
+        },
         warnings,
     }
 }
@@ -924,8 +1029,17 @@ impl Default for materials::Steel {
 /// Analyse every frame part of the project.
 pub fn analyze(p: &Project, o: &ProcessOptions, samples: usize) -> Analysis {
     let parts = crate::cad::frame_parts_print(p);
-    let pp: Vec<PartProcess> = parts.iter().filter(|x| x.mesh.triangle_count() > 0).map(|x| process_part(x, o, samples)).collect();
-    let mut a = Analysis { material: material(&o.material).clone(), steel: steel(&o.steel).clone(), options: o.clone(), ..Default::default() };
+    let pp: Vec<PartProcess> = parts
+        .iter()
+        .filter(|x| x.mesh.triangle_count() > 0)
+        .map(|x| process_part(x, o, samples))
+        .collect();
+    let mut a = Analysis {
+        material: material(&o.material).clone(),
+        steel: steel(&o.steel).clone(),
+        options: o.clone(),
+        ..Default::default()
+    };
     a.clamp_tonnes = pp.iter().map(|x| x.clamp_tonnes).fold(0.0, f64::max);
     a.cycle_s = pp.iter().map(|x| x.cycle.total_s).fold(0.0, f64::max);
     let (mut md, mut mp) = (90.0f64, String::new());
@@ -1007,13 +1121,23 @@ fn pick_part(p: &Project, name: &str) -> Result<Part, String> {
 /// JSON API entry point for `molding.*` methods.
 pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
     match method {
-        "molding.materials" => Some(crate::api::to_value(serde_json::json!({ "materials": MATERIALS, "steels": STEELS }))),
+        "molding.materials" => Some(crate::api::to_value(
+            serde_json::json!({ "materials": MATERIALS, "steels": STEELS }),
+        )),
         "molding.parts" => handle(input, |p: Project| {
             Ok(crate::cad::frame_parts_print(&p)
                 .into_iter()
                 .map(|x| {
                     let (lo, hi) = bbox(&x.mesh);
-                    PartInfo { name: x.name.clone(), color: x.color.clone(), triangles: x.mesh.triangle_count(), volume_cm3: volume(&x.mesh).abs() / 1000.0, bbox_min: lo, bbox_max: hi, mesh: x.mesh }
+                    PartInfo {
+                        name: x.name.clone(),
+                        color: x.color.clone(),
+                        triangles: x.mesh.triangle_count(),
+                        volume_cm3: volume(&x.mesh).abs() / 1000.0,
+                        bbox_min: lo,
+                        bbox_max: hi,
+                        mesh: x.mesh,
+                    }
                 })
                 .collect::<Vec<_>>())
         }),
@@ -1047,7 +1171,13 @@ thread_local! {
 /// Metrics this module contributes to requirement verification (memoised on
 /// the inputs it reads, because verification re-runs on every project edit).
 pub fn metrics(p: &Project) -> Vec<Metric> {
-    let key = crate::memo::key(&(&p.design.frame, &p.design.optics, &p.design.pcb, &p.design.manufacturing, &p.design.extra));
+    let key = crate::memo::key(&(
+        &p.design.frame,
+        &p.design.optics,
+        &p.design.pcb,
+        &p.design.manufacturing,
+        &p.design.extra,
+    ));
     crate::memo::memo(&METRICS_CACHE, key, || metrics_uncached(p))
 }
 
@@ -1058,21 +1188,54 @@ fn metrics_uncached(p: &Project) -> Vec<Metric> {
         return vec![];
     }
     let worst = a.parts.iter().find(|x| x.part == a.min_draft_part);
-    let press = a.parts.iter().max_by(|x, y| x.clamp_tonnes.partial_cmp(&y.clamp_tonnes).unwrap()).unwrap();
-    let slow = a.parts.iter().max_by(|x, y| x.cycle.total_s.partial_cmp(&y.cycle.total_s).unwrap()).unwrap();
+    let press = a
+        .parts
+        .iter()
+        .max_by(|x, y| x.clamp_tonnes.partial_cmp(&y.clamp_tonnes).unwrap())
+        .unwrap();
+    let slow = a
+        .parts
+        .iter()
+        .max_by(|x, y| x.cycle.total_s.partial_cmp(&y.cycle.total_s).unwrap())
+        .unwrap();
     let under: f64 = a.parts.iter().map(|x| x.undercut_area_mm2).sum();
     vec![
-        Metric::new("molding.min_draft_deg", "Minimum side-wall draft", a.min_draft_deg, "deg", "molding").with_note(&format!(
+        Metric::new(
+            "molding.min_draft_deg",
+            "Minimum side-wall draft",
+            a.min_draft_deg,
+            "deg",
+            "molding",
+        )
+        .with_note(&format!(
             "{} (pull {}){}",
             a.min_draft_part,
             worst.map(|w| w.pull_label.clone()).unwrap_or_default(),
-            if under > 1.0 { format!("; {:.0} mm² undercut needs side actions", under) } else { String::new() }
+            if under > 1.0 {
+                format!("; {:.0} mm² undercut needs side actions", under)
+            } else {
+                String::new()
+            }
         )),
-        Metric::new("molding.clamp_tonnage_t", "Clamp force (largest tool)", a.clamp_tonnes, "t", "molding").with_note(&format!(
+        Metric::new(
+            "molding.clamp_tonnage_t",
+            "Clamp force (largest tool)",
+            a.clamp_tonnes,
+            "t",
+            "molding",
+        )
+        .with_note(&format!(
             "{}: {:.0} mm² projected × {:.0} MPa {} × {:.2} allowance",
             press.part, press.projected_area_mm2, a.material.cavity_pressure_mpa, a.material.id, o.clamp_allowance
         )),
-        Metric::new("molding.cycle_time_s", "Molding cycle time (slowest part)", a.cycle_s, "s", "molding").with_note(&format!(
+        Metric::new(
+            "molding.cycle_time_s",
+            "Molding cycle time (slowest part)",
+            a.cycle_s,
+            "s",
+            "molding",
+        )
+        .with_note(&format!(
             "{}: fill {:.1} + pack {:.1} + cool {:.1} (wall {:.2} mm) + open/eject {:.1} s",
             slow.part, slow.cycle.fill_s, slow.cycle.pack_s, slow.cycle.cool_s, slow.wall_max_mm, slow.cycle.open_eject_close_s
         )),
@@ -1087,11 +1250,19 @@ mod tests {
     pub fn tapered_box(w: f64, d: f64, h: f64, taper_deg: f64) -> Mesh {
         let s = h * taper_deg.to_radians().tan();
         let v = [
-            [0.0, 0.0, 0.0], [w, 0.0, 0.0], [w, d, 0.0], [0.0, d, 0.0],
-            [s, s, h], [w - s, s, h], [w - s, d - s, h], [s, d - s, h],
+            [0.0, 0.0, 0.0],
+            [w, 0.0, 0.0],
+            [w, d, 0.0],
+            [0.0, d, 0.0],
+            [s, s, h],
+            [w - s, s, h],
+            [w - s, d - s, h],
+            [s, d - s, h],
         ];
         let positions = v.iter().flat_map(|p| p.iter().copied()).collect();
-        let indices = vec![0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7];
+        let indices = vec![
+            0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7,
+        ];
         Mesh { positions, indices }
     }
 
@@ -1142,7 +1313,12 @@ mod tests {
     #[test]
     fn clamp_force_units() {
         // 800 mm² × 55 MPa = 44 kN = 4.49 tf (×1.1 allowance = 4.93 tf)
-        let part = Part { name: "box".into(), mesh: tapered_box(40.0, 20.0, 10.0, 2.0), color: String::new(), explode: [0.0; 3] };
+        let part = Part {
+            name: "box".into(),
+            mesh: tapered_box(40.0, 20.0, 10.0, 2.0),
+            color: String::new(),
+            explode: [0.0; 3],
+        };
         let o = ProcessOptions::default();
         let r = process_part(&part, &o, 0);
         let expect_t = r.projected_area_mm2 * 55.0 * 1.1 / 9806.65;

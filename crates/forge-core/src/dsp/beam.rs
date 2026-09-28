@@ -57,7 +57,14 @@ impl Pattern {
             Pattern::Omni | Pattern::DelaySum => 0.0,
         }
     }
-    pub const NAMED: [Pattern; 6] = [Pattern::Omni, Pattern::Dipole, Pattern::Cardioid, Pattern::Hypercardioid, Pattern::Supercardioid, Pattern::DelaySum];
+    pub const NAMED: [Pattern; 6] = [
+        Pattern::Omni,
+        Pattern::Dipole,
+        Pattern::Cardioid,
+        Pattern::Hypercardioid,
+        Pattern::Supercardioid,
+        Pattern::DelaySum,
+    ];
 }
 
 /// Microphone weights (front, rear) in the frequency domain.
@@ -84,7 +91,13 @@ pub fn directivity_index(p: Pattern, tau_ratio: f64, f: f64, d: f64, c: f64) -> 
     let mut integral = 0.0;
     for i in 0..=n {
         let th = i as f64 * h;
-        let wgt = if i == 0 || i == n { 1.0 } else if i % 2 == 1 { 4.0 } else { 2.0 };
+        let wgt = if i == 0 || i == n {
+            1.0
+        } else if i % 2 == 1 {
+            4.0
+        } else {
+            2.0
+        };
         integral += wgt * response(p, tau_ratio, f, d, c, th).norm_sqr() * th.sin();
     }
     integral *= h / 3.0;
@@ -121,7 +134,17 @@ pub struct BeamInput {
 
 impl Default for BeamInput {
     fn default() -> Self {
-        BeamInput { spacing_mm: 14.0, pattern: Pattern::Hypercardioid, tau_ratio: 1.0 / 3.0, polar_freqs: vec![500.0, 1000.0, 2000.0, 4000.0], f_min: 100.0, f_max: 8000.0, n_freq: 120, c: SPEED_OF_SOUND, eq_low_hz: 100.0 }
+        BeamInput {
+            spacing_mm: 14.0,
+            pattern: Pattern::Hypercardioid,
+            tau_ratio: 1.0 / 3.0,
+            polar_freqs: vec![500.0, 1000.0, 2000.0, 4000.0],
+            f_min: 100.0,
+            f_max: 8000.0,
+            n_freq: 120,
+            c: SPEED_OF_SOUND,
+            eq_low_hz: 100.0,
+        }
     }
 }
 
@@ -183,7 +206,11 @@ pub fn ideal_di_db(alpha: f64) -> f64 {
 fn pattern_row(p: Pattern, custom: f64, d: f64, c: f64) -> PatternRow {
     let tr = p.tau_ratio(custom);
     let alpha = tr / (tr + 1.0);
-    let null = if matches!(p, Pattern::Omni | Pattern::DelaySum) || tr > 1.0 { None } else { Some((-tr).acos().to_degrees()) };
+    let null = if matches!(p, Pattern::Omni | Pattern::DelaySum) || tr > 1.0 {
+        None
+    } else {
+        Some((-tr).acos().to_degrees())
+    };
     let f = 1000.0;
     let fb = {
         let front = response(p, tr, f, d, c, 0.0).abs();
@@ -217,8 +244,16 @@ pub fn analyze(inp: &BeamInput) -> BeamResult {
         .map(|&f| {
             let on = response(p, tr, f, d, c, 0.0).abs().max(1e-12);
             let angle_deg: Vec<f64> = (0..=180).map(|i| i as f64 * 2.0).collect();
-            let gain: Vec<f64> = angle_deg.iter().map(|a| response(p, tr, f, d, c, a.to_radians()).abs() / on).collect();
-            Polar { f, gain_db: gain.iter().map(|g| (20.0 * g.max(1e-9).log10()).max(-50.0)).collect(), gain, angle_deg }
+            let gain: Vec<f64> = angle_deg
+                .iter()
+                .map(|a| response(p, tr, f, d, c, a.to_radians()).abs() / on)
+                .collect();
+            Polar {
+                f,
+                gain_db: gain.iter().map(|g| (20.0 * g.max(1e-9).log10()).max(-50.0)).collect(),
+                gain,
+                angle_deg,
+            }
         })
         .collect();
     let freq = crate::math::logspace(inp.f_min.max(10.0), inp.f_max.max(inp.f_min * 1.1), inp.n_freq.clamp(10, 400));
@@ -247,7 +282,11 @@ pub fn analyze(inp: &BeamInput) -> BeamResult {
     if p == Pattern::Custom {
         table.push(pattern_row(Pattern::Custom, inp.tau_ratio, d, c));
     }
-    let null_deg = if matches!(p, Pattern::Omni | Pattern::DelaySum) || tr > 1.0 { None } else { Some((-tr).acos().to_degrees()) };
+    let null_deg = if matches!(p, Pattern::Omni | Pattern::DelaySum) || tr > 1.0 {
+        None
+    } else {
+        Some((-tr).acos().to_degrees())
+    };
     BeamResult {
         spacing_mm: inp.spacing_mm,
         pattern: p,
@@ -297,7 +336,21 @@ pub struct FieldInput {
 
 impl Default for FieldInput {
     fn default() -> Self {
-        FieldInput { spacing_mm: 14.0, pattern: Pattern::Hypercardioid, tau_ratio: 1.0 / 3.0, freq: 1000.0, tilt_deg: 0.0, x_min: -160.0, x_max: 160.0, y_min: -140.0, y_max: 100.0, nx: 64, ny: 48, probes: vec![], c: SPEED_OF_SOUND }
+        FieldInput {
+            spacing_mm: 14.0,
+            pattern: Pattern::Hypercardioid,
+            tau_ratio: 1.0 / 3.0,
+            freq: 1000.0,
+            tilt_deg: 0.0,
+            x_min: -160.0,
+            x_max: 160.0,
+            y_min: -140.0,
+            y_max: 100.0,
+            nx: 64,
+            ny: 48,
+            probes: vec![],
+            c: SPEED_OF_SOUND,
+        }
     }
 }
 
@@ -413,13 +466,24 @@ mod tests {
 
     #[test]
     fn differential_slope_is_6db_per_octave() {
-        let r = analyze(&BeamInput { f_min: 250.0, f_max: 500.0, n_freq: 10, pattern: Pattern::Cardioid, ..Default::default() });
+        let r = analyze(&BeamInput {
+            f_min: 250.0,
+            f_max: 500.0,
+            n_freq: 10,
+            pattern: Pattern::Cardioid,
+            ..Default::default()
+        });
         assert!(((r.onaxis_db[9] - r.onaxis_db[0]) - 6.0).abs() < 0.1);
     }
 
     #[test]
     fn far_field_map_matches_polar_pattern() {
-        let fr = field(&FieldInput { probes: vec![[5000.0, 0.0], [-5000.0 * 0.3333, 5000.0 * 0.9428]], nx: 4, ny: 4, ..Default::default() });
+        let fr = field(&FieldInput {
+            probes: vec![[5000.0, 0.0], [-5000.0 * 0.3333, 5000.0 * 0.9428]],
+            nx: 4,
+            ny: 4,
+            ..Default::default()
+        });
         assert!(fr.probe_db[0].abs() < 0.1, "on-axis far field {}", fr.probe_db[0]);
         assert!(fr.probe_db[1] < -30.0, "null at 109.5° {}", fr.probe_db[1]);
     }

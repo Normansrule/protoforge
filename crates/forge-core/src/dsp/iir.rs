@@ -26,7 +26,10 @@ pub struct Biquad {
 impl Biquad {
     fn normalised(b: [f64; 3], a: [f64; 3]) -> Biquad {
         let a0 = a[0];
-        Biquad { b: [b[0] / a0, b[1] / a0, b[2] / a0], a: [1.0, a[1] / a0, a[2] / a0] }
+        Biquad {
+            b: [b[0] / a0, b[1] / a0, b[2] / a0],
+            a: [1.0, a[1] / a0, a[2] / a0],
+        }
     }
     /// H(e^{jω}) at normalised frequency f (cycles/sample).
     pub fn response(&self, f: f64) -> C64 {
@@ -97,19 +100,44 @@ pub fn rbj(kind: BiquadKind, f0: f64, q: f64, gain_db: f64, fs: f64) -> Biquad {
     let a = 10f64.powf(gain_db / 40.0);
     let sa = 2.0 * a.sqrt() * alpha;
     let (b, den) = match kind {
-        BiquadKind::Lowpass => ([(1.0 - cs) / 2.0, 1.0 - cs, (1.0 - cs) / 2.0], [1.0 + alpha, -2.0 * cs, 1.0 - alpha]),
-        BiquadKind::Highpass => ([(1.0 + cs) / 2.0, -(1.0 + cs), (1.0 + cs) / 2.0], [1.0 + alpha, -2.0 * cs, 1.0 - alpha]),
+        BiquadKind::Lowpass => (
+            [(1.0 - cs) / 2.0, 1.0 - cs, (1.0 - cs) / 2.0],
+            [1.0 + alpha, -2.0 * cs, 1.0 - alpha],
+        ),
+        BiquadKind::Highpass => (
+            [(1.0 + cs) / 2.0, -(1.0 + cs), (1.0 + cs) / 2.0],
+            [1.0 + alpha, -2.0 * cs, 1.0 - alpha],
+        ),
         BiquadKind::Bandpass => ([alpha, 0.0, -alpha], [1.0 + alpha, -2.0 * cs, 1.0 - alpha]),
         BiquadKind::Notch => ([1.0, -2.0 * cs, 1.0], [1.0 + alpha, -2.0 * cs, 1.0 - alpha]),
         BiquadKind::Allpass => ([1.0 - alpha, -2.0 * cs, 1.0 + alpha], [1.0 + alpha, -2.0 * cs, 1.0 - alpha]),
-        BiquadKind::Peaking => ([1.0 + alpha * a, -2.0 * cs, 1.0 - alpha * a], [1.0 + alpha / a, -2.0 * cs, 1.0 - alpha / a]),
+        BiquadKind::Peaking => (
+            [1.0 + alpha * a, -2.0 * cs, 1.0 - alpha * a],
+            [1.0 + alpha / a, -2.0 * cs, 1.0 - alpha / a],
+        ),
         BiquadKind::LowShelf => (
-            [a * ((a + 1.0) - (a - 1.0) * cs + sa), 2.0 * a * ((a - 1.0) - (a + 1.0) * cs), a * ((a + 1.0) - (a - 1.0) * cs - sa)],
-            [(a + 1.0) + (a - 1.0) * cs + sa, -2.0 * ((a - 1.0) + (a + 1.0) * cs), (a + 1.0) + (a - 1.0) * cs - sa],
+            [
+                a * ((a + 1.0) - (a - 1.0) * cs + sa),
+                2.0 * a * ((a - 1.0) - (a + 1.0) * cs),
+                a * ((a + 1.0) - (a - 1.0) * cs - sa),
+            ],
+            [
+                (a + 1.0) + (a - 1.0) * cs + sa,
+                -2.0 * ((a - 1.0) + (a + 1.0) * cs),
+                (a + 1.0) + (a - 1.0) * cs - sa,
+            ],
         ),
         BiquadKind::HighShelf => (
-            [a * ((a + 1.0) + (a - 1.0) * cs + sa), -2.0 * a * ((a - 1.0) + (a + 1.0) * cs), a * ((a + 1.0) + (a - 1.0) * cs - sa)],
-            [(a + 1.0) - (a - 1.0) * cs + sa, 2.0 * ((a - 1.0) - (a + 1.0) * cs), (a + 1.0) - (a - 1.0) * cs - sa],
+            [
+                a * ((a + 1.0) + (a - 1.0) * cs + sa),
+                -2.0 * a * ((a - 1.0) + (a + 1.0) * cs),
+                a * ((a + 1.0) + (a - 1.0) * cs - sa),
+            ],
+            [
+                (a + 1.0) - (a - 1.0) * cs + sa,
+                2.0 * ((a - 1.0) - (a + 1.0) * cs),
+                (a + 1.0) - (a - 1.0) * cs - sa,
+            ],
         ),
     };
     Biquad::normalised(b, den)
@@ -119,7 +147,11 @@ pub fn rbj(kind: BiquadKind, f0: f64, q: f64, gain_db: f64, fs: f64) -> Biquad {
 fn bilinear2(bs: [f64; 3], as_: [f64; 3], k: f64) -> Biquad {
     let map = |c: [f64; 3]| {
         let k2 = k * k;
-        [c[0] * k2 + c[1] * k + c[2], 2.0 * c[2] - 2.0 * c[0] * k2, c[0] * k2 - c[1] * k + c[2]]
+        [
+            c[0] * k2 + c[1] * k + c[2],
+            2.0 * c[2] - 2.0 * c[0] * k2,
+            c[0] * k2 - c[1] * k + c[2],
+        ]
     };
     Biquad::normalised(map(bs), map(as_))
 }
@@ -232,7 +264,10 @@ mod tests {
             assert!(is_stable(&s.poles()), "{s:?}");
         }
         // an unstable section is detected
-        let bad = Biquad { b: [1.0, 0.0, 0.0], a: [1.0, -2.1, 1.1] };
+        let bad = Biquad {
+            b: [1.0, 0.0, 0.0],
+            a: [1.0, -2.1, 1.1],
+        };
         assert!(!is_stable(&bad.poles()));
     }
 
@@ -242,7 +277,11 @@ mod tests {
         let (b, a) = sos_to_tf(&sos);
         assert_eq!(a.len(), 6);
         let f = 0.1;
-        let z = |c: &[f64]| c.iter().enumerate().fold(C64::ZERO, |acc, (k, v)| acc + C64::from_polar(*v, -2.0 * PI * f * k as f64));
+        let z = |c: &[f64]| {
+            c.iter()
+                .enumerate()
+                .fold(C64::ZERO, |acc, (k, v)| acc + C64::from_polar(*v, -2.0 * PI * f * k as f64))
+        };
         let h = z(&b) / z(&a);
         assert!((h - sos_response(&sos, f)).abs() < 1e-9);
     }

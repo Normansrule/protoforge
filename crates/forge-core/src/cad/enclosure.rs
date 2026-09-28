@@ -39,7 +39,14 @@ pub struct Cutout {
 
 impl Default for Cutout {
     fn default() -> Self {
-        Cutout { face: "x-".into(), offset_mm: 0.0, z_mm: 6.0, width_mm: 9.5, height_mm: 3.8, label: "USB-C".into() }
+        Cutout {
+            face: "x-".into(),
+            offset_mm: 0.0,
+            z_mm: 6.0,
+            width_mm: 9.5,
+            height_mm: 3.8,
+            label: "USB-C".into(),
+        }
     }
 }
 
@@ -59,7 +66,16 @@ pub struct PcbMount {
 
 impl Default for PcbMount {
     fn default() -> Self {
-        PcbMount { enabled: true, length_mm: 60.0, width_mm: 40.0, thickness_mm: 1.6, hole_inset_mm: 3.5, standoff_h_mm: 4.0, standoff_d_mm: 5.5, standoff_hole_mm: 2.2 }
+        PcbMount {
+            enabled: true,
+            length_mm: 60.0,
+            width_mm: 40.0,
+            thickness_mm: 1.6,
+            hole_inset_mm: 3.5,
+            standoff_h_mm: 4.0,
+            standoff_d_mm: 5.5,
+            standoff_hole_mm: 2.2,
+        }
     }
 }
 
@@ -107,7 +123,14 @@ impl Default for EnclosureParams {
             pcb: PcbMount::default(),
             cutouts: vec![
                 Cutout::default(),
-                Cutout { face: "y-".into(), offset_mm: 18.0, z_mm: 10.0, width_mm: 3.2, height_mm: 3.2, label: "LED".into() },
+                Cutout {
+                    face: "y-".into(),
+                    offset_mm: 18.0,
+                    z_mm: 10.0,
+                    width_mm: 3.2,
+                    height_mm: 3.2,
+                    label: "LED".into(),
+                },
             ],
             density_g_cm3: 1.24,
         }
@@ -154,13 +177,25 @@ fn fillet_levels(z0: f64, fillet: f64, z1: f64, tan: f64, steps: usize) -> Vec<L
         for i in 0..=steps {
             let a = std::f64::consts::FRAC_PI_2 * i as f64 / steps as f64;
             let z = z0 + fillet * (1.0 - a.cos());
-            lv.push(Level { z, d_outer: -(fillet - fillet * a.sin()) - z * tan, d_holes: -z * tan });
+            lv.push(Level {
+                z,
+                d_outer: -(fillet - fillet * a.sin()) - z * tan,
+                d_holes: -z * tan,
+            });
         }
     } else {
-        lv.push(Level { z: z0, d_outer: -z0 * tan, d_holes: -z0 * tan });
+        lv.push(Level {
+            z: z0,
+            d_outer: -z0 * tan,
+            d_holes: -z0 * tan,
+        });
     }
     if z1 > lv.last().unwrap().z + 1e-9 {
-        lv.push(Level { z: z1, d_outer: -z1 * tan, d_holes: -z1 * tan });
+        lv.push(Level {
+            z: z1,
+            d_outer: -z1 * tan,
+            d_holes: -z1 * tan,
+        });
     }
     lv
 }
@@ -252,9 +287,19 @@ pub fn build(p: &EnclosureParams) -> Built {
     for win in zs.windows(2) {
         let (z0, z1) = (win[0], win[1]);
         let mid = 0.5 * (z0 + z1);
-        let active: Vec<Vec<P2>> = cuts.iter().filter(|(_, a, b)| *a <= mid && mid <= *b).map(|(l, _, _)| l.clone()).collect();
+        let active: Vec<Vec<P2>> = cuts
+            .iter()
+            .filter(|(_, a, b)| *a <= mid && mid <= *b)
+            .map(|(l, _, _)| l.clone())
+            .collect();
         if active.is_empty() {
-            body.append(&extrude_draft(&Region::new(outer.clone(), vec![pocket.clone()]), z0, z1, p.draft_deg, 0.0));
+            body.append(&extrude_draft(
+                &Region::new(outer.clone(), vec![pocket.clone()]),
+                z0,
+                z1,
+                p.draft_deg,
+                0.0,
+            ));
         } else {
             for reg in regions_from_loops(clip::difference(&ring, &active)) {
                 body.append(&extrude_draft(&reg, z0, z1, p.draft_deg, 0.0));
@@ -277,7 +322,15 @@ pub fn build(p: &EnclosureParams) -> Built {
         };
         for (sx, sy) in [(1.0, 1.0), (-1.0, 1.0), (-1.0, -1.0), (1.0, -1.0)] {
             boss_xy.push([sx * bx, sy * by]);
-            body.append(&tube(sx * bx, sy * by, bd / 2.0, p.boss_hole_mm.clamp(1.0, bd - 1.0) / 2.0, fl, h_body, 40));
+            body.append(&tube(
+                sx * bx,
+                sy * by,
+                bd / 2.0,
+                p.boss_hole_mm.clamp(1.0, bd - 1.0) / 2.0,
+                fl,
+                h_body,
+                40,
+            ));
         }
     }
     let pcb = &p.pcb;
@@ -296,7 +349,15 @@ pub fn build(p: &EnclosureParams) -> Built {
                 continue;
             }
             if pcb.standoff_h_mm > 0.2 {
-                body.append(&tube(c[0], c[1], sd / 2.0, pcb.standoff_hole_mm.clamp(0.8, sd - 1.0) / 2.0, fl, pcb_z, 32));
+                body.append(&tube(
+                    c[0],
+                    c[1],
+                    sd / 2.0,
+                    pcb.standoff_hole_mm.clamp(0.8, sd - 1.0) / 2.0,
+                    fl,
+                    pcb_z,
+                    32,
+                ));
             }
         }
         if pcb_z + pcb.thickness_mm > h_body {
@@ -305,9 +366,19 @@ pub fn build(p: &EnclosureParams) -> Built {
     }
     // Lid: plate (outer outline at the rim) with screw clearance holes;
     // print frame has the outer face on the bed with the edge fillet there.
-    let rim_outer = g::rounded_rect(0.0, 0.0, lo - 2.0 * h_body * tan, wo - 2.0 * h_body * tan, (r - h_body * tan).max(0.0), seg);
+    let rim_outer = g::rounded_rect(
+        0.0,
+        0.0,
+        lo - 2.0 * h_body * tan,
+        wo - 2.0 * h_body * tan,
+        (r - h_body * tan).max(0.0),
+        seg,
+    );
     let holes: Vec<Vec<P2>> = if p.bosses {
-        boss_xy.iter().map(|b| g::circle(b[0], b[1], p.screw_clear_mm.clamp(1.0, bd - 0.8) / 2.0, 28)).collect()
+        boss_xy
+            .iter()
+            .map(|b| g::circle(b[0], b[1], p.screw_clear_mm.clamp(1.0, bd - 0.8) / 2.0, 28))
+            .collect()
     } else {
         vec![]
     };
@@ -317,8 +388,21 @@ pub fn build(p: &EnclosureParams) -> Built {
         let rim_in = w + h_body * tan + p.clearance_mm;
         let lw = 1.2f64.min(w);
         let l_out = g::rounded_rect(0.0, 0.0, lo - 2.0 * rim_in, wo - 2.0 * rim_in, (r - rim_in).max(0.0), seg);
-        let l_in = g::rounded_rect(0.0, 0.0, lo - 2.0 * (rim_in + lw), wo - 2.0 * (rim_in + lw), (r - rim_in - lw).max(0.0), seg);
-        lid.append(&extrude_draft(&Region::new(l_out, vec![l_in]), lid_t, lid_t + p.lip_mm, p.draft_deg, lid_t));
+        let l_in = g::rounded_rect(
+            0.0,
+            0.0,
+            lo - 2.0 * (rim_in + lw),
+            wo - 2.0 * (rim_in + lw),
+            (r - rim_in - lw).max(0.0),
+            seg,
+        );
+        lid.append(&extrude_draft(
+            &Region::new(l_out, vec![l_in]),
+            lid_t,
+            lid_t + p.lip_mm,
+            p.draft_deg,
+            lid_t,
+        ));
     }
     // Assembly: body as printed; lid flipped onto the rim.
     let lid_asm = lid.transformed(&Affine::rot_x(180.0).then(&Affine::translate(0.0, 0.0, h_body + lid_t)));
@@ -348,7 +432,10 @@ pub fn evaluate(p: &EnclosureParams) -> EnclosureOut {
             c.manifold && c.oriented && c.signed_volume_mm3 > 0.0
         },
     };
-    let parts = vec![mk("body", "#4f6d9a", &b.body, [0.0, 0.0, 0.0]), mk("lid", "#c98f4a", &b.lid, [0.0, 0.0, 30.0])];
+    let parts = vec![
+        mk("body", "#4f6d9a", &b.body, [0.0, 0.0, 0.0]),
+        mk("lid", "#c98f4a", &b.lid, [0.0, 0.0, 30.0]),
+    ];
     let total = parts.iter().map(|x| x.mass.mass_g).sum();
     EnclosureOut {
         parts,
@@ -384,10 +471,22 @@ mod tests {
 
     #[test]
     fn cutout_removes_the_window_volume() {
-        let mut p = EnclosureParams { bosses: false, fillet_mm: 0.0, cutouts: vec![], ..Default::default() };
+        let mut p = EnclosureParams {
+            bosses: false,
+            fillet_mm: 0.0,
+            cutouts: vec![],
+            ..Default::default()
+        };
         p.pcb.enabled = false;
         let v0 = build(&p).body.volume();
-        p.cutouts = vec![Cutout { face: "x+".into(), offset_mm: 0.0, z_mm: 5.0, width_mm: 10.0, height_mm: 4.0, label: "w".into() }];
+        p.cutouts = vec![Cutout {
+            face: "x+".into(),
+            offset_mm: 0.0,
+            z_mm: 5.0,
+            width_mm: 10.0,
+            height_mm: 4.0,
+            label: "w".into(),
+        }];
         let b = build(&p);
         assert!(b.body.validate().manifold);
         let removed = v0 - b.body.volume();

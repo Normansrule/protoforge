@@ -44,7 +44,9 @@ pub struct Tuning {
 /// `kind`: "p", "pi", "pid", "pessen" (Pessen integral rule), "no_overshoot".
 pub fn ziegler_nichols(plant: &Tf, kind: &str, n: f64) -> Result<Tuning, String> {
     if plant.poles().iter().any(|p| p.re > 1e-9) {
-        return Err("Ziegler–Nichols needs a stable (or integrating) plant: a P controller cannot find the ultimate gain of an unstable one".into());
+        return Err(
+            "Ziegler–Nichols needs a stable (or integrating) plant: a P controller cannot find the ultimate gain of an unstable one".into(),
+        );
     }
     let m = margins(plant);
     let (ku, wpc) = match (m.gm, m.w_pc) {
@@ -80,7 +82,9 @@ pub fn reduce(plant: &Tf) -> Result<ReducedModel, String> {
     let poles = plant.poles();
     let zeros = plant.zeros();
     if poles.iter().any(|p| p.re > 1e-9) {
-        return Err("SIMC needs a stable or integrating plant (this one has a right-half-plane pole) — use LQR or loop-shaping instead".into());
+        return Err(
+            "SIMC needs a stable or integrating plant (this one has a right-half-plane pole) — use LQR or loop-shaping instead".into(),
+        );
     }
     let n_int = poles.iter().filter(|p| p.abs() < 1e-9).count();
     if n_int > 1 {
@@ -104,14 +108,28 @@ pub fn reduce(plant: &Tf) -> Result<ReducedModel, String> {
             // integrator retained (τ1 = ∞); the largest remaining τ is split
             let t2 = taus.first().copied().unwrap_or(0.0);
             let rest: f64 = taus.iter().skip(1).sum();
-            return Ok(ReducedModel { k, tau1: f64::INFINITY, tau2: t2, theta: theta0 + rest, integrating, method: "half rule (integrating + SOPDT)".into() });
+            return Ok(ReducedModel {
+                k,
+                tau1: f64::INFINITY,
+                tau2: t2,
+                theta: theta0 + rest,
+                integrating,
+                method: "half rule (integrating + SOPDT)".into(),
+            });
         }
         let t1 = taus.first().copied().unwrap_or(0.0);
         let t2 = taus.get(1).copied().unwrap_or(0.0);
         let t3 = taus.get(2).copied().unwrap_or(0.0);
         let rest: f64 = taus.iter().skip(3).sum();
         // SOPDT reduction (for PID): τ2' = τ2 + τ3/2, θ = θ0 + τ3/2 + Σ rest
-        return Ok(ReducedModel { k, tau1: t1, tau2: t2 + t3 / 2.0, theta: theta0 + t3 / 2.0 + rest, integrating, method: "half rule (SOPDT)".into() });
+        return Ok(ReducedModel {
+            k,
+            tau1: t1,
+            tau2: t2 + t3 / 2.0,
+            theta: theta0 + t3 / 2.0 + rest,
+            integrating,
+            method: "half rule (SOPDT)".into(),
+        });
     }
     if integrating {
         return Err("integrating plant with zeros or complex poles: fit a model by hand (custom plant) first".into());
@@ -137,13 +155,31 @@ pub fn reduce(plant: &Tf) -> Result<ReducedModel, String> {
     };
     let tau = 0.67 * (t2 - t1);
     let theta = (1.3 * t1 - 0.29 * t2).max(0.0);
-    Ok(ReducedModel { k: yf, tau1: tau, tau2: 0.0, theta, integrating: false, method: "two-point FOPDT fit (Sundaresan & Krishnaswamy)".into() })
+    Ok(ReducedModel {
+        k: yf,
+        tau1: tau,
+        tau2: 0.0,
+        theta,
+        integrating: false,
+        method: "two-point FOPDT fit (Sundaresan & Krishnaswamy)".into(),
+    })
 }
 
 /// SIMC PI/PID tuning. `tau_c` = desired closed-loop time constant (None → θ).
 pub fn simc(plant: &Tf, pid_mode: bool, tau_c: Option<f64>, n: f64) -> Result<Tuning, String> {
     let m = reduce(plant)?;
-    let mut notes = vec![format!("Model ({}) : k = {:.4}, τ1 = {}, τ2 = {:.4} s, θ = {:.4} s", m.method, m.k, if m.tau1.is_finite() { format!("{:.4} s", m.tau1) } else { "∞ (integrator)".into() }, m.tau2, m.theta)];
+    let mut notes = vec![format!(
+        "Model ({}) : k = {:.4}, τ1 = {}, τ2 = {:.4} s, θ = {:.4} s",
+        m.method,
+        m.k,
+        if m.tau1.is_finite() {
+            format!("{:.4} s", m.tau1)
+        } else {
+            "∞ (integrator)".into()
+        },
+        m.tau2,
+        m.theta
+    )];
     // For PI the second time constant is split by the half rule as well
     let (tau1, tau2, theta) = if pid_mode {
         (m.tau1, m.tau2, m.theta)
@@ -173,13 +209,20 @@ pub fn simc(plant: &Tf, pid_mode: bool, tau_c: Option<f64>, n: f64) -> Result<Tu
     let kp = kc * f;
     let ki = kp / (ti + td);
     let kd = kp * (ti * td / (ti + td));
-    notes.push(format!("τc = {tc:.4} s{}; series form Kc = {kc:.4}, τI = {ti:.4} s, τD = {td:.4} s", if tau_c.is_none() { " (default τc = θ)" } else { "" }));
+    notes.push(format!(
+        "τc = {tc:.4} s{}; series form Kc = {kc:.4}, τI = {ti:.4} s, τD = {td:.4} s",
+        if tau_c.is_none() { " (default τc = θ)" } else { "" }
+    ));
     if pid_mode && m.tau2 <= 0.0 {
         notes.push("Model has no second time constant, so SIMC gives a PI controller (τD = 0).".into());
     }
     Ok(Tuning {
         pid: Pid { kp, ki, kd, n },
-        method: if pid_mode { "SIMC PID (Skogestad 2003)".into() } else { "SIMC PI (Skogestad 2003)".into() },
+        method: if pid_mode {
+            "SIMC PID (Skogestad 2003)".into()
+        } else {
+            "SIMC PI (Skogestad 2003)".into()
+        },
         notes,
         ku: None,
         pu: None,

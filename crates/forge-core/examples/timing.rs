@@ -5,12 +5,18 @@ type F = fn(&Project) -> Vec<forge_core::Metric>;
 fn main() {
     let p = Project::iris();
     let mods: &[(&str, F)] = &[
-        ("power", forge_core::power::metrics), ("optics", forge_core::optics::metrics),
-        ("circuit", forge_core::circuit::metrics), ("dsp", forge_core::dsp::metrics),
-        ("chip", forge_core::chip::metrics), ("control", forge_core::control::metrics),
-        ("robotics", forge_core::robotics::metrics), ("rl", forge_core::rl::metrics),
-        ("cad", forge_core::cad::metrics), ("print", forge_core::print::metrics),
-        ("pcb", forge_core::pcb::metrics), ("molding", forge_core::molding::metrics),
+        ("power", forge_core::power::metrics),
+        ("optics", forge_core::optics::metrics),
+        ("circuit", forge_core::circuit::metrics),
+        ("dsp", forge_core::dsp::metrics),
+        ("chip", forge_core::chip::metrics),
+        ("control", forge_core::control::metrics),
+        ("robotics", forge_core::robotics::metrics),
+        ("rl", forge_core::rl::metrics),
+        ("cad", forge_core::cad::metrics),
+        ("print", forge_core::print::metrics),
+        ("pcb", forge_core::pcb::metrics),
+        ("molding", forge_core::molding::metrics),
         ("mfg", forge_core::mfg::metrics),
     ];
     for pass in ["cold", "warm"] {

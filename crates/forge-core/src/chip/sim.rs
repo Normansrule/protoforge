@@ -68,8 +68,24 @@ impl GateKind {
 
 fn eval(kind: GateKind, ins: &[u8]) -> u8 {
     let any = |v: u8| ins.contains(&v);
-    let and = || if any(0) { 0 } else if any(X) { X } else { 1 };
-    let or = || if any(1) { 1 } else if any(X) { X } else { 0 };
+    let and = || {
+        if any(0) {
+            0
+        } else if any(X) {
+            X
+        } else {
+            1
+        }
+    };
+    let or = || {
+        if any(1) {
+            1
+        } else if any(X) {
+            X
+        } else {
+            0
+        }
+    };
     let inv = |v: u8| if v == X { X } else { 1 - v };
     let xor = || if any(X) { X } else { ins.iter().fold(0, |a, b| a ^ b) };
     match kind {
@@ -126,7 +142,13 @@ pub struct Circuit {
 }
 
 fn g(id: &str, kind: GateKind, ins: &[&str], out: &str) -> SimGate {
-    SimGate { id: id.into(), kind, inputs: ins.iter().map(|s| s.to_string()).collect(), output: out.into(), delay_ns: None }
+    SimGate {
+        id: id.into(),
+        kind,
+        inputs: ins.iter().map(|s| s.to_string()).collect(),
+        output: out.into(),
+        delay_ns: None,
+    }
 }
 
 fn ch(t: f64, net: &str, v: u8) -> (f64, String, u8) {
@@ -355,7 +377,12 @@ pub fn simulate(c: &Circuit, delay_scale: f64, glitch_ns: f64) -> SimResult {
         .map(|gt| {
             let ins: Vec<usize> = gt.inputs.iter().map(|s| net(s, &mut names)).collect();
             let out = net(&gt.output, &mut names);
-            (gt.kind, ins, out, gt.delay_ns.unwrap_or(gt.kind.default_delay()) * delay_scale.max(0.01))
+            (
+                gt.kind,
+                ins,
+                out,
+                gt.delay_ns.unwrap_or(gt.kind.default_delay()) * delay_scale.max(0.01),
+            )
         })
         .collect();
     for o in &c.outputs {
@@ -401,7 +428,13 @@ pub fn simulate(c: &Circuit, delay_scale: f64, glitch_ns: f64) -> SimResult {
     for (kind, ins, out, _) in &gates {
         match kind {
             GateKind::Dff => push(&mut heap, 0.0, *out, 0, &mut seq),
-            GateKind::Tie0 | GateKind::Tie1 => push(&mut heap, 0.0, *out, eval(*kind, ins.iter().map(|_| 0).collect::<Vec<_>>().as_slice()), &mut seq),
+            GateKind::Tie0 | GateKind::Tie1 => push(
+                &mut heap,
+                0.0,
+                *out,
+                eval(*kind, ins.iter().map(|_| 0).collect::<Vec<_>>().as_slice()),
+                &mut seq,
+            ),
             _ => {}
         }
     }
@@ -456,7 +489,11 @@ pub fn simulate(c: &Circuit, delay_scale: f64, glitch_ns: f64) -> SimResult {
             let (t0, v0) = w[k];
             let (t1, _) = w[k + 1];
             if w[k - 1].1 != X && v0 != X && t1 - t0 < glitch_ns && w[k + 1].1 == w[k - 1].1 {
-                glitches.push(Glitch { net: names[i].clone(), t0, t1 });
+                glitches.push(Glitch {
+                    net: names[i].clone(),
+                    t0,
+                    t1,
+                });
             }
         }
     }
@@ -464,8 +501,19 @@ pub fn simulate(c: &Circuit, delay_scale: f64, glitch_ns: f64) -> SimResult {
     let mut order: Vec<usize> = (0..nn).collect();
     order.sort_by_key(|&i| {
         let r = role(&names[i]);
-        let rank = if r == "input" { 0 } else if r == "output" { 1 } else { 2 };
-        let pos = c.inputs.iter().position(|x| x == &names[i]).or_else(|| c.outputs.iter().position(|x| x == &names[i])).unwrap_or(i);
+        let rank = if r == "input" {
+            0
+        } else if r == "output" {
+            1
+        } else {
+            2
+        };
+        let pos = c
+            .inputs
+            .iter()
+            .position(|x| x == &names[i])
+            .or_else(|| c.outputs.iter().position(|x| x == &names[i]))
+            .unwrap_or(i);
         (rank, pos)
     });
     let wave_out: Vec<Wave> = order
@@ -473,7 +521,12 @@ pub fn simulate(c: &Circuit, delay_scale: f64, glitch_ns: f64) -> SimResult {
         .map(|&i| {
             let mut pts = waves[i].clone();
             pts.push((t_end, val[i]));
-            Wave { net: names[i].clone(), role: role(&names[i]).into(), transitions: waves[i].len().saturating_sub(1), points: pts }
+            Wave {
+                net: names[i].clone(),
+                role: role(&names[i]).into(),
+                transitions: waves[i].len().saturating_sub(1),
+                points: pts,
+            }
         })
         .collect();
     let (placed, levels, has_loop) = place(c, &gates, &names);
@@ -542,7 +595,11 @@ fn critical_path(c: &Circuit, gates: &[NetGate], names: &[String], idx: &HashMap
             ends.push(ins[0]);
         }
     }
-    let Some(&end) = ends.iter().filter(|&&e| arrival[e].is_finite()).max_by(|a, b| arrival[**a].partial_cmp(&arrival[**b]).unwrap_or(Ordering::Equal)) else {
+    let Some(&end) = ends
+        .iter()
+        .filter(|&&e| arrival[e].is_finite())
+        .max_by(|a, b| arrival[**a].partial_cmp(&arrival[**b]).unwrap_or(Ordering::Equal))
+    else {
         return CriticalPath::default();
     };
     let mut nets = vec![end];
@@ -559,7 +616,12 @@ fn critical_path(c: &Circuit, gates: &[NetGate], names: &[String], idx: &HashMap
             break;
         }
         let ins = &gates[gi].1;
-        let Some(&best) = ins.iter().max_by(|a, b| arrival[**a].partial_cmp(&arrival[**b]).unwrap_or(Ordering::Equal)) else { break };
+        let Some(&best) = ins
+            .iter()
+            .max_by(|a, b| arrival[**a].partial_cmp(&arrival[**b]).unwrap_or(Ordering::Equal))
+        else {
+            break;
+        };
         nets.push(best);
         cur = best;
     }
@@ -568,7 +630,14 @@ fn critical_path(c: &Circuit, gates: &[NetGate], names: &[String], idx: &HashMap
     let delay = arrival[end];
     // register-to-register paths set fmax (add a nominal 1 ns setup)
     let fmax = if has_reg { Some(1000.0 / (delay + 1.0)) } else { None };
-    CriticalPath { delay_ns: delay, from: names[nets[0]].clone(), to: names[end].clone(), gates: gs, nets: nets.iter().map(|&n| names[n].clone()).collect(), fmax_mhz: fmax }
+    CriticalPath {
+        delay_ns: delay,
+        from: names[nets[0]].clone(),
+        to: names[end].clone(),
+        gates: gs,
+        nets: nets.iter().map(|&n| names[n].clone()).collect(),
+        fmax_mhz: fmax,
+    }
 }
 
 /// Assign each gate a drawing column (logic level) and row.
@@ -598,7 +667,13 @@ fn place(c: &Circuit, gates: &[NetGate], names: &[String]) -> (Vec<PlacedGate>, 
     }
     let mut gl: Vec<usize> = gates
         .iter()
-        .map(|(kind, ins, out, _)| if *kind == GateKind::Dff { ins.iter().map(|&i| level[i]).max().unwrap_or(0) + 1 } else { level[*out] })
+        .map(|(kind, ins, out, _)| {
+            if *kind == GateKind::Dff {
+                ins.iter().map(|&i| level[i]).max().unwrap_or(0) + 1
+            } else {
+                level[*out]
+            }
+        })
         .collect();
     // cross-coupled latches: detect a loop by a gate feeding itself through levels
     for (gi, (_, ins, out, _)) in gates.iter().enumerate() {
@@ -617,7 +692,15 @@ fn place(c: &Circuit, gates: &[NetGate], names: &[String]) -> (Vec<PlacedGate>, 
             let l = gl[gi];
             let r = rows[l];
             rows[l] += 1;
-            PlacedGate { id: gt.id.clone(), kind: gt.kind, inputs: gt.inputs.clone(), output: gt.output.clone(), delay_ns: gates[gi].3, level: l, row: r }
+            PlacedGate {
+                id: gt.id.clone(),
+                kind: gt.kind,
+                inputs: gt.inputs.clone(),
+                output: gt.output.clone(),
+                delay_ns: gates[gi].3,
+                level: l,
+                row: r,
+            }
         })
         .collect();
     (placed, levels, has_loop)
@@ -627,7 +710,13 @@ fn place(c: &Circuit, gates: &[NetGate], names: &[String]) -> (Vec<PlacedGate>, 
 pub fn from_logic(vars: &[String], gates: &[super::logic::Gate]) -> Circuit {
     let gs = gates
         .iter()
-        .map(|g| SimGate { id: g.id.clone(), kind: GateKind::from_name(&g.kind).unwrap_or(GateKind::Buf), inputs: g.inputs.clone(), output: g.output.clone(), delay_ns: None })
+        .map(|g| SimGate {
+            id: g.id.clone(),
+            kind: GateKind::from_name(&g.kind).unwrap_or(GateKind::Buf),
+            inputs: g.inputs.clone(),
+            output: g.output.clone(),
+            delay_ns: None,
+        })
         .collect();
     let n = vars.len();
     let mut changes = Vec::new();
@@ -643,7 +732,11 @@ pub fn from_logic(vars: &[String], gates: &[super::logic::Gate]) -> Circuit {
         inputs: vars.to_vec(),
         outputs: vec!["F".into()],
         gates: gs,
-        stimulus: Stimulus { changes, clocks: vec![], t_end_ns: (1u32 << n) as f64 * 10.0 },
+        stimulus: Stimulus {
+            changes,
+            clocks: vec![],
+            t_end_ns: (1u32 << n) as f64 * 10.0,
+        },
     }
 }
 

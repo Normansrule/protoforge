@@ -45,7 +45,14 @@ pub struct CartPoleParams {
 impl Default for CartPoleParams {
     fn default() -> Self {
         // Control Tutorials for MATLAB & Simulink (CTMS) inverted pendulum
-        CartPoleParams { cart_mass: 0.5, pole_mass: 0.2, l: 0.3, inertia: 0.006, friction: 0.1, g: 9.81 }
+        CartPoleParams {
+            cart_mass: 0.5,
+            pole_mass: 0.2,
+            l: 0.3,
+            inertia: 0.006,
+            friction: 0.1,
+            g: 9.81,
+        }
     }
 }
 
@@ -245,7 +252,15 @@ pub fn simulate_cartpole(inp: &CartPoleInput) -> Result<CartPoleResult, String> 
     let n_ctrl = (inp.t_end.clamp(0.5, 60.0) / dt).round() as usize;
     let frame_every = ((1.0 / inp.fps.clamp(10.0, 1000.0)) / dt).round().max(1.0) as usize;
     let mut s = [inp.x0, 0.0, inp.theta0_deg.to_radians(), 0.0];
-    let mut out = CartPoleResult { a, b: b.iter().map(|r| r[0]).collect(), open_poles: open, k: k.clone(), p: pm, closed_poles: closed, ..Default::default() };
+    let mut out = CartPoleResult {
+        a,
+        b: b.iter().map(|r| r[0]).collect(),
+        open_poles: open,
+        k: k.clone(),
+        p: pm,
+        closed_poles: closed,
+        ..Default::default()
+    };
     let mut pushes = inp.pushes.clone();
     pushes.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap());
     let mut push_i = 0;
@@ -314,7 +329,10 @@ mod tests {
     #[test]
     fn linearisation_matches_textbook() {
         // θ̈ = m g l (M+m) θ / q  for b = 0 at upright (q = (M+m)(I+ml²) − (ml)²)
-        let p = CartPoleParams { friction: 0.0, ..Default::default() };
+        let p = CartPoleParams {
+            friction: 0.0,
+            ..Default::default()
+        };
         let (a, _) = linearize(&p);
         let q = (p.cart_mass + p.pole_mass) * (p.inertia + p.pole_mass * p.l * p.l) - (p.pole_mass * p.l).powi(2);
         let expect = p.pole_mass * p.g * p.l * (p.cart_mass + p.pole_mass) / q;
@@ -345,7 +363,11 @@ mod tests {
 
     #[test]
     fn lqr_stabilises_nonlinear_cartpole() {
-        let inp = CartPoleInput { theta0_deg: 15.0, pushes: vec![Push { t: 4.0, impulse: 0.3 }], ..Default::default() };
+        let inp = CartPoleInput {
+            theta0_deg: 15.0,
+            pushes: vec![Push { t: 4.0, impulse: 0.3 }],
+            ..Default::default()
+        };
         let r = simulate_cartpole(&inp).unwrap();
         assert!(!r.fell);
         assert!(r.closed_poles.iter().all(|s| s.re < 0.0));
@@ -357,7 +379,11 @@ mod tests {
 
     #[test]
     fn saturation_can_drop_the_pole() {
-        let inp = CartPoleInput { theta0_deg: 35.0, f_max: 2.0, ..Default::default() };
+        let inp = CartPoleInput {
+            theta0_deg: 35.0,
+            f_max: 2.0,
+            ..Default::default()
+        };
         let r = simulate_cartpole(&inp).unwrap();
         assert!(r.fell);
     }
