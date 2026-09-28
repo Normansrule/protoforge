@@ -1,14 +1,14 @@
 // Breadboard build: animated wiring diagram, BOM, assembly checklist,
 // differences from the custom board and a power comparison through the
 // Power Lab's budget.
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Card, DownloadButton, ErrorBox, Explainer, Formula, Select, Slider, Stat } from '../../components/ui';
 import { fmtNum } from '../../components/Plot';
 import { useCompute } from '../../engine/hooks';
 import { useProject } from '../../state/project';
-import { useFrame, useReducedMotion } from '../dsp/viz';
-import type { Breadboard, Build, HudOut, Part, Wire } from './types';
-import { DEFAULT_HUD, PlayControls, Seg, fbToDataUrl, polyLen, usePersistent, wireColor } from './util';
+import type { Breadboard, Build } from './types';
+import { Seg, usePersistent } from './util';
+import { BUILDS, WiringDiagram, useOledImage } from './Wiring';
 
 const SCENARIOS = [
   { value: 'reference', label: 'Reference mixed use' },
@@ -18,138 +18,6 @@ const SCENARIOS = [
   { value: 'standby', label: 'Standby' },
   { value: 'display_on', label: 'Display always on' },
 ];
-
-function PartShape({ p, oledImg }: { p: Part; oledImg: string }) {
-  const fill = p.kind === 'board' ? 'var(--pf-board)' : p.kind === 'battery' ? 'var(--surface-3)' : 'var(--pf-module)';
-  const stroke = p.kind === 'board' ? 'var(--pf-board-edge)' : 'var(--border-strong)';
-  const isOled = p.id === 'oled';
-  const isBattery = p.kind === 'battery';
-  const textFill = isBattery ? 'var(--text)' : undefined;
-  return (
-    <g>
-      <rect x={p.x} y={p.y} width={p.w} height={p.h} rx={p.kind === 'board' ? 8 : 6} fill={fill} stroke={stroke} strokeWidth={1.5} />
-      {p.kind === 'board' && p.id === 'xiao' && <rect x={p.x + p.w / 2 - 18} y={p.y - 8} width={36} height={14} rx={4} fill="var(--surface-3)" stroke="var(--border-strong)" />}
-      {p.kind === 'board' && p.id === 'esp' && <rect x={p.x + p.w / 2 - 16} y={p.y + p.h - 6} width={32} height={14} rx={4} fill="var(--surface-3)" stroke="var(--border-strong)" />}
-      {p.kind === 'board' && <rect x={p.x + p.w / 2 - 22} y={p.y + (p.id === 'esp' ? 150 : 70)} width={44} height={44} rx={3} fill="rgba(0,0,0,0.35)" stroke="rgba(255,255,255,0.18)" />}
-      {isOled && (
-        <>
-          <rect x={p.x + 34} y={p.y + 14} width={p.w - 48} height={(p.w - 48) / 2} rx={3} fill="var(--pf-screen)" stroke="rgba(255,255,255,0.2)" />
-          {oledImg && <image href={oledImg} x={p.x + 36} y={p.y + 16} width={p.w - 52} height={(p.w - 52) / 2} style={{ imageRendering: 'pixelated' }} preserveAspectRatio="none" />}
-        </>
-      )}
-      {isBattery && (
-        <>
-          <rect x={p.x + 6} y={p.y + 8} width={p.w - 12} height={p.h - 16} rx={4} fill="none" stroke="var(--border-strong)" strokeDasharray="3 3" />
-        </>
-      )}
-      <text className="pf-part-label" x={p.x + p.w / 2} y={isOled ? p.y + p.h - 26 : p.id === 'esp' ? p.y + 225 : p.y + p.h / 2 + (p.kind === 'board' ? 60 : isBattery ? -2 : -8)} textAnchor="middle" style={{ fill: textFill }}>
-        {p.label}
-      </text>
-      <text className="pf-part-sub" x={p.x + p.w / 2} y={isOled ? p.y + p.h - 12 : p.id === 'esp' ? p.y + 240 : p.y + p.h / 2 + (p.kind === 'board' ? 76 : isBattery ? 14 : 8)} textAnchor="middle" style={{ fill: isBattery ? 'var(--text-2)' : undefined }}>
-        {p.sublabel}
-      </text>
-      {p.pins.map((q) => {
-        const inside = q.side === 'l' ? 1 : q.side === 'r' ? -1 : 0;
-        const lx = q.x + inside * 7;
-        const ly = q.side === 't' ? q.y + 13 : q.side === 'b' ? q.y - 7 : q.y + 3.5;
-        const anchor = q.side === 'l' ? 'start' : q.side === 'r' ? 'end' : 'middle';
-        const short = q.name.replace(/\.\d$/, '');
-        return (
-          <g key={q.name}>
-            <rect x={q.x - 3.5} y={q.y - 3.5} width={7} height={7} rx={1.5} fill="var(--copper)" />
-            <text className="pf-pin-label" x={lx} y={ly} textAnchor={anchor} style={{ fill: p.kind === 'battery' ? 'var(--text-2)' : 'rgba(255,255,255,0.85)' }}>{short}</text>
-          </g>
-        );
-      })}
-    </g>
-  );
-}
-
-export function WiringDiagram(props: { bb: Breadboard; focus: number[]; oledImg: string }) {
-  const { bb } = props;
-  const reduced = useReducedMotion();
-  const [playing, setPlaying] = useState(!reduced);
-  const [t, setT] = useState(reduced ? bb.wires.length + 1 : 0);
-  const [hover, setHover] = useState<Wire | null>(null);
-  const lens = useMemo(() => bb.wires.map((w) => polyLen(w.route)), [bb]);
-  useFrame(playing, (dt) => {
-    setT((v) => {
-      const nv = v + dt / 650;
-      if (nv > bb.wires.length + 1.5) {
-        setPlaying(false);
-        return bb.wires.length + 1.5;
-      }
-      return nv;
-    });
-  });
-  const hot = hover ? [hover.id] : props.focus;
-  const endpoint = (part: string, pin: string) => bb.parts.find((p) => p.id === part)?.pins.find((q) => q.name === pin);
-  return (
-    <div>
-      <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-        <PlayControls
-          playing={playing}
-          reduced={reduced}
-          onToggle={() => {
-            if (!playing && t >= bb.wires.length + 1) setT(0);
-            setPlaying(!playing);
-          }}
-          onReplay={() => {
-            setT(0);
-            setPlaying(true);
-          }}
-        />
-        <span className="muted small">{Math.min(bb.wires.length, Math.max(0, Math.floor(t)))} / {bb.wires.length} wires</span>
-      </div>
-      <div className="pf-diagram">
-        <svg viewBox={`0 0 ${bb.width} ${bb.height}`} role="img" aria-label={`Wiring diagram: ${bb.title}`}>
-          <defs>
-            <pattern id="pf-holes" width="12" height="12" patternUnits="userSpaceOnUse">
-              <circle cx="6" cy="6" r="1.6" fill="var(--pf-hole)" />
-            </pattern>
-          </defs>
-          <rect x={0} y={0} width={bb.width} height={bb.height} fill="url(#pf-holes)" />
-          {bb.parts.map((p) => <PartShape key={p.id} p={p} oledImg={props.oledImg} />)}
-          {bb.wires.map((w, i) => {
-            const f = Math.max(0, Math.min(1, t - i));
-            if (f <= 0) return null;
-            const L = lens[i];
-            const on = hot.includes(w.id);
-            const dim = hot.length > 0 && !on;
-            const d = 'M' + w.route.map(([x, y]) => `${x},${y}`).join(' L');
-            return (
-              <g key={w.id} onMouseEnter={() => setHover(w)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(w)} onBlur={() => setHover(null)} tabIndex={0} aria-label={`${w.from_part} ${w.from_pin} to ${w.to_part} ${w.to_pin}, ${w.signal}`}>
-                <path className="pf-wire" d={d} stroke="rgba(0,0,0,0.35)" strokeWidth={on ? 7 : 5.5} strokeDasharray={`${L} ${L}`} strokeDashoffset={L * (1 - f)} style={{ opacity: dim ? 0.25 : 1 }} />
-                <path className="pf-wire" d={d} stroke={wireColor(w.color)} strokeWidth={on ? 4.5 : 3} strokeDasharray={`${L} ${L}`} strokeDashoffset={L * (1 - f)} style={{ opacity: dim ? 0.3 : 1 }} />
-                <path className="pf-wire-hit" d={d} />
-                {f >= 1 && [endpoint(w.from_part, w.from_pin), endpoint(w.to_part, w.to_pin)].map((q, k) =>
-                  q ? <circle key={k} cx={q.x} cy={q.y} r={on ? 7 : 4} fill={wireColor(w.color)} stroke={on ? 'var(--text)' : 'none'} strokeWidth={1.5} /> : null,
-                )}
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-      <div className="pf-tip" aria-live="polite">
-        {hover ? (
-          <>
-            <b>{hover.from_part.toUpperCase()} {hover.from_pin}</b> → <b>{hover.to_part.toUpperCase()} {hover.to_pin}</b> · {hover.signal}
-            {hover.note && <span className="muted"> — {hover.note}</span>}
-          </>
-        ) : (
-          <span className="muted">Hover or tab to a wire to highlight both of its ends.</span>
-        )}
-      </div>
-      <div className="pf-legend">
-        {[['red', '3.3 V / battery +'], ['black', 'ground'], ['yellow', 'I²C clock'], ['blue', 'I²C data'], ['green', 'touch signal'], ['purple', 'I²S word select'], ['orange', 'I²S clock'], ['white', 'I²S data']]
-          .filter(([c]) => bb.wires.some((w) => w.color === c))
-          .map(([c, l]) => (
-            <span key={c}><i className="pf-swatch" style={{ background: wireColor(c) }} />{l}</span>
-          ))}
-      </div>
-    </div>
-  );
-}
 
 function PowerCard({ bb, battery, setBattery, scenario, setScenario }: { bb: Breadboard; battery: number; setBattery: (v: number) => void; scenario: string; setScenario: (v: string) => void }) {
   const pw = bb.power;
@@ -195,23 +63,23 @@ function PowerCard({ bb, battery, setBattery, scenario, setScenario }: { bb: Bre
   );
 }
 
-export function BuildTab() {
+export function BuildTab(props: { onWiring?: () => void }) {
   const project = useProject((s) => s.project);
   const [build, setBuild] = usePersistent<Build>('pf.build', 'xiao');
   const [battery, setBattery] = useState(project.design.battery.capacity_mah);
   const [scenario, setScenario] = useState('reference');
   const res = useCompute<Breadboard>('firmware.breadboard', { project, build, battery_mah: battery, scenario });
-  const hud = useCompute<HudOut>('firmware.hud_render', { state: DEFAULT_HUD, width: 128, height: 64, bpp: 1 });
-  const oledImg = useMemo(() => (hud.data ? fbToDataUrl(hud.data, [127, 209, 255]) : ''), [hud.data]);
+  const oledImg = useOledImage();
   const [done, setDone] = usePersistent<number[]>(`pf.steps.${build}`, []);
   const [focus, setFocus] = useState<number | null>(null);
   const bb = res.data;
+  const q = (c: string | number) => `"${String(c).replace(/"/g, '""')}"`;
   const bomCsv = () =>
-    'item,qty,vendor category,stands in for,notes\n' +
-    (bb?.bom ?? []).map((b) => [b.item, b.qty, b.category, b.stands_in_for, b.notes].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-  const wiringCsv = () =>
-    'from,pin,to,pin,colour,signal,note\n' +
-    (bb?.wires ?? []).map((w) => [w.from_part, w.from_pin, w.to_part, w.to_pin, w.color, w.signal, w.note].map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    'item,qty,vendor category,stands in for,notes,search\n' +
+    (bb?.bom ?? []).map((b) => [b.item, b.qty, b.category, b.stands_in_for, b.notes, b.search.map((l) => l.url).join(' ')].map(q).join(',')).join('\n');
+  const checklist = () =>
+    `# ${bb?.title ?? 'Iris v0'} — build checklist\n\n` + (bb?.steps ?? []).map((s, i) => `- [${done.includes(i) ? 'x' : ' '}] **${i + 1}. ${s.title}** — ${s.detail}`).join('\n') + '\n';
+  const nDone = bb ? done.filter((d) => d < bb.steps.length).length : 0;
   return (
     <div className="stack">
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -222,15 +90,12 @@ export function BuildTab() {
             setBuild(b);
             setFocus(null);
           }}
-          options={[
-            { value: 'xiao', label: 'XIAO nRF52840 Sense (primary)' },
-            { value: 'esp32s3', label: 'ESP32-S3 (Wokwi-simulatable)' },
-          ]}
+          options={BUILDS}
         />
         {bb && (
           <div className="row">
             <DownloadButton small filename={`iris-v0-${build}-bom.csv`} content={bomCsv} label="BOM CSV" />
-            <DownloadButton small filename={`iris-v0-${build}-wiring.csv`} content={wiringCsv} label="Wiring CSV" />
+            <DownloadButton small filename={`iris-v0-${build}-checklist.md`} content={checklist} label="Checklist" />
           </div>
         )}
       </div>
@@ -240,12 +105,30 @@ export function BuildTab() {
           <div className="pf-main">
             <Card title={bb.title} subtitle={bb.summary}>
               <WiringDiagram key={build} bb={bb} focus={focus !== null ? bb.steps[focus]?.wires ?? [] : []} oledImg={oledImg} />
+              {props.onWiring && (
+                <button className="btn small" style={{ marginTop: 8 }} onClick={props.onWiring}>
+                  Light up each bus and see the pin map →
+                </button>
+              )}
             </Card>
-            <Card title="Assembly" subtitle="Click a step to highlight its wires; tick it off when done (saved in this browser).">
-              <div className="pf-progress" aria-label={`${done.length} of ${bb.steps.length} steps done`}><div style={{ width: `${(done.length / bb.steps.length) * 100}%` }} /></div>
+            <Card title="Build checklist" subtitle="Click a step to highlight its wires; tick it off when done (saved in this browser).">
+              <div className="pf-progress" role="progressbar" aria-valuemin={0} aria-valuemax={bb.steps.length} aria-valuenow={nDone} aria-label="Steps done">
+                <div style={{ width: `${(nDone / bb.steps.length) * 100}%` }} />
+              </div>
+              <div className="muted small" style={{ marginBottom: 8 }}>{nDone} of {bb.steps.length} steps done</div>
               <div className="pf-steps">
                 {bb.steps.map((s, i) => (
-                  <div key={s.title} className={`pf-step ${focus === i ? 'focus' : ''} ${done.includes(i) ? 'done' : ''}`} onClick={() => setFocus(focus === i ? null : i)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setFocus(focus === i ? null : i); }}>
+                  <div
+                    key={s.title}
+                    className={`pf-step ${focus === i ? 'focus' : ''} ${done.includes(i) ? 'done' : ''}`}
+                    onClick={() => setFocus(focus === i ? null : i)}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={focus === i}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setFocus(focus === i ? null : i);
+                    }}
+                  >
                     <input
                       type="checkbox"
                       checked={done.includes(i)}
@@ -254,40 +137,31 @@ export function BuildTab() {
                       onChange={(e) => setDone(e.target.checked ? [...done, i] : done.filter((d) => d !== i))}
                     />
                     <div>
-                      <div className="pf-step-title">{i + 1}. {s.title}</div>
+                      <div className="pf-step-title">{i + 1}. {s.title}{s.wires.length > 0 && <span className="pf-step-n">{s.wires.length} wire{s.wires.length > 1 ? 's' : ''}</span>}</div>
                       <div className="pf-step-detail">{s.detail}</div>
                     </div>
                   </div>
                 ))}
               </div>
+              {nDone === bb.steps.length && <div className="pf-done">✓ Iris v0 is built — now measure it and feed the numbers back into the Power Lab.</div>}
             </Card>
           </div>
-          <Card title="Wiring table" subtitle="Pin ↔ pin with the wire colour; names follow the board vendor's published pinout — check it against your board revision.">
+          <Card title="Bill of materials (development boards and modules)" subtitle="Module names you can search for; links are distributor searches, not quotes — check availability and the exact variant.">
             <div className="table-wrap">
               <table className="table">
-                <thead><tr><th>#</th><th>From</th><th>To</th><th>Wire</th><th>Signal</th><th>Note</th></tr></thead>
-                <tbody>
-                  {bb.wires.map((w) => (
-                    <tr key={w.id}>
-                      <td className="mono">{w.id + 1}</td>
-                      <td className="mono">{w.from_part} · {w.from_pin}</td>
-                      <td className="mono">{w.to_part} · {w.to_pin}</td>
-                      <td><span className="pf-key"><i style={{ background: wireColor(w.color) }} />{w.color}</span></td>
-                      <td>{w.signal}</td>
-                      <td className="muted small">{w.note}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-          <Card title="Bill of materials (development boards)" subtitle="Vendor categories, not quotes — check current availability.">
-            <div className="table-wrap">
-              <table className="table">
-                <thead><tr><th>Item</th><th>Qty</th><th>Where (category)</th><th>Stands in for</th><th>Notes</th></tr></thead>
+                <thead><tr><th>Item</th><th>Qty</th><th>Where (category)</th><th>Stands in for</th><th>Notes</th><th>Search</th></tr></thead>
                 <tbody>
                   {bb.bom.map((b) => (
-                    <tr key={b.item}><td>{b.item}</td><td className="mono">{b.qty}</td><td className="small">{b.category}</td><td className="small mono">{b.stands_in_for}</td><td className="small muted">{b.notes}</td></tr>
+                    <tr key={b.item}>
+                      <td style={{ fontWeight: 600 }}>{b.item}</td>
+                      <td className="mono">{b.qty}</td>
+                      <td className="small">{b.category}</td>
+                      <td className="small mono">{b.stands_in_for}</td>
+                      <td className="small muted">{b.notes}</td>
+                      <td className="small" style={{ whiteSpace: 'nowrap' }}>
+                        {b.search.length ? b.search.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noreferrer" style={{ marginRight: 8 }}>{l.label} ↗</a>) : <span className="muted">—</span>}
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -307,12 +181,12 @@ export function BuildTab() {
             </div>
           </Card>
           <div className="grid grid-2">
-            <Explainer title="Why a development board first" refs={[{ label: 'Seeed Studio wiki: XIAO nRF52840 (Sense)', href: 'https://wiki.seeedstudio.com' }, { label: 'E. White, Making Embedded Systems, 2nd ed., O\'Reilly 2024' }]}>
-              A breadboard with a development board lets the firmware, the phone app and the user interface be exercised weeks before a custom board exists — and every bug found here is one that does not cost a board re-spin. The XIAO nRF52840 Sense is unusually close to Iris: the same Bluetooth system-on-chip family, an inertial measurement unit (IMU), a pulse-density-modulation (PDM) microphone and a LiPo charger on a 21 × 17.5 mm module.
+            <Explainer title="Why a development board first" refs={[{ label: 'Seeed Studio wiki: XIAO nRF52840 (Sense)', href: 'https://wiki.seeedstudio.com' }, { label: 'Nordic Semiconductor, nRF52840 DK user guide', href: 'https://docs.nordicsemi.com' }, { label: 'E. White, Making Embedded Systems, 2nd ed., O\'Reilly 2024' }]}>
+              A breadboard with a development board lets the firmware, the phone app and the user interface be exercised weeks before a custom board exists — and every bug found here is one that does not cost a board re-spin. The XIAO nRF52840 Sense is unusually close to Iris: the same Bluetooth system-on-chip family, an inertial measurement unit (IMU), a pulse-density-modulation (PDM) microphone and a LiPo charger on a 21 × 17.5 mm module. The nRF52840 DK build uses the exact pins of the custom board, so the production (Zephyr) firmware moves over unchanged.
             </Explainer>
-            <Explainer title="I²C in two wires" refs={[{ label: 'NXP, UM10204 I²C-bus specification and user manual' }]}>
-              Inter-Integrated Circuit (I²C) shares one clock (SCL) and one data line (SDA) among many chips, each with a 7-bit address (OLED 0x3C, MPU-6050 0x68). Lines are open-drain with pull-up resistors, so any device can pull low and none can short the bus. At 400 kHz a full 128 × 64 frame (1024 bytes ≈ 9 bits each) takes ≈ 23 ms — why the prototype redraws at 10 frames per second at most.
-              <Formula>{'t_frame ≈ 1024 B × 9 bit / 400 kbit/s ≈ 23 ms'}</Formula>
+            <Explainer title="From breadboard to product" refs={[{ label: 'E. White, Making Embedded Systems, 2nd ed., O\'Reilly 2024' }]}>
+              The usual path: (1) a breadboard on development boards proves the functions and the firmware architecture; (2) the DK with breakouts on the final pin map runs the production firmware; (3) the custom board from the PCB Lab replaces the DK one-to-one; (4) the enclosure from the CAD and Molding labs makes it wearable. Each step keeps the firmware and changes as little hardware as possible.
+              <Formula>{'breadboard → DK on the final pin map → custom PCB → enclosure → pilot run'}</Formula>
             </Explainer>
           </div>
         </>

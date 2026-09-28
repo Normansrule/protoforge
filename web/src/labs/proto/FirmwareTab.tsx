@@ -13,7 +13,7 @@ import { Seg, usePersistent } from './util';
 const TARGETS: { value: Target; label: string }[] = [
   { value: 'xiao_arduino', label: 'XIAO (Arduino)' },
   { value: 'esp32s3_wokwi', label: 'ESP32-S3 (Wokwi)' },
-  { value: 'zephyr', label: 'Zephyr (custom board)' },
+  { value: 'zephyr', label: 'Zephyr (nRF52840 DK → custom board)' },
 ];
 
 const CONTEXTS = ['idle', 'glance', 'navigate', 'caption'];
@@ -86,6 +86,9 @@ export function FirmwareTab() {
           </button>
         )}
       </div>
+      <div className="pf-banner" role="note">
+        <b>Starting point, not a finished product.</b> This code is generated from the project and checked here for structure (balanced braces, expected symbols, numbers traced to the other labs) — it has not been compiled in the browser. Build it, flash it, and test it on hardware; expect to adjust library versions and board specifics marked “check”.
+      </div>
       <ErrorBox error={res.error} />
       {!fw && !res.error && <Card title="Generating…"><div className="muted small">Training the power policy and emitting the project…</div></Card>}
       {fw && (
@@ -137,6 +140,7 @@ export function FirmwareTab() {
                     <li>Replace <span className="mono">sketch.ino</span> with the generated <span className="mono">src/sketch.ino</span> (copy button on the right).</li>
                     <li>Open the <span className="mono">diagram.json</span> tab and paste the generated diagram.</li>
                     <li>Library Manager → add <b>U8g2</b> (or create <span className="mono">libraries.txt</span> with one line: <span className="mono">U8g2</span>).</li>
+                    <li>Or locally: build with PlatformIO and start the <b>Wokwi for VS Code</b> extension — the generated <span className="mono">wokwi.toml</span> points it at the firmware.</li>
                     <li>Press ▶. Click the blue button or press <b>T</b>: tap, double-tap, hold. Click the MPU-6050 and drag <b>rotationZ</b>: the arrow stays world-locked.</li>
                   </ol>
                   <p className="muted small">Wokwi documentation: <a href="https://docs.wokwi.com" target="_blank" rel="noreferrer">docs.wokwi.com</a> (diagram.json format, ESP32 guide, libraries.txt).</p>

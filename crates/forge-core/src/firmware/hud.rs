@@ -245,7 +245,12 @@ pub fn field_text(st: &HudState, f: u8) -> Vec<u8> {
         F_TIME => format!("{}:{}", two(st.hour as u32), two(st.minute as u32)).into_bytes(),
         F_BATT_PCT => format!("{}%", st.battery_pct.min(100)).into_bytes(),
         F_BLE => (if st.ble_connected { "BT" } else { "--" }).as_bytes().to_vec(),
-        F_CLOCK_INFO => format!("BAT {}%  BT {}", st.battery_pct.min(100), if st.ble_connected { "ON" } else { "OFF" }).into_bytes(),
+        F_CLOCK_INFO => format!(
+            "BAT {}%  BT {}",
+            st.battery_pct.min(100),
+            if st.ble_connected { "ON" } else { "OFF" }
+        )
+        .into_bytes(),
         F_NAV_DIST => {
             let m = st.nav_distance_m;
             if m < 1000 {
@@ -335,7 +340,11 @@ pub fn render(fb: &mut Fb, st: &HudState) {
         let lv = wg.level;
         match wg.kind {
             W_TEXT => {
-                let t = if wg.field != F_NONE { field_text(st, wg.field) } else { wg.text.as_bytes().to_vec() };
+                let t = if wg.field != F_NONE {
+                    field_text(st, wg.field)
+                } else {
+                    wg.text.as_bytes().to_vec()
+                };
                 let tw = t.len() as i32 * 6 * s;
                 let x0 = match wg.align {
                     1 => x - tw / 2,
@@ -354,7 +363,11 @@ pub fn render(fb: &mut Fb, st: &HudState) {
                 let lh = 8 * s;
                 let lines = wrap(&t, cpl);
                 let total = lines.len() as i32 * lh;
-                let scroll = if wg.field == F_CAPTIONS { st.caption_scroll_px } else { st.prompter_scroll_px };
+                let scroll = if wg.field == F_CAPTIONS {
+                    st.caption_scroll_px
+                } else {
+                    st.prompter_scroll_px
+                };
                 let y0 = if wg.align == 2 {
                     (if total > hh { y + hh - total } else { y }) + scroll
                 } else {
@@ -724,9 +737,17 @@ pub fn c_hud_source() -> String {
         s += "};\n";
     }
     s += "\nstatic const iris_widget_t *const IRIS_SCREENS[IRIS_SCREEN_COUNT] = {";
-    s += &Screen::ALL.iter().map(|sc| format!("IRIS_SCREEN_{}", sc.c_name())).collect::<Vec<_>>().join(", ");
+    s += &Screen::ALL
+        .iter()
+        .map(|sc| format!("IRIS_SCREEN_{}", sc.c_name()))
+        .collect::<Vec<_>>()
+        .join(", ");
     s += "};\nstatic const uint8_t IRIS_SCREEN_LEN[IRIS_SCREEN_COUNT] = {";
-    s += &Screen::ALL.iter().map(|sc| widgets(*sc).len().to_string()).collect::<Vec<_>>().join(", ");
+    s += &Screen::ALL
+        .iter()
+        .map(|sc| widgets(*sc).len().to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
     s += "};\nstatic const uint8_t IRIS_SCREEN_CTX[IRIS_SCREEN_COUNT] = {";
     s += &Screen::ALL.iter().map(|sc| sc.context().to_string()).collect::<Vec<_>>().join(", ");
     s += "};\n";

@@ -50,6 +50,8 @@ pub struct Inputs {
     pub conn_fast_ms: f64,
     pub conn_slow_ms: f64,
     pub mtu: u32,
+    /// Project-specific 128-bit GATT service base (version-5 UUID of the project name).
+    pub uuid_base: String,
 }
 
 /// Q15 codes of a coefficient set (round to nearest, saturate at ±1).
@@ -127,8 +129,16 @@ impl Inputs {
             .and_then(|v| serde_json::from_value(v.clone()).ok())
             .unwrap_or_default();
         Inputs {
-            name: if p.meta.codename.is_empty() { p.meta.name.clone() } else { p.meta.codename.clone() },
-            version: if p.meta.version.is_empty() { "0.1.0".into() } else { p.meta.version.clone() },
+            name: if p.meta.codename.is_empty() {
+                p.meta.name.clone()
+            } else {
+                p.meta.codename.clone()
+            },
+            version: if p.meta.version.is_empty() {
+                "0.1.0".into()
+            } else {
+                p.meta.version.clone()
+            },
             fusion_alpha: p.design.imu.fusion_alpha.clamp(0.0, 0.99999),
             imu_rate_hz: p.design.imu.rate_hz.clamp(10.0, 4000.0),
             audio_rate_hz: fs_out,
@@ -153,6 +163,7 @@ impl Inputs {
             conn_fast_ms: link.conn_interval_ms,
             conn_slow_ms: link.slow_interval_ms,
             mtu: link.mtu,
+            uuid_base: super::ble::service_base(&p.meta.name),
         }
     }
 }
@@ -170,6 +181,16 @@ pub struct TargetCfg {
     pub hud_w: u32,
     pub hud_h: u32,
     pub hud_bpp: u32,
+    /// Display bus: "SPI" or "I2C", and its clock.
+    pub disp_bus: &'static str,
+    pub disp_bus_hz: u32,
+}
+
+/// Wire time of one full frame (I²C: 9 bit times per byte incl. ACK).
+pub fn frame_us(t: &TargetCfg) -> u32 {
+    let bytes = (t.hud_w * t.hud_h * t.hud_bpp).div_ceil(8) as f64;
+    let bits = if t.disp_bus == "I2C" { 9.0 } else { 8.0 };
+    (bytes * bits / t.disp_bus_hz.max(1) as f64 * 1e6).round() as u32
 }
 
 pub fn config_h(i: &Inputs, t: &TargetCfg) -> String {
@@ -201,12 +222,19 @@ pub fn config_h(i: &Inputs, t: &TargetCfg) -> String {
 #define IRIS_LONG_PRESS_MS {long}
 #define IRIS_DOUBLE_GAP_MS {gap}
 
-/* Heads-up display panel */
+/* Heads-up display panel and link timing (HUD simulator frame budget) */
+#ifndef IRIS_HUD_W
 #define IRIS_HUD_W {w}
 #define IRIS_HUD_H {h}
+#endif
 #define IRIS_HUD_BPP {bpp}
 #define IRIS_HUD_FPS_FULL 10
 #define IRIS_HUD_FPS_LOW 2
+#define IRIS_DISP_BUS_{bus} 1
+#define IRIS_DISP_BUS_HZ {bus_hz}u
+#define IRIS_DISP_FRAME_BYTES ((IRIS_HUD_W * IRIS_HUD_H * IRIS_HUD_BPP + 7) / 8)
+/* one full frame on the wire: {frame_bytes} B x {bits_per_byte} bit / {bus_mhz} MHz = {frame_us} us (max {max_fps} fps) */
+#define IRIS_DISP_FRAME_US {frame_us}u
 
 /* Radio (Bluetooth tab): connection intervals the power policy switches between */
 #define IRIS_CONN_FAST_MS {fast:.0}
@@ -230,6 +258,13 @@ pub fn config_h(i: &Inputs, t: &TargetCfg) -> String {
         w = t.hud_w,
         h = t.hud_h,
         bpp = t.hud_bpp,
+        bus = t.disp_bus,
+        bus_hz = t.disp_bus_hz,
+        frame_bytes = (t.hud_w * t.hud_h * t.hud_bpp).div_ceil(8),
+        bits_per_byte = if t.disp_bus == "I2C" { 9 } else { 8 },
+        bus_mhz = t.disp_bus_hz as f64 / 1e6,
+        frame_us = frame_us(t),
+        max_fps = (1e6 / frame_us(t).max(1) as f64).floor(),
         fast = i.conn_fast_ms,
         slow = i.conn_slow_ms,
         step_ms = (i.step_min * 60_000.0).round() as u32,
@@ -258,7 +293,11 @@ pub fn filters_h(i: &Inputs) -> String {
         c.fir_decim,
         c.fir.len()
     );
-    s += &format!("static const int16_t IRIS_DECIM_FIR_Q15[{}] = {{\n    {}\n}};\n\n", c.fir.len(), join(&i.decim_fir_q15));
+    s += &format!(
+        "static const int16_t IRIS_DECIM_FIR_Q15[{}] = {{\n    {}\n}};\n\n",
+        c.fir.len(),
+        join(&i.decim_fir_q15)
+    );
     if !c.halfband.is_empty() {
         s += &format!(
             "#define IRIS_HALFBAND_TAPS {}\nstatic const int16_t IRIS_HALFBAND_Q15[{}] = {{{}}};\n\n",
@@ -400,11 +439,21 @@ pub fn gesture_c(f: &Fsm) -> String {
         .states
         .iter()
         .map(|st| {
-            let m: u32 = f.outputs.iter().enumerate().filter(|(_, o)| st.outputs.contains(o)).map(|(i, _)| 1u32 << i).sum();
+            let m: u32 = f
+                .outputs
+                .iter()
+                .enumerate()
+                .filter(|(_, o)| st.outputs.contains(o))
+                .map(|(i, _)| 1u32 << i)
+                .sum();
             format!("0x{m:02x}u")
         })
         .collect();
-    s += &format!("static const uint8_t IRIS_GESTURE_OUT[{}] = {{{}}};\n", f.states.len(), masks.join(", "));
+    s += &format!(
+        "static const uint8_t IRIS_GESTURE_OUT[{}] = {{{}}};\n",
+        f.states.len(),
+        masks.join(", ")
+    );
     s += &format!(
         "static const char *const IRIS_GESTURE_NAMES[{}] = {{{}}};\n\n",
         f.states.len(),
@@ -444,7 +493,12 @@ pub fn policy_c(i: &Inputs) -> String {
         let row: Vec<String> = (0..4).map(|c| i.policy.get(b * 4 + c).copied().unwrap_or(4).to_string()).collect();
         let lo = b as f64 / nb as f64 * 100.0;
         let hi = (b + 1) as f64 / nb as f64 * 100.0;
-        rows += &format!("    {{{}}}, /* SoC {:.0}-{:.0} %: idle, glance, navigate, caption */\n", row.join(", "), lo, hi);
+        rows += &format!(
+            "    {{{}}}, /* SoC {:.0}-{:.0} %: idle, glance, navigate, caption */\n",
+            row.join(", "),
+            lo,
+            hi
+        );
     }
     format!(
         r#"/* iris_policy.c — generated by Protoforge. */
@@ -521,7 +575,10 @@ mod tests {
 
     #[test]
     fn q15_conversion_rounds_and_saturates() {
-        assert_eq!(q15(&[0.5, -0.5, 1.0, -1.0, 0.0, 1.0 / 32768.0, 0.49998]), vec![16384, -16384, 32767, -32768, 0, 1, 16383]);
+        assert_eq!(
+            q15(&[0.5, -0.5, 1.0, -1.0, 0.0, 1.0 / 32768.0, 0.49998]),
+            vec![16384, -16384, 32767, -32768, 0, 1, 16383]
+        );
         assert_eq!(q14(&[-1.9445, 1.0]), vec![-31859, 16384]);
     }
 
@@ -531,7 +588,7 @@ mod tests {
         for line in c.lines().map(str::trim) {
             if let Some(rest) = line.strip_prefix("case IRIS_G_") {
                 out.push((rest.trim_end_matches(':').to_string(), vec![]));
-            } else if let Some(rest) = line.strip_prefix("if (") {
+            } else if let Some(rest) = line.strip_prefix("if (").filter(|r| r.contains(") { next = IRIS_G_")) {
                 let (cond, tail) = rest.split_once(") { next = IRIS_G_").unwrap();
                 let to = tail.split(';').next().unwrap().to_string();
                 let mut g = Guard::default();
@@ -585,7 +642,10 @@ mod tests {
             assert_eq!(table.iter().map(|(_, v)| v.len()).sum::<usize>(), f.transitions.len());
             let tmax = (1u32 << f.timer_bits()) - 1;
             let mut rng = crate::math::Rng::new(7);
-            let mut traces: Vec<Vec<bool>> = ["tap", "double_tap", "long_press", "slow_press", "mixed"].iter().map(|n| scripted(n)).collect();
+            let mut traces: Vec<Vec<bool>> = ["tap", "double_tap", "long_press", "slow_press", "mixed"]
+                .iter()
+                .map(|n| scripted(n))
+                .collect();
             for _ in 0..20 {
                 let mut tr = Vec::new();
                 for _ in 0..12 {
@@ -611,9 +671,39 @@ mod tests {
             .map(|n| (6000.0 * (2.0 * std::f64::consts::PI * 1000.0 * n as f64 / 16000.0).sin()) as i16)
             .collect();
         let yq = biquad_q14(&i.hpf_q14, &x);
-        let yf = crate::dsp::filter::sos_filter(&[i.hpf], &x.iter().map(|v| *v as f64).collect::<Vec<_>>());
+        let xf: Vec<f64> = x.iter().map(|v| *v as f64).collect();
+        // (a) against the float filter with the *quantised* coefficients: only the output
+        // rounding differs. Each rounding error (≤ ½ LSB) re-enters through the feedback, so the
+        // bound is ½ · Σ|h_e[n]| with h_e the impulse response of 1 / A(z) — large for a
+        // 100 Hz high-pass at 16 kHz because its poles sit close to z = 1.
+        let c: Vec<f64> = i.hpf_q14.iter().map(|&v| v as f64 / 16384.0).collect();
+        let bq = crate::dsp::iir::Biquad {
+            b: [c[0], c[1], c[2]],
+            a: [1.0, c[3], c[4]],
+        };
+        let yqf = crate::dsp::filter::sos_filter(&[bq], &xf);
+        let err_round = yq
+            .iter()
+            .zip(&yqf)
+            .skip(400)
+            .map(|(a, b)| (*a as f64 - b).abs())
+            .fold(0.0, f64::max);
+        let (mut h1, mut h2, mut sum) = (0.0f64, 0.0f64, 0.0f64);
+        for n in 0..50_000 {
+            let h = if n == 0 { 1.0 } else { 0.0 } - c[3] * h1 - c[4] * h2;
+            sum += h.abs();
+            h2 = h1;
+            h1 = h;
+        }
+        let bound = 0.5 * sum;
+        assert!(err_round <= bound, "rounding error {err_round} LSB > bound {bound}");
+        // the worst-case bound is loose (≈ 360 LSB); in practice the errors are random and small
+        assert!(err_round < 30.0, "rounding error {err_round} LSB");
+        // (b) against the ideal design: Q14 coefficient steps of 2^-14 move the poles slightly;
+        // at 1 kHz the gain error stays well under 0.5 % of a 6000-count tone
+        let yf = crate::dsp::filter::sos_filter(&[i.hpf], &xf);
         let err = yq.iter().zip(&yf).skip(400).map(|(a, b)| (*a as f64 - b).abs()).fold(0.0, f64::max);
-        assert!(err < 12.0, "max |Q14 − float| = {err}");
+        assert!(err < 30.0, "max |Q14 − float| = {err}");
         // a 1 kHz tone passes a 100 Hz high-pass nearly untouched
         let peak = yq.iter().skip(400).map(|v| v.unsigned_abs()).max().unwrap();
         assert!(peak > 5800 && peak < 6200, "{peak}");

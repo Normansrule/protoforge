@@ -15,6 +15,8 @@
   --pf-hole: rgba(255, 255, 255, 0.07);
   --pf-bread: #1b1b1e;
   --pf-oled: #7fd1ff;
+  --pf-chip: #15161a;
+  --pf-flow: rgba(255, 255, 255, 0.95);
 }
 :root[data-theme='light'] .pf-root {
   --pf-wire-black: #3a3a3a;
@@ -25,6 +27,8 @@
   --pf-hole: rgba(0, 0, 0, 0.1);
   --pf-bread: #eeede7;
   --pf-oled: #5ec3ff;
+  --pf-chip: #1f2126;
+  --pf-flow: rgba(255, 255, 255, 0.95);
 }
 
 .pf-seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; gap: 3px; flex-wrap: wrap; }
@@ -109,3 +113,43 @@
 .pf-bar-axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px; color: var(--muted); margin-top: 4px; }
 .pf-key { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); margin-right: 12px; }
 .pf-key i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+/* wiring: chips on boards, bus lighting, signal flow */
+.pf-chip-label { font-size: 9.5px; font-weight: 700; fill: #fff; font-family: var(--mono); }
+.pf-chip-sub { font-size: 8.5px; fill: rgba(255, 255, 255, 0.7); }
+.pf-on-bread { fill: var(--text) !important; }
+.pf-part-sub.pf-on-bread { fill: var(--text-2) !important; }
+.pf-flow { stroke: var(--pf-flow); stroke-width: 2.6; stroke-linecap: round; filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.7)); pointer-events: none; }
+.pf-buses { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.pf-bus { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+.pf-bus i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.pf-bus small { color: var(--muted); font-family: var(--mono); }
+.pf-bus:hover { border-color: var(--border-strong); color: var(--text); }
+.pf-bus.active { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+.pf-buslist { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow: auto; }
+.pf-buslist > div { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; align-items: baseline; font-size: 12.5px; }
+.pf-buslist i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; transform: translateY(-3px); }
+.pf-row-on td { background: var(--accent-soft); }
+.pf-kind { font-family: var(--mono); font-size: 10.5px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border); color: var(--text-2); }
+.pf-step-n { font-weight: 500; font-size: 11px; color: var(--muted); margin-left: 8px; }
+.pf-done { margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--good-text, var(--good)); }
+
+/* HUD frame budget */
+.pf-pwr { position: relative; display: flex; height: 10px; background: var(--surface-3); border-radius: 4px; overflow: visible; margin-bottom: 3px; }
+.pf-pwr > div { height: 100%; transition: width 0.3s; }
+.pf-pwr > div:first-child { border-radius: 4px 0 0 4px; }
+.pf-pwr-ghost { position: absolute; top: -3px; bottom: -3px; border-left: 2px dashed var(--text-2); }
+.pf-plot-title { font-size: 12.5px; font-weight: 650; color: var(--text-2); margin-bottom: 4px; }
+
+/* BLE audio budget */
+.pf-abar { display: grid; grid-template-columns: minmax(0, 170px) minmax(0, 1fr) 96px; gap: 4px 10px; align-items: center; font-size: 12.5px; margin-bottom: 8px; }
+.pf-abar > div { height: 12px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.pf-abar > div > div { height: 100%; border-radius: 4px; transition: width 0.4s; }
+.pf-abar > small { grid-column: 2 / 4; margin-top: -4px; }
+@media (max-width: 560px) { .pf-abar { grid-template-columns: minmax(0, 1fr) 90px; } .pf-abar > div { grid-column: 1 / 3; grid-row: 2; } .pf-abar > small { grid-column: 1 / 3; } }
+
+/* CPU */
+.pf-cpu { display: flex; height: 26px; border-radius: 8px; background: var(--surface-3); overflow: hidden; }
+.pf-cpu > div { height: 100%; border-right: 1px solid var(--surface-1); transition: width 0.4s; min-width: 1px; }
+.pf-banner { font-size: 13px; color: var(--text-2); background: color-mix(in srgb, var(--warn, #e2b203) 12%, var(--surface-2)); border: 1px solid color-mix(in srgb, var(--warn, #e2b203) 45%, var(--border)); border-radius: 10px; padding: 10px 14px; }
+.pf-banner b { color: var(--text); }

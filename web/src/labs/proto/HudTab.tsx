@@ -1,17 +1,17 @@
 // Heads-up display simulator: the engine renders the same framebuffer the
 // firmware draws; it is shown over a street scene at the Optics Lab's field
 // of view, animated, and driven live by the gesture state machine.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Explainer, Formula, Slider, Stat, Toggle } from '../../components/ui';
-import { fmtNum } from '../../components/Plot';
+import { Plot, fmtNum } from '../../components/Plot';
 import { tryCall } from '../../engine/engine';
 import { useCompute } from '../../engine/hooks';
 import { useProject } from '../../state/project';
 import { useFrame, useReducedMotion } from '../dsp/viz';
-import type { GestureOut, HudOut, HudState, Screen, ScreenDesc } from './types';
-import { DEFAULT_HUD, PlayControls, SCREENS, Seg, fbToImage } from './util';
+import type { DisplayBudget, DisplayParams, GestureOut, HudOut, HudState, Screen, ScreenDesc } from './types';
+import { DEFAULT_HUD, PlayControls, SCREENS, Seg, decodeB64, fbToImage } from './util';
 
-interface OpticsA { hfov_deg: number; vfov_deg: number; ppd: number; virtual_image_m: number; eyebox_mm: number }
+interface OpticsA { hfov_deg: number; vfov_deg: number; ppd: number; arcmin_per_px: number; virtual_image_m: number; eyebox_mm: number }
 
 const CAPTION_SCRIPT =
   'So the question for today is how a heads up display can stay readable in daylight. The combiner reflects about thirty percent of the display light, so the micro OLED has to be bright, and the power policy decides when that brightness is worth the battery.'.split(' ');
@@ -88,6 +88,116 @@ function drawScene(ctx: CanvasRenderingContext2D, W: number, H: number, yawDeg: 
   ctx.setLineDash([]);
 }
 
+const DEFAULT_DISPLAY: DisplayParams = { panel_w: 0, panel_h: 0, link_bpp: 1, spi_mhz: 8, overhead_us: 50, fps_full: 10, partial: true, apl_ref: 0.25, static_frac: 0.3 };
+
+/** Bounding box of changed pixels between two engine framebuffers (same layout). */
+function diffRect(a: HudOut, b: HudOut): [number, number, number, number] | null {
+  if (a.width !== b.width || a.height !== b.height || a.bpp !== b.bpp) return null;
+  const x = decodeB64(a.data_b64);
+  const y = decodeB64(b.data_b64);
+  let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
+  for (let r = 0; r < a.height; r++) {
+    for (let c = 0; c < a.stride; c++) {
+      const i = r * a.stride + c;
+      if (x[i] !== y[i]) {
+        const px = a.bpp === 1 ? 8 : 2;
+        x0 = Math.min(x0, c * px);
+        x1 = Math.max(x1, c * px + px - 1);
+        y0 = Math.min(y0, r);
+        y1 = Math.max(y1, r);
+      }
+    }
+  }
+  return x1 < 0 ? null : [x0, y0, Math.min(a.width - 1, x1) - x0 + 1, y1 - y0 + 1];
+}
+
+const FrameBudget = memo(function FrameBudget() {
+  const project = useProject((s) => s.project);
+  const [dp, setDp] = useState<DisplayParams>(DEFAULT_DISPLAY);
+  const set = <K extends keyof DisplayParams>(k: K, v: DisplayParams[K]) => setDp((d) => ({ ...d, [k]: v }));
+  const res = useCompute<DisplayBudget>('firmware.hud_budget', { project, params: dp, state: DEFAULT_HUD });
+  const b = res.data;
+  if (!b) return null;
+  const maxMw = Math.max(...b.screens.map((s) => s.total_full_mw), 1);
+  return (
+    <Card title="Frame budget: SPI bandwidth, refresh and power" subtitle={`Every number below comes from rendering each screen with the firmware's renderer at ${b.panel_w} × ${b.panel_h} and diffing consecutive frames.`}>
+      <div className="grid grid-sidebar">
+        <div>
+          <Slider label="SPI clock" value={dp.spi_mhz} min={1} max={32} step={1} unit="MHz" onChange={(v) => set('spi_mhz', v)} hint="nRF52840: SPIM3 up to 32 MHz, other SPIM instances up to 8 MHz" />
+          <Slider label="Full-rate refresh" value={dp.fps_full} min={1} max={60} step={1} unit="fps" onChange={(v) => set('fps_full', v)} />
+          <div className="row" style={{ marginBottom: 10 }}>
+            <Seg<number> ariaLabel="Bits per pixel on the link" value={dp.link_bpp} onChange={(v) => set('link_bpp', v)} options={[{ value: 1, label: '1 bpp' }, { value: 4, label: '4 bpp' }, { value: 8, label: '8 bpp' }, { value: 16, label: '16 bpp' }]} />
+          </div>
+          <Toggle label="Partial updates (send only the dirty rectangle)" value={dp.partial} onChange={(v) => set('partial', v)} />
+          <Slider label="BOM display power refers to … lit" value={dp.apl_ref * 100} min={5} max={100} step={5} unit="%" onChange={(v) => set('apl_ref', v / 100)} hint="calibration assumption — replace with the panel datasheet" />
+        </div>
+        <div className="stack">
+          <div className="grid grid-3">
+            <Stat label="Full frame" value={fmtNum(b.frame_ms)} unit="ms" note={`${fmtNum(b.frame_bytes)} B at ${fmtNum(b.params.spi_mhz)} MHz`} />
+            <Stat label="Max full-frame rate" value={fmtNum(b.max_fps)} unit="fps" tone={b.max_fps >= b.params.fps_full ? 'pass' : 'warn'} note={b.max_fps >= b.params.fps_full ? `✓ ≥ ${fmtNum(b.params.fps_full)} fps target` : `! below ${fmtNum(b.params.fps_full)} fps — use partial updates`} />
+            <Stat label="Body text" value={fmtNum(b.text[0]?.cap_arcmin ?? 0)} unit="arcmin" note={`${b.text[0]?.cap_px ?? 0} px cap height · ${b.text[0]?.verdict ?? ''}`} />
+          </div>
+          <Plot
+            height={180}
+            xLabel="SPI clock (MHz)"
+            yLabel="max full frames / s"
+            series={[{ name: 'full-frame rate', x: b.sweep_mhz, y: b.sweep_max_fps }]}
+            hLines={[{ value: b.params.fps_full, label: `${fmtNum(b.params.fps_full)} fps target` }]}
+            vLines={[{ value: b.params.spi_mhz, label: 'now' }]}
+            yZero
+          />
+        </div>
+      </div>
+      <div className="table-wrap" style={{ marginTop: 12 }}>
+        <table className="table">
+          <thead><tr><th>Screen</th><th>What changes</th><th>Lit</th><th>Dirty rectangle</th><th>SPI bytes/s (full → partial)</th><th>Link busy</th><th>Panel + link power</th></tr></thead>
+          <tbody>
+            {b.screens.map((s) => (
+              <tr key={s.screen}>
+                <td style={{ fontWeight: 650 }}>{s.title}</td>
+                <td className="small muted">{s.update}</td>
+                <td className="mono small">{fmtNum(s.apl_pct)} %</td>
+                <td className="mono small">{s.dirty[2] ? `${s.dirty[2]}×${s.dirty[3]} px · ${fmtNum(s.dirty_bytes)} B · ${fmtNum(s.dirty_ms)} ms` : 'none'}</td>
+                <td className="mono small">{fmtNum(s.full_bps / 1000)} k → {fmtNum(s.partial_bps / 1000)} k</td>
+                <td className="mono small">{fmtNum(s.link_duty_pct)} %</td>
+                <td style={{ minWidth: 170 }}>
+                  <div className="pf-pwr" title={`panel ${fmtNum(s.panel_mw)} mW + link ${fmtNum(s.link_mw)} mW; full frames every period: ${fmtNum(s.total_full_mw)} mW`}>
+                    <div style={{ width: `${(s.panel_mw / maxMw) * 100}%`, background: 'var(--series-1)' }} />
+                    <div style={{ width: `${(s.link_mw / maxMw) * 100}%`, background: 'var(--series-3)' }} />
+                    <span className="pf-pwr-ghost" style={{ left: `${(s.total_full_mw / maxMw) * 100}%` }} />
+                  </div>
+                  <div className="mono small">{fmtNum(s.total_mw)} mW <span className="muted">(full frames {fmtNum(s.total_full_mw)})</span></div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="row small muted" style={{ marginTop: 6 }}>
+        <span className="pf-key"><i style={{ background: 'var(--series-1)' }} />panel (static + emission × lit fraction)</span>
+        <span className="pf-key"><i style={{ background: 'var(--series-3)' }} />SPI link (SoC active while sending)</span>
+        <span className="pf-key"><i style={{ background: 'transparent', borderLeft: '2px dashed var(--text-2)', borderRadius: 0 }} />full frames every period</span>
+      </div>
+      <div className="grid grid-2" style={{ marginTop: 10 }}>
+        <div className="table-wrap">
+          <table className="table">
+            <thead><tr><th>Font size</th><th>Cap height</th><th>Angular size</th><th>Verdict</th><th>Used by</th></tr></thead>
+            <tbody>
+              {b.text.map((t) => (
+                <tr key={t.scale}><td className="mono">×{t.scale}</td><td className="mono">{t.cap_px} px</td><td className="mono">{fmtNum(t.cap_arcmin)}′</td><td className="small">{t.verdict}</td><td className="small muted">{t.used_by.join(', ')}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="muted small" style={{ marginTop: 4 }}>{fmtNum(b.arcmin_per_px)} arcmin per pixel ({fmtNum(b.ppd)} px/°) from the Optics Lab; a 20/20 letter is 5′ tall, comfortable reading ≈ 16–40′.</div>
+        </div>
+        <ul className="small muted" style={{ margin: 0, paddingLeft: 18 }}>{b.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+      </div>
+      <Formula>{`t_frame = W·H·b / f_SCK + t_overhead = ${b.panel_w}·${b.panel_h}·${b.params.link_bpp} / ${fmtNum(b.params.spi_mhz)} MHz + ${fmtNum(b.params.overhead_us)} µs = ${fmtNum(b.frame_ms)} ms
+P_panel = P_static + P_emit · APL        P_link = P_SoC,active · (bytes/s · 8 / f_SCK)`}</Formula>
+    </Card>
+  );
+});
+
 export function HudTab() {
   const project = useProject((s) => s.project);
   const optics = useCompute<OpticsA>('optics.analyze', { project });
@@ -116,11 +226,17 @@ export function HudTab() {
   const shown: HudState = useMemo(() => ({ ...st, nav_arrow_deg: Math.round(worldLock ? bearing - yaw : bearing) }), [st, yaw, worldLock]);
 
   // render through the engine whenever the state changes (throttled by the animation loop)
+  const prevHud = useRef<HudOut | null>(null);
+  const [dirty, setDirty] = useState<[number, number, number, number] | null>(null);
   useEffect(() => {
     const t0 = performance.now();
     const r = tryCall<HudOut>('firmware.hud_render', { state: shown, width: W, height: H, bpp });
     acc.current.frameMs = performance.now() - t0;
-    if (r.data) setHud(r.data);
+    if (r.data) {
+      if (prevHud.current && prevHud.current.hash !== r.data.hash) setDirty(diffRect(prevHud.current, r.data));
+      prevHud.current = r.data;
+      setHud(r.data);
+    }
   }, [shown, W, H, bpp]);
 
   const applyGesture = (g: string) => {
@@ -232,16 +348,24 @@ export function HudTab() {
     if (p) {
       p.width = hud.width;
       p.height = hud.height;
-      p.getContext('2d')?.putImageData(fbToImage(hud, [255, 255, 255]), 0, 0);
+      const pc = p.getContext('2d');
+      if (pc) {
+        pc.putImageData(fbToImage(hud, [255, 255, 255]), 0, 0);
+        if (dirty) {
+          pc.strokeStyle = 'rgba(255, 170, 40, 0.95)';
+          pc.lineWidth = Math.max(1, Math.round(hud.width / 320));
+          pc.strokeRect(dirty[0] + 0.5, dirty[1] + 0.5, dirty[2] - 1, dirty[3] - 1);
+        }
+      }
     }
-  }, [hud, yaw, hfov, vfov, displayOn, optics.data, project.design.optics.combiner_reflectance, res]);
+  }, [hud, yaw, hfov, vfov, displayOn, optics.data, project.design.optics.combiner_reflectance, res, dirty]);
 
   const inject = (segs: [boolean, number][]) => {
     for (const [v, n] of segs) for (let k = 0; k < n; k++) script.current.push(v);
   };
   const g = gestureInfo.data;
   const ppd = optics.data?.ppd ?? 30;
-  const charArcmin = res === 'prod' ? ((7 * fs) / ppd) * 60 : NaN;
+  const charArcmin = res === 'prod' ? 6 * fs * (optics.data?.arcmin_per_px ?? 60 / ppd) : NaN;
   const screenInfo = screens.data?.find((s) => s.id === st.screen);
 
   return (
@@ -296,6 +420,7 @@ export function HudTab() {
             <div className="pf-pixels"><canvas ref={pixRef} aria-label="Raw framebuffer" /></div>
             <div className="muted small" style={{ marginTop: 6 }}>
               The same bytes <span className="mono">iris_hud_render()</span> writes on the device — integer-only code, so the C and the Rust renderer agree bit for bit.
+              {dirty && hud && <> The orange box is the last update's dirty rectangle: {dirty[2]} × {dirty[3]} px = {fmtNum(((dirty[2] * dirty[3] * hud.bpp) / 8 / ((hud.width * hud.height * hud.bpp) / 8)) * 100)} % of a full frame.</>}
             </div>
           </Card>
         </div>
@@ -303,9 +428,10 @@ export function HudTab() {
       <div className="grid grid-4">
         <Stat label="Field of view" value={`${fmtNum(hfov)}° × ${fmtNum(vfov)}°`} note="Optics Lab" />
         <Stat label="Angular resolution" value={fmtNum(ppd)} unit="px/°" note="R-005 ≥ 25" />
-        <Stat label="Text height" value={res === 'prod' ? fmtNum(charArcmin) : '—'} unit={res === 'prod' ? 'arcmin' : ''} note={res === 'prod' ? `5×7 font × ${fs}: ${7 * fs} px (a 20/20 letter is 5′)` : 'switch to the micro-OLED'} />
+        <Stat label="Text height" value={res === 'prod' ? fmtNum(charArcmin) : '—'} unit={res === 'prod' ? 'arcmin' : ''} note={res === 'prod' ? `5×7 font × ${fs}: ${6 * fs} px cap height (a 20/20 letter is 5′)` : 'switch to the micro-OLED'} />
         <Stat label="Screen context" value={screenInfo?.context ?? '—'} note="column of the power-policy table" />
       </div>
+      <FrameBudget />
       <div className="grid grid-2">
         <Explainer title="One UI description, two renderers" refs={[{ label: 'J. E. Bresenham, "Algorithm for computer control of a digital plotter", IBM Systems Journal 4(1), 1965' }, { label: 'U8g2 (olikraus/u8g2 on GitHub): drawXBM', href: 'https://github.com/olikraus/u8g2' }]}>
           Each screen is a table of widgets on a 128 × 64 design grid (text, word-wrapped text, arrow, bar, battery). The engine interprets the table into a framebuffer for this page; the generator emits the same table and a line-for-line C interpreter into <span className="mono">iris_hud.c</span>. Coordinates scale as <span className="mono">x·W/128</span>, strokes by an integer font scale, and rotation uses a Q14 sine table — no floating point, so both sides produce identical pixels. The prototype pushes the buffer to the OLED with U8g2's <span className="mono">drawXBM</span>.

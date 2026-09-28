@@ -99,7 +99,7 @@ export function ResourcesTab() {
             <Stat label="RAM" value={fmtNum(r.ram_kb)} unit="KB" tone={r.ram_kb <= r.recommended_ram_kb ? 'pass' : r.ram_kb <= r.ram_capacity_kb ? 'warn' : 'fail'} note={`${fmtNum(r.ram_pct)} % of 256 KB · target ≤ 75 %`} />
             <Stat label="Flash image" value={fmtNum(r.flash_kb)} unit="KB" tone={r.flash_kb <= r.flash_budget_kb ? 'pass' : 'fail'} note={`${fmtNum(r.flash_pct_of_budget)} % of the ${fmtNum(r.flash_budget_kb)} KB slot`} />
             <Stat label="Framebuffer" value={fmtKB(r.ram.find((x) => x.name === 'HUD framebuffer')?.bytes ?? 0)} note={`${params.panel_w}×${params.panel_h} at ${params.fb_bpp} bpp${params.double_buffer ? ', ×2' : ''}`} />
-            <Stat label="Thread stacks" value={fmtKB(r.ram.filter((x) => x.group === 'stacks').reduce((s, x) => s + x.bytes, 0))} note={`${params.stacks.length} stacks`} />
+            <Stat label="CPU load (busiest context)" value={fmtNum(r.cpu_load_pct)} unit="%" tone={r.cpu_load_pct <= 50 ? 'pass' : r.cpu_load_pct <= 80 ? 'warn' : 'fail'} note={`of a ${fmtNum(params.cpu_mhz)} MHz Cortex-M4F · live captions`} />
           </div>
           <div className="pf-main">
             <Card title="nRF52840 memory" subtitle="Bars fill against the chip's capacity; the dashed line is the recommended ceiling." actions={<DownloadButton small filename="iris-firmware-memory.csv" content={csv} label="CSV" />}>
@@ -127,6 +127,38 @@ export function ResourcesTab() {
             <Card title="RAM breakdown"><ItemTable items={r.ram} /></Card>
             <Card title="Flash breakdown"><ItemTable items={r.flash} /></Card>
           </div>
+          <Card title="CPU load per task" subtitle="Worst context (live captions: audio streaming + full-rate display). load = rate × cycles / f_CPU; cycle counts are estimates to check with the DWT cycle counter on hardware.">
+            <div className="pf-cpu" role="img" aria-label={`CPU load ${fmtNum(r.cpu_load_pct)} percent`}>
+              {[...r.cpu].filter((t) => t.load_pct > 0).sort((a, b) => b.load_pct - a.load_pct).map((t, i) => (
+                <div key={t.name} title={`${t.name}: ${fmtNum(t.load_pct)} %`} style={{ width: `${t.load_pct}%`, background: `var(--series-${(i % 8) + 1})` }} />
+              ))}
+            </div>
+            <div className="pf-bar-axis"><span>0 %</span><span>25 %</span><span>50 %</span><span>75 %</span><span>100 % of {fmtNum(params.cpu_mhz)} MHz</span></div>
+            <div className="table-wrap" style={{ marginTop: 10 }}>
+              <table className="table">
+                <thead><tr><th>Task</th><th style={{ textAlign: 'right' }}>Rate</th><th style={{ textAlign: 'right' }}>Cycles</th><th style={{ textAlign: 'right' }}>Load</th><th>Basis</th></tr></thead>
+                <tbody>
+                  {[...r.cpu].sort((a, b) => b.load_pct - a.load_pct).map((t) => {
+                    const k = [...r.cpu].filter((x) => x.load_pct > 0).sort((a, b) => b.load_pct - a.load_pct).findIndex((x) => x.name === t.name);
+                    return (
+                      <tr key={t.name}>
+                        <td><span className="pf-key" style={{ margin: 0 }}><i style={{ background: k >= 0 ? `var(--series-${(k % 8) + 1})` : 'var(--surface-3)' }} />{t.name}</span></td>
+                        <td className="mono" style={{ textAlign: 'right' }}>{fmtNum(t.rate_hz)} Hz</td>
+                        <td className="mono" style={{ textAlign: 'right' }}>{fmtNum(t.cycles)}</td>
+                        <td className="mono" style={{ textAlign: 'right' }}>{fmtNum(t.load_pct)} %</td>
+                        <td className="small muted">{t.basis}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="grid grid-2" style={{ marginTop: 10 }}>
+              <Slider label="Display refresh while rendering" value={params.ui_fps} min={1} max={30} step={1} unit="fps" onChange={(v) => set('ui_fps', v)} />
+              <Slider label="BLE connection interval" value={params.conn_interval_ms} min={7.5} max={100} step={1.25} unit="ms" onChange={(v) => set('conn_interval_ms', v)} />
+            </div>
+            <Formula>{`load = Σ f_i · cycles_i / f_CPU = ${fmtNum(r.cpu.reduce((s, t) => s + t.mcycles_per_s, 0))} Mcycles/s / ${fmtNum(params.cpu_mhz)} MHz = ${fmtNum(r.cpu_load_pct)} %`}</Formula>
+          </Card>
           <Card title="Threads and interrupts" subtitle="The Zephyr skeleton's scheduling plan (lower number = higher priority).">
             <div className="table-wrap">
               <table className="table">

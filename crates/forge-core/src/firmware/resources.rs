@@ -51,6 +51,19 @@ pub struct ResourceParams {
     pub storage_kb: f64,
     /// Thread stacks (name, bytes).
     pub stacks: Vec<(String, u32)>,
+    /// CPU clock (the nRF52840's Cortex-M4F runs at 64 MHz).
+    pub cpu_mhz: f64,
+    /// Cycle-count assumptions per event (estimates from instruction counts; measure with the DWT cycle counter).
+    pub gesture_isr_cycles: f64,
+    pub biquad_cycles_per_sample: f64,
+    pub adpcm_cycles_per_sample: f64,
+    pub imu_cycles_per_sample: f64,
+    pub render_cycles_per_lit_px: f64,
+    pub spi_setup_cycles: f64,
+    pub ble_event_cycles: f64,
+    pub ble_notify_cycles: f64,
+    pub ui_fps: f64,
+    pub conn_interval_ms: f64,
 }
 
 impl Default for ResourceParams {
@@ -83,6 +96,17 @@ impl Default for ResourceParams {
                 ("interrupt stack".into(), 2048),
                 ("idle + logging".into(), 1088),
             ],
+            cpu_mhz: 64.0,
+            gesture_isr_cycles: 150.0,
+            biquad_cycles_per_sample: 30.0,
+            adpcm_cycles_per_sample: 40.0,
+            imu_cycles_per_sample: 2400.0,
+            render_cycles_per_lit_px: 12.0,
+            spi_setup_cycles: 2000.0,
+            ble_event_cycles: 3000.0,
+            ble_notify_cycles: 1500.0,
+            ui_fps: 10.0,
+            conn_interval_ms: 30.0,
         }
     }
 }
@@ -117,6 +141,16 @@ pub struct ThreadInfo {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub struct CpuTask {
+    pub name: String,
+    pub rate_hz: f64,
+    pub cycles: f64,
+    pub mcycles_per_s: f64,
+    pub load_pct: f64,
+    pub basis: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub struct Resources {
     pub params: ResourceParams,
     pub ram: Vec<Item>,
@@ -131,6 +165,10 @@ pub struct Resources {
     pub flash_pct_of_budget: f64,
     pub recommended_ram_kb: f64,
     pub threads: Vec<ThreadInfo>,
+    /// Worst-case context (live captions: audio streaming + full-rate display).
+    pub cpu: Vec<CpuTask>,
+    pub cpu_load_pct: f64,
+    pub hud_lit_px: usize,
     pub notes: Vec<String>,
 }
 
@@ -171,6 +209,99 @@ pub fn count_statements(src: &str) -> usize {
         i += 1;
     }
     n
+}
+
+/// CPU load per task: rate × cycles / f_CPU. Rendering cost is measured from
+/// the real framebuffer: a clear (bytes / 4 word stores × 2 cycles) plus
+/// `render_cycles_per_lit_px` for every lit pixel of the captions screen.
+pub fn cpu_tasks(inp: &Inputs, p: &ResourceParams) -> (Vec<CpuTask>, usize) {
+    let mut fb = super::gfx::Fb::new(p.panel_w as i32, p.panel_h as i32, if p.fb_bpp >= 4 { 4 } else { 1 });
+    let st = hud::HudState {
+        screen: Screen::Captions,
+        ..Default::default()
+    };
+    hud::render(&mut fb, &st);
+    let lit = fb.lit();
+    let f = p.cpu_mhz.max(1.0) * 1e6;
+    let fs = inp.audio_rate_hz;
+    let events = 1000.0 / p.conn_interval_ms.max(7.5);
+    let t = |name: &str, rate: f64, cycles: f64, basis: String| CpuTask {
+        name: name.into(),
+        rate_hz: rate,
+        cycles,
+        mcycles_per_s: rate * cycles / 1e6,
+        load_pct: rate * cycles / f * 100.0,
+        basis,
+    };
+    let render = fb.buf.len() as f64 / 4.0 * 2.0 + lit as f64 * p.render_cycles_per_lit_px;
+    let tasks = vec![
+        t(
+            "Gesture timer ISR",
+            1000.0,
+            p.gesture_isr_cycles,
+            "1 kHz: read pin, step FSM, maybe post event".into(),
+        ),
+        t(
+            "Voice high-pass (biquad Q14)",
+            fs,
+            p.biquad_cycles_per_sample,
+            format!("{fs:.0} samples/s × 5 multiply-accumulates"),
+        ),
+        t(
+            "IMA ADPCM encoder",
+            fs,
+            p.adpcm_cycles_per_sample,
+            "per sample: compare/subtract ladder + table updates".into(),
+        ),
+        t(
+            "PDM decimation (CIC + FIR)",
+            fs,
+            0.0,
+            "offloaded: the nRF52840 PDM peripheral decimates in hardware (IRIS-DSP on the custom board)".into(),
+        ),
+        t(
+            "IMU read + complementary filter",
+            inp.imu_rate_hz,
+            p.imu_cycles_per_sample,
+            "sensor API fetch + 2 atan2f + sqrtf".into(),
+        ),
+        t(
+            "HUD render",
+            p.ui_fps,
+            render,
+            format!(
+                "clear {} B + {} lit px × {:.0} cycles (captions screen)",
+                fb.buf.len(),
+                lit,
+                p.render_cycles_per_lit_px
+            ),
+        ),
+        t(
+            "Display SPI transfer set-up",
+            p.ui_fps,
+            p.spi_setup_cycles,
+            "EasyDMA moves the bytes; CPU only starts it".into(),
+        ),
+        t(
+            "BLE connection events",
+            events,
+            p.ble_event_cycles,
+            format!("{:.1} ms interval: host + controller processing", p.conn_interval_ms),
+        ),
+        t(
+            "BLE audio notifications",
+            1000.0 / 20.0,
+            p.ble_notify_cycles,
+            "one 20 ms ADPCM frame per notification".into(),
+        ),
+        t(
+            "Power policy",
+            1.0 / (inp.step_min * 60.0).max(1.0),
+            5000.0,
+            "ADC read + table lookup".into(),
+        ),
+    ];
+    (tasks, lit)
 }
 
 pub fn estimate(inp: &Inputs, p: &ResourceParams, app_sources: &[String]) -> Resources {
@@ -253,9 +384,21 @@ pub fn estimate(inp: &Inputs, p: &ResourceParams, app_sources: &[String]) -> Res
         "32 events × 2 B + queue object".into(),
     ));
     for (name, bytes) in &p.stacks {
-        ram.push(item(&format!("Stack: {name}"), "stacks", *bytes as f64, "computed", "configured stack size".into()));
+        ram.push(item(
+            &format!("Stack: {name}"),
+            "stacks",
+            *bytes as f64,
+            "computed",
+            "configured stack size".into(),
+        ));
     }
-    ram.push(item("Heap", "kernel", p.heap_kb * 1024.0, "computed", "CONFIG_HEAP_MEM_POOL_SIZE".into()));
+    ram.push(item(
+        "Heap",
+        "kernel",
+        p.heap_kb * 1024.0,
+        "computed",
+        "CONFIG_HEAP_MEM_POOL_SIZE".into(),
+    ));
     ram.push(item(
         "Bluetooth host + controller",
         "ble",
@@ -288,15 +431,27 @@ pub fn estimate(inp: &Inputs, p: &ResourceParams, app_sources: &[String]) -> Res
     let consts = [
         ("Font 5×7 (95 glyphs)", 95.0 * 7.0, "glyph rows"),
         ("Sine table Q14", 91.0 * 2.0, "0–90° in 1° steps"),
-        ("HUD widget tables", widgets as f64 * 14.0 + 5.0 * 6.0, "widgets × 14 B + screen index"),
+        (
+            "HUD widget tables",
+            widgets as f64 * 14.0 + 5.0 * 6.0,
+            "widgets × 14 B + screen index",
+        ),
         (
             "Filter coefficients",
             (inp.chain.fir.len() + inp.chain.halfband.len() + 5) as f64 * 2.0,
             "decimation FIR (Q15) + high-pass biquad (Q14)",
         ),
-        ("Power policy + OCV table", (inp.soc_buckets * 4) as f64 + 21.0 * 2.0, "bucket × context actions, 21 OCV points"),
+        (
+            "Power policy + OCV table",
+            (inp.soc_buckets * 4) as f64 + 21.0 * 2.0,
+            "bucket × context actions, 21 OCV points",
+        ),
         ("ADPCM tables", 89.0 * 2.0 + 16.0, "IMA step and index tables"),
-        ("GATT table + UUIDs", 8.0 * 16.0 + 14.0 * 20.0, "8 × 128-bit UUIDs + attribute entries (≈20 B each)"),
+        (
+            "GATT table + UUIDs",
+            8.0 * 16.0 + 14.0 * 20.0,
+            "8 × 128-bit UUIDs + attribute entries (≈20 B each)",
+        ),
     ];
     for (n, b, note) in consts {
         flash.push(item(n, "const", b, "computed", note.into()));
@@ -315,7 +470,13 @@ pub fn estimate(inp: &Inputs, p: &ResourceParams, app_sources: &[String]) -> Res
         "assumption",
         "scheduler, GPIO/I²C/SPI/PDM/ADC drivers, sensor driver".into(),
     ));
-    flash.push(item("Log strings, C library", "kernel", p.log_flash_kb * 1024.0, "assumption", "CONFIG_LOG and printf support".into()));
+    flash.push(item(
+        "Log strings, C library",
+        "kernel",
+        p.log_flash_kb * 1024.0,
+        "assumption",
+        "CONFIG_LOG and printf support".into(),
+    ));
 
     let ram_b: f64 = ram.iter().map(|x| x.bytes).sum();
     let flash_b: f64 = flash.iter().map(|x| x.bytes).sum();
@@ -381,7 +542,16 @@ pub fn estimate(inp: &Inputs, p: &ResourceParams, app_sources: &[String]) -> Res
             work: "battery ADC → learned policy → display + radio".into(),
         },
     ];
+    let (cpu, hud_lit_px) = cpu_tasks(inp, &p);
+    let cpu_load_pct = cpu.iter().map(|t| t.load_pct).sum();
+    notes.push(format!(
+        "CPU ≈ {cpu_load_pct:.1} % of a {:.0} MHz Cortex-M4F in the busiest context (live captions); cycle counts are estimates — measure with the DWT cycle counter",
+        p.cpu_mhz
+    ));
     Resources {
+        cpu,
+        cpu_load_pct,
+        hud_lit_px,
         ram_pct: ram_kb / RAM_CAPACITY_KB * 100.0,
         flash_pct_of_budget: flash_kb / budget * 100.0,
         params: p,
@@ -429,6 +599,25 @@ mod tests {
         assert!(r4.ram_kb > RAM_CAPACITY_KB, "double-buffered 4 bpp cannot fit: {}", r4.ram_kb);
         assert!(r.ram_kb < 0.75 * RAM_CAPACITY_KB, "{}", r.ram_kb);
         assert!((r.flash_budget_kb - (1024.0 - 48.0 - 32.0) / 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn cpu_load_by_hand() {
+        let i = Inputs::from_project(&Project::iris(), &super::super::ble::LinkParams::default());
+        let r = estimate(&i, &ResourceParams::default(), &[]);
+        let g = r.cpu.iter().find(|t| t.name.starts_with("Gesture")).unwrap();
+        // 1000 Hz × 150 cycles / 64 MHz = 0.234 %
+        assert!((g.load_pct - 1000.0 * 150.0 / 64e6 * 100.0).abs() < 1e-12);
+        let hp = r.cpu.iter().find(|t| t.name.starts_with("Voice")).unwrap();
+        assert!((hp.mcycles_per_s - 16000.0 * 30.0 / 1e6).abs() < 1e-12);
+        let sum: f64 = r.cpu.iter().map(|t| t.load_pct).sum();
+        assert!((r.cpu_load_pct - sum).abs() < 1e-12);
+        assert!(
+            r.hud_lit_px > 1000 && r.cpu_load_pct > 1.0 && r.cpu_load_pct < 50.0,
+            "{} {}",
+            r.hud_lit_px,
+            r.cpu_load_pct
+        );
     }
 
     #[test]

@@ -10,10 +10,11 @@ import { BuildTab } from './BuildTab';
 import { FirmwareTab } from './FirmwareTab';
 import { HudTab } from './HudTab';
 import { ResourcesTab } from './ResourcesTab';
+import { WiringTab } from './Wiring';
 import { usePersistent } from './util';
 import './proto.css';
 
-type Tab = 'build' | 'firmware' | 'hud' | 'ble' | 'resources' | 'learn';
+type Tab = 'build' | 'wiring' | 'firmware' | 'hud' | 'ble' | 'resources' | 'learn';
 
 const REFS = {
   nordic: { label: 'Nordic Semiconductor, nRF52840 Product Specification', href: 'https://docs.nordicsemi.com' },
@@ -26,6 +27,11 @@ const REFS = {
   u8g2: { label: 'U8g2 graphics library (olikraus/u8g2)', href: 'https://github.com/olikraus/u8g2' },
   gfx: { label: 'Adafruit GFX Library', href: 'https://github.com/adafruit/Adafruit-GFX-Library' },
   white: { label: 'E. White, Making Embedded Systems, 2nd ed., O\'Reilly 2024' },
+  esp: { label: 'Espressif Systems, ESP32-S3 Series Datasheet', href: 'https://www.espressif.com/en/support/documents/technical-documents' },
+  ima: { label: 'Interactive Multimedia Association, Recommended Practices for Enhancing Digital Audio Compatibility in Multimedia Systems, rev. 3.00, 1992 (IMA ADPCM)' },
+  arduino: { label: 'Arduino documentation', href: 'https://docs.arduino.cc' },
+  rfc4122: { label: 'P. Leach, M. Mealling, R. Salz, RFC 4122: A Universally Unique IDentifier (UUID) URN Namespace, IETF 2005', href: 'https://www.rfc-editor.org/rfc/rfc4122' },
+  nordicdk: { label: 'Nordic Semiconductor, nRF52840 DK hardware user guide', href: 'https://docs.nordicsemi.com' },
   brilliant: { label: 'Brilliant Labs open repositories (brilliantlabsAR)', href: 'https://github.com/brilliantlabsAR' },
   openglass: { label: 'BasedHardware/OpenGlass', href: 'https://github.com/BasedHardware/OpenGlass' },
   labrosse: { label: 'J. J. Labrosse, MicroC/OS-II: The Real-Time Kernel, 2nd ed., CMP Books 2002' },
@@ -80,35 +86,38 @@ export default function Lab() {
   const m = (k: string) => ev.data?.metrics.find((x) => x.key === k);
   const ram = m('firmware.ram_kb');
   const flash = m('firmware.flash_kb');
-  const thr = m('firmware.ble_throughput_kbps');
-  const lat = m('firmware.caption_latency_ms');
+  const cpu = m('firmware.cpu_load_pct');
+  const util = m('firmware.ble_audio_util_pct');
+  const frame = m('firmware.hud_frame_ms');
   return (
     <div className="pf-root">
       <LabPage
         kicker="Prototype & Software"
         title="Prototype & Firmware Lab"
-        subtitle={<>Build <b>Iris v0</b> on a breadboard from development boards, generate its firmware from the other labs' designs (filters, gesture state machine, learned power policy), simulate the heads-up display pixel for pixel, and design the Bluetooth Low Energy (BLE) protocol to the phone.</>}
+        subtitle={<>Build <b>Iris v0</b> on a breadboard from development boards, light up its buses wire by wire, generate its firmware from the other labs' designs (filters, gesture state machine, learned power policy), simulate the heads-up display pixel for pixel, and design the Bluetooth Low Energy (BLE) protocol to the phone.</>}
         metricPrefixes={['firmware.']}
       >
         <div className="grid grid-4">
-          <Stat label="Firmware RAM" value={ram ? fmtNum(ram.value) : '—'} unit="KB" tone={ram && ram.value <= 192 ? 'pass' : 'warn'} note="of 256 KB · target ≤ 192 KB" />
+          <Stat label="Firmware RAM" value={ram ? fmtNum(ram.value) : '—'} unit="KB" tone={ram && ram.value <= 192 ? 'pass' : 'warn'} note={ram ? `${fmtNum(100 - (ram.value / 256) * 100)} % margin of 256 KB` : ''} />
           <Stat label="Flash image" value={flash ? fmtNum(flash.value) : '—'} unit="KB" tone={flash && flash.value <= 472 ? 'pass' : 'warn'} note="≤ 472 KB leaves room for updates" />
-          <Stat label="BLE throughput" value={thr ? fmtNum(thr.value) : '—'} unit="kbit/s" note="typical phone, 30 ms interval" />
-          <Stat label="Caption link latency" value={lat ? fmtNum(lat.value) : '—'} unit="ms" note="BLE + buffering, excl. recogniser" />
+          <Stat label="CPU load" value={cpu ? fmtNum(cpu.value) : '—'} unit="%" tone={cpu && cpu.value <= 50 ? 'pass' : 'warn'} note={frame ? `busiest context · full HUD frame ${fmtNum(frame.value)} ms` : 'busiest context'} />
+          <Stat label="BLE audio link use" value={util ? fmtNum(util.value) : '—'} unit="%" tone={util && util.value <= 50 ? 'pass' : 'warn'} note="ADPCM uplink of the fast interval" />
         </div>
         <Tabs<Tab>
           value={tab}
           onChange={setTab}
           tabs={[
             { id: 'build', label: 'Breadboard build' },
-            { id: 'firmware', label: 'Firmware' },
+            { id: 'wiring', label: 'Wiring' },
+            { id: 'firmware', label: 'Firmware generator' },
             { id: 'hud', label: 'HUD simulator' },
-            { id: 'ble', label: 'Bluetooth' },
+            { id: 'ble', label: 'BLE design' },
             { id: 'resources', label: 'Resources' },
             { id: 'learn', label: 'How it works' },
           ]}
         />
-        {tab === 'build' && <BuildTab />}
+        {tab === 'build' && <BuildTab onWiring={() => setTab('wiring')} />}
+        {tab === 'wiring' && <WiringTab />}
         {tab === 'firmware' && <FirmwareTab />}
         {tab === 'hud' && <HudTab />}
         {tab === 'ble' && <BleTab />}

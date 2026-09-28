@@ -2,11 +2,11 @@
 // animation, throughput/latency results and a phone ↔ glasses sequence chart.
 import { useState } from 'react';
 import { Card, Chip, Code, DownloadButton, ErrorBox, Explainer, Formula, Slider, Stat, Toggle } from '../../components/ui';
-import { fmtNum } from '../../components/Plot';
+import { Plot, fmtNum } from '../../components/Plot';
 import { useCompute } from '../../engine/hooks';
 import { useProject } from '../../state/project';
 import { useFrame, useReducedMotion } from '../dsp/viz';
-import type { BleOut, LinkParams, LinkResult } from './types';
+import type { BleOut, LinkParams, LinkResult, Sweep } from './types';
 import { PlayControls, Seg } from './util';
 
 const DEFAULT_LINK: LinkParams = {
@@ -140,6 +140,78 @@ function SequenceChart() {
   );
 }
 
+function TradePlots({ sw, l }: { sw: Sweep; l: LinkResult }) {
+  const x = sw.interval_ms;
+  const streamX: number[] = [];
+  const streamY: number[] = [];
+  sw.stream_mw.forEach((v, i) => {
+    if (v !== null) {
+      streamX.push(x[i]);
+      streamY.push(v);
+    }
+  });
+  const marks = [
+    { value: l.params.conn_interval_ms, label: 'fast' },
+    { value: l.params.slow_interval_ms, label: 'slow' },
+  ];
+  return (
+    <div className="grid grid-3">
+      <div>
+        <div className="pf-plot-title">Throughput vs connection interval</div>
+        <Plot height={220} xLog xLabel="interval (ms)" yLabel="kbit/s" yLog series={[{ name: 'application throughput', x, y: sw.throughput_kbps }]} hLines={[{ value: l.audio_demand_kbps, label: `audio ${fmtNum(l.audio_demand_kbps)} kbit/s` }]} vLines={marks} />
+      </div>
+      <div>
+        <div className="pf-plot-title">Radio power vs connection interval</div>
+        <Plot
+          height={220}
+          xLog
+          yLog
+          xLabel="interval (ms)"
+          yLabel="mW (radio, average)"
+          series={[
+            { name: 'idle link (empty packets)', x, y: sw.idle_mw },
+            { name: 'streaming audio', x: streamX, y: streamY },
+          ]}
+          vLines={[...marks, { value: sw.max_stream_interval_ms, label: `audio ≤ ${fmtNum(sw.max_stream_interval_ms)} ms` }]}
+          legend
+        />
+      </div>
+      <div>
+        <div className="pf-plot-title">Caption link latency vs interval</div>
+        <Plot height={220} xLog xLabel="interval (ms)" yLabel="ms" series={[{ name: 'frame + up + down (average)', x, y: sw.caption_latency_ms }]} hLines={[{ value: 150, label: '150 ms' }]} vLines={marks} />
+      </div>
+    </div>
+  );
+}
+
+function AudioBudget({ l }: { l: LinkResult }) {
+  const rows = [
+    { label: '16-bit PCM', kbps: l.pcm_kbps, note: `${fmtNum(l.params.audio_rate_hz / 1000)} kHz × 16 bit` },
+    { label: `IMA ADPCM (${fmtNum(l.compression_ratio)}:1)`, kbps: (l.params.audio_rate_hz * l.params.audio_bits) / 1000, note: `${l.params.audio_bits} bit/sample` },
+    { label: '+ 6 B header per frame', kbps: l.audio_demand_kbps, note: `${l.audio_bytes_per_frame} B per ${fmtNum(l.params.audio_frame_ms)} ms, ${l.audio_notifications_per_frame} notification(s)` },
+    { label: 'link capacity (fast interval)', kbps: l.throughput_kbps, note: `${l.packets_per_event} packets/event` },
+  ];
+  const max = Math.max(...rows.map((r) => r.kbps));
+  return (
+    <div>
+      {rows.map((r, i) => (
+        <div key={r.label} className="pf-abar">
+          <span>{r.label}</span>
+          <div><div style={{ width: `${(r.kbps / max) * 100}%`, background: i === 3 ? 'var(--series-2)' : i === 0 ? 'var(--surface-3)' : 'var(--series-1)' }} /></div>
+          <span className="mono">{fmtNum(r.kbps)} kbit/s</span>
+          <small className="muted">{r.note}</small>
+        </div>
+      ))}
+      <div className="row" style={{ marginTop: 8 }}>
+        <Chip tone={l.audio_util_pct <= 50 ? 'pass' : l.audio_util_pct <= 100 ? 'warn' : 'fail'}>
+          {l.audio_util_pct <= 50 ? '✓' : l.audio_util_pct <= 100 ? '!' : '✕'} audio uses {fmtNum(l.audio_util_pct)} % of the link
+        </Chip>
+        <span className="muted small">{l.audio_frame_samples} samples → {l.audio_frame_payload_bytes} B of ADPCM per frame</span>
+      </div>
+    </div>
+  );
+}
+
 export function BleTab() {
   const project = useProject((s) => s.project);
   const [link, setLink] = useState<LinkParams>(DEFAULT_LINK);
@@ -172,7 +244,7 @@ export function BleTab() {
         <>
           <div className="grid grid-4">
             <Stat label="Application throughput" value={fmtNum(l.throughput_kbps)} unit="kbit/s" note={`${l.packets_per_event} × ${fmtNum(l.att_data_per_notification / l.ll_packets_per_notification)} B per ${fmtNum(l.params.conn_interval_ms)} ms · ${fmtNum(l.efficiency * 100)} % of the PHY rate`} />
-            <Stat label="Audio uplink need" value={fmtNum(l.audio_demand_kbps)} unit="kbit/s" tone={l.audio_margin >= 1.5 ? 'pass' : l.audio_margin >= 1 ? 'warn' : 'fail'} note={l.audio_margin >= 1 ? `✓ margin ×${fmtNum(l.audio_margin)}` : `✕ link too slow (×${fmtNum(l.audio_margin)})`} />
+            <Stat label="Audio uplink need" value={fmtNum(l.audio_demand_kbps)} unit="kbit/s" tone={l.audio_margin >= 1.5 ? 'pass' : l.audio_margin >= 1 ? 'warn' : 'fail'} note={l.audio_margin >= 1 ? `✓ ${fmtNum(l.audio_util_pct)} % of the link (×${fmtNum(l.audio_margin)} margin)` : `✕ link too slow (×${fmtNum(l.audio_margin)})`} />
             <Stat label="Caption link latency" value={fmtNum(l.caption_link_latency_ms)} unit="ms" note={`frame 20 + up ${fmtNum(l.audio_uplink_avg_ms)} + down ${fmtNum(l.caption_downlink_avg_ms)} (worst down ${fmtNum(l.caption_downlink_worst_ms)})`} />
             <Stat label="Speech → caption" value={fmtNum(l.caption_end_to_end_ms)} unit="ms" note={`incl. assumed ${fmtNum(l.params.asr_ms)} ms recogniser`} />
           </div>
@@ -182,6 +254,32 @@ exchange = T_data + 150 µs + T_empty (${fmtNum(l.empty_packet_us)} µs) + 150 �
 throughput = ${l.packets_per_event} × ${fmtNum(l.att_data_per_notification / l.ll_packets_per_notification)} B × 8 / ${fmtNum(l.params.conn_interval_ms)} ms = ${fmtNum(l.throughput_kbps)} kbit/s   (slow interval ${fmtNum(l.params.slow_interval_ms)} ms: ${fmtNum(l.slow_throughput_kbps)} kbit/s)`}</Formula>
             <ul className="small muted" style={{ margin: 0, paddingLeft: 18 }}>{l.notes.map((n) => <li key={n}>{n}</li>)}</ul>
           </Card>
+          {b && (
+            <Card title="Connection interval trade-off" subtitle={`Radio power model: nRF52840 typical currents (TX ${fmtNum(b.sweep.model.tx_ma)} mA at 0 dBm, RX ${fmtNum(b.sweep.model.rx_ma)} mA, DC/DC at ${fmtNum(b.sweep.model.supply_v)} V) plus ${fmtNum(b.sweep.model.pre_event_us)} µs wake-up and ${fmtNum(b.sweep.model.cpu_us)} µs stack time per event — assumptions to replace with a power-profiler measurement.`}>
+              <TradePlots sw={b.sweep} l={l} />
+              <div className="grid grid-3" style={{ marginTop: 10 }}>
+                <Stat label="Idle link, fast interval" value={fmtNum(b.sweep.idle_fast_mw * 1000)} unit="µW" note={`${fmtNum(l.params.conn_interval_ms)} ms`} />
+                <Stat label="Idle link, slow interval" value={fmtNum(b.sweep.idle_slow_mw * 1000)} unit="µW" note={`${fmtNum(l.params.slow_interval_ms)} ms — what the policy picks when idle`} />
+                <Stat label="Streaming audio" value={b.sweep.stream_fast_mw !== null ? fmtNum(b.sweep.stream_fast_mw) : '—'} unit="mW" tone={b.sweep.stream_fast_mw !== null ? 'pass' : 'fail'} note={b.sweep.stream_fast_mw !== null ? `radio average at ${fmtNum(l.params.conn_interval_ms)} ms` : '✕ this interval cannot carry the audio'} />
+              </div>
+              <Formula>{`E_event = V·[I_rx·(t_wake + n·(t_poll + 150 µs)) + I_tx·n·(t_packet + 150 µs) + I_cpu·t_stack]
+P_avg = V·I_sleep + E_event / T_interval        (n = packets the event must carry)`}</Formula>
+            </Card>
+          )}
+          <div className="grid grid-2">
+            <Card title="Audio streaming budget" subtitle="Microphone audio to the phone's speech recogniser, compressed 4:1 with IMA ADPCM.">
+              <AudioBudget l={l} />
+            </Card>
+            {b && (
+              <Card title="Custom UUIDs — project-specific" subtitle="Generated deterministically, so the firmware and a phone app derive the same values from the project.">
+                <div className="pf-cmd">{`service base  ${b.uuid_base}\nname          "${b.uuid_name}"\nmethod        UUID version 5 (SHA-1, RFC 4122 URL name space),\n              hex digits 5–8 cleared for 16-bit characteristic aliases`}</div>
+                <div className="row" style={{ marginTop: 8 }}>
+                  <Chip tone="warn">! Not registered with the Bluetooth SIG</Chip>
+                  <span className="muted small">Rename the project and every custom UUID changes; standard services keep their assigned 16-bit numbers.</span>
+                </div>
+              </Card>
+            )}
+          </div>
         </>
       )}
       {b && (
@@ -230,7 +328,7 @@ throughput = ${l.packets_per_event} × ${fmtNum(l.att_data_per_notification / l.
           <Code code={b.c_header} filename="iris_ble_protocol.h" maxHeight={320} />
           <div className="stack">
             <Explainer title="GATT in one paragraph" refs={[{ label: 'Bluetooth SIG, Bluetooth Core Specification v5.x, Vol 3 Part G (GATT)' }, { label: 'Bluetooth SIG Assigned Numbers', href: 'https://www.bluetooth.com/specifications/assigned-numbers/' }]}>
-              A peripheral exposes <b>services</b> (groups) of <b>characteristics</b> (values with properties: read, write, write without response, notify). The phone writes small packed structs to characteristics; the glasses <b>notify</b> the phone after it enables notifications by writing 0x0001 to the Client Characteristic Configuration descriptor (0x2902). Standard services use 16-bit assigned numbers (Battery 0x180F, Device Information 0x180A); custom ones need a random 128-bit UUID.
+              A peripheral exposes <b>services</b> (groups) of <b>characteristics</b> (values with properties: read, write, write without response, notify). The phone writes small packed structs to characteristics; the glasses <b>notify</b> the phone after it enables notifications by writing 0x0001 to the Client Characteristic Configuration descriptor (0x2902). Standard services use 16-bit assigned numbers (Battery 0x180F, Device Information 0x180A); custom ones need a 128-bit UUID — here a name-based (version 5) UUID derived from the project name, so it is reproducible and clearly project-specific.
             </Explainer>
             <Explainer title="Latency for live captions" refs={[{ label: 'C. Gomez, J. Oller, J. Paradells, "Overview and evaluation of Bluetooth Low Energy", Sensors 12(9), 2012' }]}>
               A notification waits for the next connection event — on average half an interval — and a caption makes the round trip twice (audio up, text down) plus the recogniser's time. Short intervals cut latency but keep the radio busy; the RL Lab's policy switches to the slow interval whenever captions are off.
