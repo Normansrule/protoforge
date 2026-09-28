@@ -13,8 +13,13 @@ results, and the full result as JSON.
 
 | Piece | Location |
 |---|---|
-| Engine | `crates/forge-core/src/circuit/` (`parser.rs`, `mna.rs`, `devices.rs`, `analysis.rs`, `measure.rs`, `presets.rs`, `mod.rs`, `tests.rs`) |
-| Page | `web/src/labs/circuit/` (`index.tsx`, `Schematic.tsx`, `Explainers.tsx`, `util.ts`, `types.ts`, `circuit.css`) |
+| Engine | `crates/forge-core/src/circuit/` (`parser.rs`, `mna.rs`, `devices.rs`, `analysis.rs`, `measure.rs`, `presets.rs`, `schematic.rs`, `mod.rs`, `tests.rs`) |
+| Page | `web/src/labs/circuit/` (`index.tsx`, `Schematic.tsx`, `Explainers.tsx`, `util.ts`, `types.ts`, `circuit.css`; schematic editor: `SchEditor.tsx`, `SchSymbols.tsx`, `SchResults.tsx`, `schTypes.ts`, `schematic.css`) |
+
+The page has two top-level tabs: **Simulator & presets** (everything below up to
+"Schematic editor") and **Schematic editor** — drag-and-drop circuit capture in the
+spirit of Falstad's circuit simulator and EasyEDA, whose drawing is turned into a
+SPICE netlist and simulated by the same engine.
 
 ## What it does
 
@@ -132,6 +137,10 @@ bias point; `|H|dB = 20·log10|V_out/V_in|`; the −3 dB point is where
 | `circuit.parse` | `{netlist, params?}` | `{ok, errors[{line,message}], warnings, title, nodes, elements, analyses, params}` |
 | `circuit.simulate` | `{netlist, params?, compact?}` | `SimResult`: nodes, elements, op, dc, tran, ac, measurements, annotations, stats, warnings, effective netlist |
 | `circuit.run_preset` | `{id, params?, netlist?, project?, compact?}` | `SimResult` plus the preset's measurements, plot annotations and suggested time window |
+| `circuit.schematic_netlist` (alias `circuit.schematic_to_netlist`) | `{schematic}` | `Extracted`: SPICE netlist, nets (pins, labels, probe flag), per-part pin positions / nets / emitted elements / netlist line numbers, wire pieces with their current `flow`, net of every drawn wire, junction dots, probed nets, node count, warnings (unconnected pins, shorted labels) |
+| `circuit.schematic_simulate` | `{schematic, compact?}` | `{extracted, result?: SimResult, error?}` — extraction always returns; a simulation error (with netlist line numbers) comes back in `error` |
+| `circuit.schematic_from_preset` | `{id, project?}` | an editable `Schematic` drawn from any preset's hand-made layout; each part keeps its original SPICE card(s) as a template with `<p0>`, `<p1>` … for its pins, other deck lines become directives |
+| `circuit.schematic_examples` | – | starter schematics: RC low-pass (pulse + AC), LED driver (NMOS low-side switch), buck power stage (PWM switch, Schottky, LC, load) |
 
 `compact: true` returns waveform arrays as base64 little-endian `f32`
 (`f64` for time/frequency/sweep) instead of JSON number lists — 4–6× smaller;
@@ -142,6 +151,70 @@ The schematic layout format is documented at the top of `presets.rs`: parts
 with their net and a signed list of element currents flowing along them,
 ground symbols, labels/ports and grouping boxes. A unit test checks that
 every pin and wire end of every preset is connected on the right net.
+
+## Schematic editor
+
+A second tab turns the lab into schematic capture: draw the circuit, and the engine
+extracts the netlist and simulates it.
+
+**Drawing.** A palette of parts — resistor, capacitor, inductor, voltage source (DC,
+PULSE or SIN, optional AC magnitude), current source, battery, diode, LED, NMOS, PMOS,
+switch (closed / open / PWM-driven), op-amp (single-pole macro-model), ground, net label
+and voltage probe. Drag a part onto the sheet (or click it, then click the sheet); **R**
+rotates, **F** mirrors a MOSFET, **Del** deletes. **W** draws wires on a half-unit snap
+grid with automatic orthogonal (L-shaped) routing: click to add corners, and the wire ends
+when it lands on a pin or another wire (or on double-click / Enter / right-click). Dragging
+a part rubber-bands the wires attached to it. Junction dots appear wherever three or more
+wire ends or pins meet; wires that merely cross are *not* connected, exactly as in KiCad
+and EasyEDA. Hovering a wire highlights its whole net. Undo/redo (Ctrl+Z / Ctrl+Shift+Z,
+100 steps), pan (drag the background), zoom (wheel or buttons) and fit.
+
+**Editing.** The property panel edits name and value with engineering suffixes (live
+parsed: `4.7k`, `100n`, `1meg`; `m` is milli), source waveforms, capacitor/inductor
+initial conditions, diode and MOSFET model parameters, switch state and PWM, op-amp gain
+and gain–bandwidth, and — for parts imported from a preset — the raw SPICE card(s). The
+analyses panel sets `.op`, `.tran` (step, stop, `uic`), `.ac` (points per decade, range)
+and `.dc` (source, range, step).
+
+**Simulating.** Every edit re-extracts the netlist; with auto-run on, the circuit is
+re-simulated 250 ms after the last change (typically a few milliseconds). Nets are
+coloured by voltage and dots move along *the wires as drawn* at a speed ∝ log |I|, frame by
+frame through the transient (play/pause, scrubber, speed; still under
+`prefers-reduced-motion`). LEDs glow with their current, switches show their state, labels
+and probes show their voltage, hovering a part gives V, I and P. A simulation error marks
+the offending part in red. Results reuse the lab's plots: waveforms (probes default to the
+probed and labelled nets), Bode, DC sweep and the operating-point table, each with CSV.
+
+**Starting points and files.** Blank sheet, three starter examples, or **import any
+preset** of the simulator tab (its hand-drawn layout and SPICE cards become an editable
+schematic; the import is unit-tested to reproduce every preset's node set and operating
+point). Save/open the schematic as JSON (also kept in the browser between visits), export
+the netlist (`.cir`, runs unchanged in ngspice) and the drawing (`.svg`, theme colours
+resolved).
+
+**How the netlist is extracted** (`schematic.rs`):
+
+1. Every pin, wire vertex, ground and label anchor is a grid point (rounded to 1/1000 of
+   a unit). Wire segments are split at every point lying on them (T-junctions, pins
+   touching a wire).
+2. **Union–find** (Tarjan 1975) joins the ends of every segment; labels with the same
+   name and every ground are joined by virtual links; ground is node `0`.
+3. Nets are named ground → `0`, then by label, then by the node name an imported preset
+   used, else `n1, n2 …`. Unconnected pins and differently named labels wired together are
+   reported.
+4. Each part emits its SPICE card(s): `R C L V I D M S` cards with generated `.model`
+   lines (diode: IS 2.52 nA, N 1.752, RS 0.568 Ω; LED fitted to ≈ 1.9 V at 20 mA; MOSFET
+   level 1 with bulk tied to source; switch `SW` driven by a hidden control source); the
+   op-amp becomes `E` (gain A₀) → R·C pole at GBW/A₀ → unity `E` buffer.
+
+**Current on the drawn wires.** The simulator only knows element currents. Each pin
+injects a signed element current (SPICE convention: `i(X)` flows into pin 1, so pin 1
+injects −i and pin 2 +i); on a spanning tree of each net (real segments first, then the
+virtual label/ground links) the current along a tree edge is the sum of the injections on
+one side — Kirchhoff's current law — stored as a signed list of element currents, the same
+`flow` format the preset layouts use. Chains of plain wire bends are merged into one
+animated path. A unit test checks a divider drawn with extra segments and a mid-wire T:
+the probe branch carries 0 A and every top-rail piece carries the full 250 µA.
 
 ## How Iris uses it
 
@@ -193,6 +266,10 @@ every pin and wire end of every preset is connected on the right net.
   and trapezoidal only (no Gear/BDF option).
 * Switches change state abruptly (like ngspice's `SW`), with hysteresis.
 * The buck is simulated open-loop; closing the loop belongs to the Control Lab.
+* Schematic editor: one sheet, no hierarchy or buses, no multi-select or copy/paste,
+  rotation does not drag the attached wires along (move the part to rubber-band them),
+  and the part library is generic models, not manufacturer parts. Touch screens place
+  parts by tap (tap the palette, then the sheet) since HTML drag-and-drop needs a mouse.
 
 ## Graduating to professional tools
 
@@ -203,6 +280,9 @@ every pin and wire end of every preset is connected on the right net.
 * **Qucs-S** — schematic capture front end for ngspice/Xyce.
 * **KiCad** — its schematic editor has ngspice built in, so the Iris
   schematic itself can be simulated.
+* **Falstad circuit simulator / CircuitJS** — the browser classic for animated
+  current and voltage colouring that the schematic editor's animation follows.
+* **EasyEDA** — web schematic capture and PCB layout tied to a parts library and a fab.
 
 ## References
 
@@ -217,3 +297,8 @@ every pin and wire end of every preset is connected on the right net.
 * J. Vlach and K. Singhal, *Computer Methods for Circuit Analysis and
   Design*, 2nd ed., Van Nostrand Reinhold, 1994.
 * ngspice User's Manual, <https://ngspice.sourceforge.io/docs.html>.
+* P. Falstad, Circuit Simulator applet (2005–) and its JavaScript port CircuitJS1 by
+  I. Sharp, <https://www.falstad.com/circuit/>.
+* R. E. Tarjan, "Efficiency of a good but not linear set union algorithm", *Journal of
+  the ACM* 22(2), 215–225, 1975.
+* KiCad and EasyEDA documentation on schematic capture and netlist export.

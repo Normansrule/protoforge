@@ -31,6 +31,7 @@ pub mod measure;
 pub mod mna;
 pub mod parser;
 pub mod presets;
+pub mod schematic;
 
 use std::collections::BTreeMap;
 
@@ -601,7 +602,7 @@ fn dispatch_inner(method: &str, input: &Value) -> Option<ApiResult> {
         "circuit.run_preset" => handle(input, |i: RunPresetIn| {
             presets::run(&i.id, &i.params, i.netlist.as_deref(), i.project.as_ref())
         }),
-        _ => None,
+        _ => schematic::dispatch(method, input),
     }
 }
 

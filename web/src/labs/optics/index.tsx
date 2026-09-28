@@ -8,9 +8,12 @@ import { ViewTab } from './ViewTab';
 import { EyeboxTab } from './EyeboxTab';
 import { LegibilityTab } from './LegibilityTab';
 import { DesignTab } from './DesignTab';
+import { LensTab } from './LensTab';
+import { QualityTab } from './QualityTab';
+import { MaterialsTab } from './MaterialsTab';
 import './optics.css';
 
-type Tab = 'ray' | 'view' | 'eyebox' | 'legibility' | 'design';
+type Tab = 'ray' | 'view' | 'eyebox' | 'legibility' | 'design' | 'lens' | 'quality' | 'materials';
 const TAB_KEY = 'protoforge.optics.tab';
 
 export default function OpticsLab() {
@@ -42,6 +45,9 @@ export default function OpticsLab() {
           { id: 'eyebox', label: 'Eyebox' },
           { id: 'legibility', label: 'Legibility' },
           { id: 'design', label: 'Design space' },
+          { id: 'lens', label: 'Lens designer' },
+          { id: 'quality', label: 'Image quality' },
+          { id: 'materials', label: 'Materials' },
         ]}
       />
       <div className="op-root">
@@ -50,6 +56,9 @@ export default function OpticsLab() {
         {tab === 'eyebox' && <EyeboxTab />}
         {tab === 'legibility' && <LegibilityTab />}
         {tab === 'design' && <DesignTab />}
+        {tab === 'lens' && <LensTab />}
+        {tab === 'quality' && <QualityTab />}
+        {tab === 'materials' && <MaterialsTab />}
       </div>
     </LabPage>
   );
