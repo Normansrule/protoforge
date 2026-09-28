@@ -1,0 +1,32 @@
+/* Web toolchain page */
+.tc-flow svg text { pointer-events: none; }
+.tc-flow-cols { display: grid; grid-template-columns: 22% 26% 30% 22%; flex: 1; min-width: 0; }
+.tc-flowlist { display: flex; flex-direction: column; gap: 8px; }
+.tc-flowrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tc-file { font-size: 11.5px; padding: 3px 8px; border-radius: 8px; background: var(--surface-3); border: 1px solid var(--border-strong); white-space: nowrap; }
+.tc-disc { font-size: 15px; margin: 8px 0 0; color: var(--text-2); letter-spacing: 0.02em; }
+.tc-tool { display: flex; flex-direction: column; transition: box-shadow 0.25s, border-color 0.25s; }
+.tc-tool.picked { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tc-fmt { font-size: 11px; padding: 1px 7px; border-radius: 6px; background: var(--surface-3); color: var(--text-2); }
+.tc-steps { margin-top: 10px; }
+.tc-steps summary { cursor: pointer; color: var(--accent); }
+.tc-steps ol { margin: 6px 0 0; padding-left: 20px; color: var(--text-2); }
+.tc-steps li { margin-bottom: 4px; }
+.tc-board { border-radius: 12px; border: 1px solid var(--border); background: var(--surface-1); padding: 8px; }
+.tc-url { word-break: break-all; padding: 6px 8px; border-radius: 8px; background: var(--surface-2); color: var(--text-2); }
+.tc-code { font-size: 12px; line-height: 1.5; }
+.tc-code .tk-com { color: var(--muted); font-style: italic; }
+.tc-code .tk-str { color: var(--series-3); }
+.tc-code .tk-num { color: var(--series-4); }
+.tc-code .tk-kw { color: var(--series-5); font-weight: 600; }
+.tc-code .tk-fn { color: var(--accent); }
+.tc-code .tk-ref { color: var(--series-7); }
+.tc-chi { display: inline-block; margin-right: 8px; font-family: var(--mono); }
+.tc-cj { border-radius: 10px; background: var(--surface-1); border: 1px solid var(--border); padding: 4px; }
+.cj-view text { stroke: none; fill: var(--muted); font-size: 10px; font-family: var(--mono); }
+.cj-view .cj-sym { font-size: 12px; fill: var(--text-2); }
+.tc-verify td { min-width: 120px; }
+.tc-kicad textarea, .tc-more textarea { width: 100%; }
+@media (max-width: 860px) {
+  .tc-flow-cols { display: none; }
+}
