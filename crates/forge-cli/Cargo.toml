@@ -1,0 +1,14 @@
+[package]
+name = "forge-cli"
+description = "Command-line pipeline: project.json in, full fabrication package out."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "protoforge"
+path = "src/main.rs"
+
+[dependencies]
+forge-core = { path = "../forge-core" }
+serde_json.workspace = true

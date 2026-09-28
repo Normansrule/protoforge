@@ -1,0 +1,173 @@
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { GROUPS, LABS } from './labs/registry';
+import { Icon } from './components/Icon';
+import { useEngineReady } from './engine/hooks';
+import { useEvaluation, useProject } from './state/project';
+import { downloadText } from './components/ui';
+import Home from './pages/Home';
+import Systems from './pages/Systems';
+import Learn from './pages/Learn';
+import type { Project } from './engine/types';
+
+const REPO_URL = 'https://github.com/Normansrule/protoforge';
+
+function useTheme() {
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      return (localStorage.getItem('protoforge.theme') as 'dark' | 'light') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem('protoforge.theme', theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
+  return [theme, setTheme] as const;
+}
+
+function labStatus(prefixes: string[], ev: ReturnType<typeof useEvaluation>, project: Project) {
+  if (!ev.data) return null;
+  const ids = project.requirements.filter((r) => r.verification.metric && prefixes.some((p) => r.verification.metric!.startsWith(p))).map((r) => r.id);
+  if (ids.length === 0) return null;
+  const rs = ev.data.results.filter((r) => ids.includes(r.id));
+  if (rs.some((r) => r.status === 'fail')) return 'fail';
+  if (rs.every((r) => r.status === 'pass')) return 'pass';
+  if (rs.every((r) => r.status === 'unverified')) return null;
+  return 'partial';
+}
+
+function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }) {
+  const ev = useEvaluation();
+  const project = useProject((s) => s.project);
+  const dot = (s: string | null) =>
+    s ? <span className="nav-status" title={s} style={{ background: s === 'pass' ? 'var(--good)' : s === 'fail' ? 'var(--bad)' : 'var(--warn)' }} /> : null;
+  return (
+    <nav className={`sidebar ${open ? 'open' : ''}`} aria-label="Main">
+      <NavLink to="/" className="brand" onClick={onNavigate}>
+        <img src="./favicon.svg" width={34} height={34} alt="" />
+        <div>
+          <div className="brand-name">Protoforge</div>
+          <div className="brand-sub">idea → atoms</div>
+        </div>
+      </NavLink>
+      <div className="nav-group">
+        <NavLink to="/" end className="nav-link" onClick={onNavigate}><Icon name="home" className="nav-icon" /> Overview</NavLink>
+        <NavLink to="/systems" className="nav-link" onClick={onNavigate}>
+          <Icon name="systems" className="nav-icon" /> Systems Studio
+          {ev.data && <span className="chip" style={{ marginLeft: 'auto', padding: '0 7px' }}>{ev.data.pass}/{ev.data.results.length}</span>}
+        </NavLink>
+      </div>
+      {GROUPS.map((g) => (
+        <div className="nav-group" key={g}>
+          <div className="nav-group-title">{g}</div>
+          {LABS.filter((l) => l.group === g).map((l) => (
+            <NavLink key={l.id} to={l.path} className="nav-link" onClick={onNavigate}>
+              <Icon name={l.icon} className="nav-icon" /> {l.title}
+              {dot(labStatus(l.metrics, ev, project))}
+            </NavLink>
+          ))}
+        </div>
+      ))}
+      <div className="nav-group">
+        <div className="nav-group-title">Learn</div>
+        <NavLink to="/learn" className="nav-link" onClick={onNavigate}><Icon name="learn" className="nav-icon" /> Guide & references</NavLink>
+        <a className="nav-link" href={REPO_URL} target="_blank" rel="noreferrer"><Icon name="github" className="nav-icon" /> Source on GitHub</a>
+      </div>
+    </nav>
+  );
+}
+
+function TopBar({ onMenu }: { onMenu: () => void }) {
+  const [theme, setTheme] = useTheme();
+  const project = useProject((s) => s.project);
+  const setProject = useProject((s) => s.setProject);
+  const reset = useProject((s) => s.reset);
+  const ev = useEvaluation();
+  const ready = useEngineReady();
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <header className="topbar">
+      <button className="btn ghost menu-btn" onClick={onMenu} aria-label="Menu"><Icon name="menu" /></button>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{project.meta.name}</div>
+        <div className="muted small">v{project.meta.version} · {ready ? 'Rust engine loaded (WebAssembly)' : 'loading engine…'}</div>
+      </div>
+      {ev.data && (
+        <div className="row" style={{ marginLeft: 8 }}>
+          <span className="chip pass">✓ {ev.data.pass}</span>
+          {ev.data.fail > 0 && <span className="chip fail">✕ {ev.data.fail}</span>}
+          {ev.data.unverified > 0 && <span className="chip">○ {ev.data.unverified}</span>}
+        </div>
+      )}
+      <div className="spacer" />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        style={{ display: 'none' }}
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          try {
+            setProject(JSON.parse(await f.text()) as Project);
+          } catch (err) {
+            alert(`Could not read project: ${err}`);
+          }
+          e.target.value = '';
+        }}
+      />
+      <button className="btn small" onClick={() => fileRef.current?.click()} title="Open a project.json"><Icon name="upload" size={15} /> Open</button>
+      <button className="btn small" onClick={() => downloadText(`${project.meta.id || 'project'}.json`, JSON.stringify(project, null, 2), 'application/json')} title="Save project.json"><Icon name="download" size={15} /> Save</button>
+      <button className="btn small" onClick={() => confirm('Reset to the Iris reference project? Unsaved edits are lost.') && reset()} title="Reset to Iris"><Icon name="reset" size={15} /></button>
+      <button className="btn small" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Toggle theme"><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={15} /></button>
+    </header>
+  );
+}
+
+function ScrollTop() {
+  const { pathname } = useLocation();
+  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  return null;
+}
+
+function Loading() {
+  return <div className="muted" style={{ padding: 40 }}>Loading lab…</div>;
+}
+
+export default function App() {
+  const [menu, setMenu] = useState(false);
+  const ready = useEngineReady();
+  return (
+    <HashRouter>
+      <ScrollTop />
+      <div className="app">
+        <Sidebar open={menu} onNavigate={() => setMenu(false)} />
+        <div className="main">
+          <TopBar onMenu={() => setMenu((m) => !m)} />
+          <main className="content">
+            {!ready ? (
+              <Loading />
+            ) : (
+              <Suspense fallback={<Loading />}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/systems" element={<Systems />} />
+                  <Route path="/learn" element={<Learn />} />
+                  {LABS.map((l) => (
+                    <Route key={l.id} path={l.path} element={<l.component />} />
+                  ))}
+                </Routes>
+              </Suspense>
+            )}
+          </main>
+        </div>
+      </div>
+    </HashRouter>
+  );
+}

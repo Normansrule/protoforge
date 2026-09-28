@@ -1,0 +1,22 @@
+[workspace]
+resolver = "2"
+members = ["crates/forge-core", "crates/forge-wasm", "crates/forge-cli", "crates/forge-server"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Aleksander Norman"]
+repository = "https://github.com/Normansrule/protoforge"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[profile.release.package.forge-wasm]
+opt-level = "s"
