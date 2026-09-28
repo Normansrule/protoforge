@@ -1,7 +1,7 @@
 // Circuit Lab: a SPICE-style simulator (Rust → WebAssembly) with an animated
 // schematic, live parameter sliders, waveforms, Bode plots, DC sweeps, an
 // operating-point table and an ngspice-compatible netlist editor.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { LabPage } from '../../components/LabPage';
 import { Card, Chip, Code, DownloadButton, ErrorBox, Explainer, Slider, Tabs } from '../../components/ui';
@@ -13,6 +13,7 @@ import { NodeGraph, Schematic } from './Schematic';
 import { AcExplainer, DevicesExplainer, MnaExplainer, NewtonExplainer, REFS, TransientExplainer } from './Explainers';
 import type { ElementInfo, Measurement, ParseOut, Preset, SimResult } from './types';
 import { acCsv, dcCsv, elemVIP, fmtMeas, frameAt, opCsv, parseErrorLines, prefersReducedMotion, RAMP_CSS, si, snapshot, tranCsv, voltageRange } from './util';
+import { SchematicEditor } from './SchEditor';
 import './circuit.css';
 
 const CUSTOM = 'custom';
@@ -175,7 +176,33 @@ function probeSeries(res: SimResult, probes: string[], kind: 'v' | 'i', win: [nu
 
 type Tab = 'wave' | 'ac' | 'dc' | 'op' | 'netlist';
 
-export default function Lab() {
+type Mode = 'sim' | 'editor';
+const MODE_KEY = 'protoforge.circuit.mode';
+
+/** The Circuit Lab: the preset simulator, plus the drag-and-drop schematic editor tab. */
+export default function CircuitLab() {
+  const [mode, setMode] = useState<Mode>(() => {
+    try { return (sessionStorage.getItem(MODE_KEY) as Mode) || 'sim'; } catch { return 'sim'; }
+  });
+  const choose = (m: Mode) => { setMode(m); try { sessionStorage.setItem(MODE_KEY, m); } catch { /* ignore */ } };
+  const modeTabs = <Tabs<Mode> value={mode} onChange={choose} tabs={[{ id: 'sim', label: 'Simulator & presets' }, { id: 'editor', label: 'Schematic editor' }]} />;
+  if (mode === 'editor') {
+    return (
+      <LabPage
+        kicker="Electronics · SPICE in your browser"
+        title="Circuit Lab"
+        subtitle={<>Draw a circuit like in EasyEDA or Falstad — place parts, wire them on a grid — and the engine extracts the netlist, simulates it with the same Rust SPICE, and animates the current along the wires you drew.</>}
+        metricPrefixes={['circuit.']}
+      >
+        {modeTabs}
+        <SchematicEditor />
+      </LabPage>
+    );
+  }
+  return <Lab modeTabs={modeTabs} />;
+}
+
+function Lab({ modeTabs }: { modeTabs: ReactNode }) {
   const project = useProject((s) => s.project);
   const presetsC = useCompute<Preset[]>('circuit.presets', { project });
   const presets = useMemo(() => presetsC.data ?? [], [presetsC.data]);
@@ -386,6 +413,7 @@ export default function Lab() {
         </>
       ) : undefined}
     >
+      {modeTabs}
       <Gallery presets={presets} value={id} onChange={select} />
 
       <div className="cl-top">

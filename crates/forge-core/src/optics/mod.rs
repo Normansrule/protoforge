@@ -26,7 +26,12 @@
 //! Engineering* (2005).
 
 pub mod design;
+pub mod glass;
+pub mod lensdesign;
 pub mod paraxial;
+pub mod pro;
+pub mod quality;
+pub mod seq;
 pub mod trace;
 
 use serde::{Deserialize, Serialize};
@@ -121,7 +126,7 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         "optics.contrast" => handle(input, |i: OptIn| {
             Ok(design::contrast_sweep(&i.params(), &i.extras.clone().unwrap_or_default()))
         }),
-        _ => None,
+        _ => pro::dispatch(method, input),
     }
 }
 
@@ -140,7 +145,7 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
         "collimated" => "display at the focal plane: image at infinity".into(),
         _ => "display beyond f: real image, not a heads-up display".into(),
     };
-    vec![
+    let mut m = vec![
         Metric::new("optics.hfov_deg", "Horizontal field of view", a.hfov_deg, "deg", "optics").with_note(&format!(
             "2·atan of the {:.0} mm-wide virtual image at {:.2} m",
             a.image_width_mm, a.virtual_image_m
@@ -188,7 +193,10 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
             "lens-to-combiner {:.1} mm vs {:.1} mm needed so the 45° combiner clears an {:.1} mm aperture",
             o.lens_to_combiner_mm, a.min_lens_to_combiner_mm, a.aperture_mm
         )),
-    ]
+    ];
+    // Optics Pro: real-lens image quality (reversed HUD model)
+    m.extend(pro::metrics(p));
+    m
 }
 
 #[cfg(test)]

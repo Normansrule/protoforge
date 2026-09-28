@@ -60,3 +60,56 @@
 
 /* narrow screens: let card actions wrap under the title */
 @media (max-width: 640px) { .op-root .card-head { flex-wrap: wrap; } .op-root .card-head .card-actions { margin-left: 0; } }
+
+/* ---- Optics Pro: lens designer, image quality, materials ---- */
+/* wavelength colours (F blue, d yellow-green, C red), tuned for each theme; on :root so SVG downloads resolve them */
+:root { --op-f: #5b8cff; --op-d: #c9d43a; --op-c: #ff5a5f; }
+:root[data-theme='light'] { --op-f: #1f5fe0; --op-d: #7a8a00; --op-c: #d62a36; }
+.op-lens-svg { user-select: none; }
+.op-lens-svg .op-glass { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: color-mix(in srgb, var(--accent) 55%, var(--text)); }
+.op-lens-svg .op-glass.flint { fill: color-mix(in srgb, var(--series-5) 22%, transparent); }
+.op-lens-svg .op-surf { stroke: var(--text-2); cursor: pointer; }
+.op-lens-svg .op-surf.hi { stroke: var(--accent); }
+.op-lens-svg .op-surf.fold { stroke: var(--muted); }
+.op-lens-svg .op-surf.mirror path { stroke: var(--copper); }
+.op-lens-svg .op-lbl { fill: var(--muted); stroke: none; font-family: var(--font); }
+.op-lens-svg .op-imgplane line { stroke: var(--text); }
+.op-lens-svg .op-scale line { stroke: var(--muted); }
+.op-lens-svg .op-fail path { stroke: var(--bad); }
+.op-pulse { stroke-dasharray: 3 97; stroke-linecap: round; animation: op-pulse 1.6s linear infinite; opacity: 0.95; }
+@keyframes op-pulse { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { .op-pulse { animation: none; display: none; } }
+
+.op-lde-wrap { max-width: 100%; overflow-x: auto; }
+.op-lde { font-size: 12.5px; min-width: 820px; }
+.op-lde td, .op-lde th { padding: 4px 5px; white-space: nowrap; }
+.op-lde tr.hi td { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.op-lde-label { max-width: 150px; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
+.op-cell { width: 84px; padding: 3px 6px; font-size: 12px; font-family: var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+select.op-cell { width: 92px; font-family: var(--font); }
+.op-cell:disabled { opacity: 0.45; }
+.op-vary { display: flex; gap: 3px; }
+.op-vbtn { font: inherit; font-size: 11px; font-weight: 650; padding: 2px 6px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; }
+.op-vbtn.on { background: var(--accent); border-color: transparent; color: #fff; }
+.op-rowbtns { display: flex; gap: 2px; }
+.op-rowbtns .btn { padding: 2px 6px; }
+
+.op-spotgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.op-spotgrid.wide { grid-template-columns: minmax(0, 1fr); }
+.op-spotrow { display: flex; flex-direction: column; gap: 6px; }
+.op-spotgrid.wide .op-spotrow { flex-direction: row; align-items: center; flex-wrap: wrap; }
+.op-spotgrid.wide .op-spot { width: 150px; }
+.op-spotfield { display: flex; flex-direction: column; min-width: 84px; font-size: 13px; }
+.op-spot { margin: 0; }
+.op-spot svg { width: 100%; aspect-ratio: 1; display: block; border-radius: 8px; border: 1px solid var(--border); }
+.op-spot .op-spot-bg { fill: var(--surface-2); }
+.op-spot .op-spot-axis { stroke: var(--grid); }
+.op-spot .op-spot-pixel { fill: none; stroke: var(--good); stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.op-spot .op-spot-airy { fill: none; stroke: var(--muted); vector-effect: non-scaling-stroke; }
+.op-spot figcaption { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+
+.op-abbe { width: 100%; height: auto; display: block; }
+.op-abbe .op-grid { stroke: var(--grid); stroke-width: 1; }
+.op-abbe .op-ax { fill: var(--muted); font-size: 11px; font-family: var(--font); }
+.op-abbe .op-abbe-lbl { fill: var(--text); font-size: 11.5px; font-weight: 650; font-family: var(--font); }
+.table tr.hi td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
