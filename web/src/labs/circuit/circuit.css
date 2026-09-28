@@ -1,0 +1,108 @@
+/* Circuit Lab styles. Colours come from theme variables; the two lab-local
+   variables (--cl-dot, --cl-glow) are defined for both themes. */
+.cl-schem, .cl-gallery, .cl-top { --cl-dot: #ffe27a; --cl-glow: rgba(255, 226, 122, 0.55); }
+:root[data-theme='light'] .cl-schem, :root[data-theme='light'] .cl-gallery, :root[data-theme='light'] .cl-top { --cl-dot: #1d1d20; --cl-glow: rgba(29, 29, 32, 0.25); }
+
+/* ---- gallery ---- */
+.cl-gtitle { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 8px 2px; }
+.cl-gallery { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(200px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+.cl-card {
+  position: relative; text-align: left; cursor: pointer; font: inherit; color: var(--text);
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 12px;
+  box-shadow: var(--shadow); transition: border-color 0.15s, transform 0.15s; scroll-snap-align: start; min-width: 0;
+}
+.cl-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.cl-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+.cl-thumb { height: 84px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; padding: 6px; margin-bottom: 8px; overflow: hidden; }
+.cl-thumb .cl-schem { height: 100%; width: 100%; }
+.cl-thumb-code pre { margin: 0; font-size: 10.5px; color: var(--text-2); font-family: var(--mono); line-height: 1.45; }
+.cl-ctitle { font-weight: 650; font-size: 13.5px; line-height: 1.25; }
+.cl-csum { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+.cl-metric { position: absolute; top: 14px; right: 16px; font-size: 10px; font-family: var(--mono); color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 1px 7px; }
+
+/* ---- main stage ---- */
+.cl-top { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .cl-top { grid-template-columns: minmax(0, 1fr); } }
+.cl-stage .card-head { margin-bottom: 6px; }
+.cl-canvas {
+  border-radius: 12px; border: 1px solid var(--border); padding: 8px;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--text) 9%, transparent) 1px, transparent 1.4px) 0 0 / 20px 20px,
+    radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+    var(--surface-2);
+}
+.cl-schem { display: block; width: 100%; height: auto; overflow: visible; user-select: none; }
+.cl-schem text { font-family: var(--font); }
+.cl-sym { stroke: var(--text); stroke-width: 0.13; fill: none; stroke-linecap: round; }
+.cl-schem.thumb .cl-sym { stroke-width: 0.17; }
+.cl-part { cursor: pointer; }
+.cl-part .cl-hit { transition: fill 0.12s; }
+.cl-part:hover .cl-hit, .cl-part.hover .cl-hit { fill: color-mix(in srgb, var(--accent) 16%, transparent); }
+.cl-part.hover .cl-sym { stroke: var(--accent); }
+.cl-plabel { font-size: 0.62px; fill: var(--text-2); }
+.cl-pname { font-weight: 700; fill: var(--text); }
+.cl-pval { fill: var(--muted); font-size: 0.56px; }
+.cl-pill { fill: var(--surface-1); stroke: var(--border-strong); stroke-width: 0.08; }
+.cl-box rect { fill: color-mix(in srgb, var(--surface-1) 55%, transparent); stroke: var(--border-strong); stroke-width: 0.07; stroke-dasharray: 0.35 0.25; }
+.cl-box text { font-size: 0.5px; fill: var(--muted); letter-spacing: 0.02em; text-transform: uppercase; }
+.cl-label text { font-size: 0.6px; fill: var(--text); font-weight: 650; }
+.cl-lval { font-weight: 500; fill: var(--accent); font-family: var(--mono); font-size: 0.52px; }
+.cl-dots circle { fill: var(--cl-dot); filter: drop-shadow(0 0 0.12px var(--cl-glow)); }
+.cl-wires polyline { transition: stroke 0.12s linear; }
+
+.cl-legend { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.cl-ramp { width: 140px; height: 8px; border-radius: 4px; }
+.cl-legend-dots { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.cl-dotkey { width: 8px; height: 8px; border-radius: 50%; background: var(--cl-dot); box-shadow: 0 0 4px var(--cl-glow); border: 1px solid var(--border-strong); }
+.cl-scrub { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.cl-scrub input[type='range'] { flex: 1; min-width: 80px; }
+.cl-tnow { min-width: 92px; text-align: right; }
+.cl-speed { width: auto; padding: 4px 6px; font-size: 12px; }
+.cl-inspect { display: flex; gap: 6px 14px; flex-wrap: wrap; align-items: baseline; margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); font-size: 12.5px; min-height: 38px; }
+
+/* ---- measurements ---- */
+.cl-meas { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.cl-mtile { padding: 9px 11px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.cl-mtile.pass { border-left: 3px solid var(--good); }
+.cl-mtile.fail { border-left: 3px solid var(--bad); }
+.cl-mlabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.cl-mvalue { font-size: 18px; font-weight: 750; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; letter-spacing: -0.01em; }
+.cl-mnote { font-size: 11.5px; color: var(--text-2); margin-top: 2px; }
+.cl-warn { margin: 6px 0 0; padding-left: 18px; color: var(--text-2); }
+
+/* ---- probes ---- */
+.cl-probes { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.cl-probe { font-family: var(--mono); font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); cursor: pointer; }
+.cl-probe.on { color: var(--text); background: var(--surface-3); border-width: 1.5px; }
+.cl-probe.cur { font-style: italic; }
+
+/* ---- editor ---- */
+.cl-editor { position: relative; display: flex; border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; background: var(--surface-2); }
+.cl-gutter { flex: 0 0 auto; padding: 7px 8px 7px 10px; text-align: right; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--muted); background: var(--surface-3); overflow: hidden; user-select: none; }
+.cl-gutter .err { color: #fff; background: var(--bad); border-radius: 4px; padding: 0 4px; margin-right: -4px; }
+.cl-editor textarea { border: none; border-radius: 0; background: transparent; padding: 7px 10px; line-height: 1.5; font-size: 12.5px; white-space: pre; overflow: auto; resize: vertical; outline: none; }
+.cl-running { position: absolute; right: 10px; top: 6px; font-size: 11px; color: var(--muted); }
+
+/* ---- matrix demo ---- */
+.cl-matrix { display: flex; align-items: center; gap: 6px; overflow-x: auto; padding: 8px 2px; font-family: var(--mono); font-size: 11.5px; }
+.cl-mat { border-left: 2px solid var(--text-2); border-right: 2px solid var(--text-2); border-radius: 6px; padding: 2px 6px; }
+.cl-mhead { display: flex; gap: 4px; color: var(--muted); font-size: 10.5px; }
+.cl-mhead span, .cl-mcell { display: inline-block; min-width: 50px; text-align: right; padding: 1px 2px; }
+.cl-mat.col .cl-mhead span, .cl-mat.col .cl-mcell { min-width: 58px; }
+.cl-mrow { display: flex; gap: 4px; color: var(--text); }
+.cl-mop { color: var(--muted); font-size: 16px; }
+.cl-explain .callout { height: 100%; }
+
+@media (max-width: 640px) {
+  .cl-gallery { grid-auto-columns: 72%; }
+  .cl-canvas { overflow-x: auto; padding: 4px; }
+  .cl-canvas .cl-schem { min-width: 540px; }
+  .cl-scrub { flex-wrap: wrap; }
+  .cl-scrub input[type='range'] { order: 5; flex-basis: 100%; }
+  .cl-legend-dots { margin-left: 0; }
+  .cl-tnow { min-width: 0; }
+  .cl-mhead span, .cl-mcell { min-width: 52px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cl-card, .cl-wires polyline { transition: none; }
+}
