@@ -314,9 +314,6 @@ impl Level {
     fn ndof(&self) -> usize {
         3 * self.gnode.len()
     }
-    fn gnid(&self, i: usize, j: usize, k: usize) -> usize {
-        i + (self.dims[0] + 1) * (j + (self.dims[1] + 1) * k)
-    }
     fn gcoord(&self, g: usize) -> [usize; 3] {
         let (a, b) = (self.dims[0] + 1, self.dims[1] + 1);
         [g % a, (g / a) % b, g / (a * b)]
@@ -369,13 +366,13 @@ impl Level {
     }
     /// Chebyshev smoother (degree `deg`) on D⁻¹K for the interval
     /// [λmax/ratio, 1.1 λmax]; improves x in place.
-    fn smooth(&self, unit: &Mat24, b: &[f64], x: &mut [f64], deg: usize, from_zero: bool, work: &mut [Vec<f64>; 2]) {
+    fn smooth(&self, unit: &Mat24, b: &[f64], x: &mut [f64], deg: usize, from_zero: bool, work: &mut [Vec<f64>; 3]) {
         let upper = 1.1 * self.lmax;
         let lower = self.lmax / 8.0;
         let theta = 0.5 * (upper + lower);
         let delta = 0.5 * (upper - lower);
         let n = b.len();
-        let [r, d] = work;
+        let [r, d, kd] = work;
         if from_zero {
             r.copy_from_slice(b);
         } else {
@@ -389,10 +386,9 @@ impl Level {
             x[i] += d[i];
         }
         let mut rho_old = delta / theta;
-        let mut kd = vec![0.0; n];
         for _ in 1..deg {
             let rho = 1.0 / (2.0 * theta / delta - rho_old);
-            self.apply(unit, d, &mut kd);
+            self.apply(unit, d, kd);
             for i in 0..n {
                 r[i] -= kd[i];
             }
@@ -458,7 +454,7 @@ const SMOOTH_DEG: usize = 2;
 
 /// Trilinear interpolation weights of fine node index i onto coarse nodes.
 fn axis_w(i: usize) -> ([usize; 2], [f64; 2], usize) {
-    if i % 2 == 0 {
+    if i.is_multiple_of(2) {
         ([i / 2, 0], [1.0, 0.0], 1)
     } else {
         ([i / 2, i / 2 + 1], [0.5, 0.5], 2)
@@ -503,7 +499,9 @@ impl Operator {
             enodes.push(en);
             scale.push(opts.e_mpa * g.h * g.rho[e] as f64);
         }
-        let free: Vec<bool> = (0..3 * gnode.len()).map(|i| fixed[gnode[i / 3] as usize] & (1 << (i % 3)) == 0).collect();
+        let free: Vec<bool> = (0..3 * gnode.len())
+            .map(|i| fixed[gnode[i / 3] as usize] & (1 << (i % 3)) == 0)
+            .collect();
         let mut l0 = Level {
             dims: [g.nx, g.ny, g.nz],
             ecoord,
@@ -570,7 +568,7 @@ impl Operator {
         }
         let lv = &self.levels[l];
         let n = b.len();
-        let mut work = [vec![0.0; n], vec![0.0; n]];
+        let mut work = [vec![0.0; n], vec![0.0; n], vec![0.0; n]];
         x.iter_mut().for_each(|v| *v = 0.0);
         lv.smooth(&self.unit, b, x, SMOOTH_DEG, true, &mut work);
         let mut ax = vec![0.0; n];
@@ -619,7 +617,13 @@ impl Operator {
         let l0 = &self.levels[0];
         let n = l0.ndof();
         let b: Vec<f64> = (0..n)
-            .map(|i| if l0.free[i] { f_grid[3 * l0.gnode[i / 3] as usize + i % 3] } else { 0.0 })
+            .map(|i| {
+                if l0.free[i] {
+                    f_grid[3 * l0.gnode[i / 3] as usize + i % 3]
+                } else {
+                    0.0
+                }
+            })
             .collect();
         let bnorm = dot(&b, &b).sqrt();
         let mut x = vec![0.0; n];
@@ -751,7 +755,10 @@ fn coarsen(f: &Level, unit: &Mat24) -> (Level, Transfer) {
     let mut t = [0.0f64; 576];
     for (e, c) in f.ecoord.iter().enumerate() {
         let (i, j, k) = (c[0] as usize, c[1] as usize, c[2] as usize);
-        let cpos = OFFS.iter().position(|o| o[0] == i % 2 && o[1] == j % 2 && o[2] == k % 2).unwrap_or(0);
+        let cpos = OFFS
+            .iter()
+            .position(|o| o[0] == i % 2 && o[1] == j % 2 && o[2] == k % 2)
+            .unwrap_or(0);
         let ce = cidx[&(i / 2 + cd[0] * (j / 2 + cd[1] * (k / 2)))];
         let (km, s) = f.mat(e, unit);
         let w = &wts[cpos];
@@ -821,7 +828,6 @@ fn coarsen(f: &Level, unit: &Mat24) -> (Level, Transfer) {
         lmax: 1.0,
     };
     finish_level(&mut lv, unit);
-    let _ = f.gnid(0, 0, 0);
     (lv, Transfer { off, col, w: wv })
 }
 
@@ -879,7 +885,11 @@ pub struct Stresses {
     /// Averaged normal stress along the build (layer-normal) direction, MPa.
     pub node_sbuild: Vec<f64>,
     /// Von Mises stress at each element centre, MPa (per grid element; 0 = void).
+    /// The centre value is the stress averaged over the voxel — bounded at
+    /// sharp re-entrant corners where the nodal (corner) value is singular.
     pub elem_vm: Vec<f64>,
+    /// Normal stress along the build direction at each element centre, MPa.
+    pub elem_sbuild: Vec<f64>,
     /// Maximum von Mises of the averaged nodal field, MPa.
     pub max_vm: f64,
     pub max_node: usize,
@@ -894,6 +904,7 @@ pub fn stresses(g: &Grid, hex: &UnitHex, e_mpa: f64, u: &[f64], build_dir: [f64;
     let mut acc = vec![[0.0f64; 6]; nn];
     let mut cnt = vec![0u16; nn];
     let mut elem_vm = vec![0.0; g.solid.len()];
+    let mut elem_sbuild = vec![0.0; g.solid.len()];
     let scale = e_mpa / g.h;
     let mut ue = [0.0; 24];
     for (e, s) in g.solid.iter().enumerate() {
@@ -920,6 +931,7 @@ pub fn stresses(g: &Grid, hex: &UnitHex, e_mpa: f64, u: &[f64], build_dir: [f64;
             *v = scale * (0..24).map(|c| hex.s_center[r][c] * ue[c]).sum::<f64>();
         }
         elem_vm[e] = von_mises(&sc);
+        elem_sbuild[e] = normal_stress(&sc, build_dir);
     }
     let mut node_vm = vec![0.0; nn];
     let mut node_sbuild = vec![0.0; nn];
@@ -942,6 +954,7 @@ pub fn stresses(g: &Grid, hex: &UnitHex, e_mpa: f64, u: &[f64], build_dir: [f64;
         node_vm,
         node_sbuild,
         elem_vm,
+        elem_sbuild,
         max_vm,
         max_node,
     }
@@ -997,23 +1010,15 @@ mod tests {
         let mut g = Grid::new(nx, ny, nz, h, [0.0; 3]);
         g.fill_all();
         let mut bcs = Bcs::new(&g);
-        let root: Vec<usize> = (0..ny).flat_map(|j| (0..nz).map(move |k| (j, k))).map(|(j, k)| g.eid(0, j, k)).collect();
-        // Clamp only the x = 0 face nodes: fix nodes with i = 0.
+        // Clamp the x = 0 face nodes.
         for k in 0..=nz {
             for j in 0..=ny {
                 bcs.fixed[g.nid(0, j, k)] = 7;
             }
         }
-        let _ = root;
         let p = 10.0;
-        // Tip load on the end face nodes.
-        let mut n = 0;
-        for k in 0..=nz {
-            for j in 0..=ny {
-                n += 1;
-                let _ = (j, k);
-            }
-        }
+        // Tip load spread equally over the end-face nodes.
+        let n = (ny + 1) * (nz + 1);
         for k in 0..=nz {
             for j in 0..=ny {
                 bcs.force[3 * g.nid(nx, j, k) + 2] = -p / n as f64;
@@ -1051,7 +1056,12 @@ mod tests {
         let (_, s, tip) = cantilever(l, b, t, 1.0, true, Precond::Multigrid);
         assert!(s.converged, "MG-PCG did not converge");
         let err = (tip - (exact + shear)) / (exact + shear);
-        assert!(err.abs() < 0.04, "incompatible-mode tip {tip:.4} vs {:.4} ({:.1} %)", exact + shear, err * 100.0);
+        assert!(
+            err.abs() < 0.04,
+            "incompatible-mode tip {tip:.4} vs {:.4} ({:.1} %)",
+            exact + shear,
+            err * 100.0
+        );
         assert!(s.history.len() < 60, "multigrid iterations {}", s.history.len());
         // With only two voxels through the thickness plain trilinear bricks
         // lock in bending (far too stiff) while the incompatible-mode brick
@@ -1068,7 +1078,12 @@ mod tests {
         let (_, b, tip_b) = cantilever(16.0, 2.0, 2.0, 1.0, true, Precond::Multigrid);
         assert!(a.converged && b.converged);
         assert!((tip_a - tip_b).abs() < 1e-5 * tip_b.abs());
-        assert!(b.history.len() < a.history.len(), "MG {} vs Jacobi {}", b.history.len(), a.history.len());
+        assert!(
+            b.history.len() < a.history.len(),
+            "MG {} vs Jacobi {}",
+            b.history.len(),
+            a.history.len()
+        );
     }
 
     #[test]

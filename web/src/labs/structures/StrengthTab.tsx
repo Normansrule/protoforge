@@ -8,12 +8,15 @@ import { useProject } from '../../state/project';
 import { PresetButtons, type ViewPreset } from '../cad/viewer';
 import { FeaView, type ColorMode, type ViewOpts, autoScale } from './FeaView';
 import type { CaseInfo, FeaResult, IrisOut, StructMaterial, StudyRow } from './types';
-import { CRITICAL, HEAT_GRADIENT, PART_LABEL, fmt, prefersReducedMotion, sfTone, toCsv, useWorkerCompute, workerCall } from './util';
+import { CRITICAL, HEAT_GRADIENT, PART_LABEL, fmt, prefersReducedMotion, sfTone, sfWord, toCsv, useWorkerCompute, workerCall } from './util';
 import { DropCard } from './DropCard';
 
-const VOXELS = [2.0, 1.5, 1.2, 1.0, 0.8, 0.6];
+const VOXELS = [2.0, 1.33, 1.0, 0.8];
+const FINE_VOXEL = 0.67;
 
-export function StrengthTab({ iris }: { iris: { data: IrisOut | null; busy: boolean } }) {
+type IrisState = { data: IrisOut | null; busy: boolean; error: string | null; ms: number };
+
+export function StrengthTab({ iris, fidelity, setFidelity }: { iris: IrisState; fidelity: 'metric' | 'fine'; setFidelity: (f: 'metric' | 'fine') => void }) {
   const project = useProject((s) => s.project);
   const patchDesign = useProject((s) => s.patchDesign);
   const mats = useCompute<StructMaterial[]>('structures.materials', {}).data ?? [];
@@ -21,7 +24,7 @@ export function StrengthTab({ iris }: { iris: { data: IrisOut | null; busy: bool
   const [caseId, setCaseId] = useState('temple_spread');
   const [part, setPart] = useState('temple_r');
   const [material, setMaterial] = useState<string>('');
-  const [voxel, setVoxel] = useState(1.2);
+  const [voxel, setVoxel] = useState(1.33);
   const [force, setForce] = useState<number | null>(null);
   const [precond, setPrecond] = useState<'multigrid' | 'jacobi'>('multigrid');
   const [element, setElement] = useState<'h8i' | 'h8'>('h8i');
@@ -36,7 +39,7 @@ export function StrengthTab({ iris }: { iris: { data: IrisOut | null; busy: bool
       part: effPart,
       case: caseId,
       material: matId,
-      voxel_mm: fine ? 0.6 : voxel,
+      voxel_mm: fine ? FINE_VOXEL : voxel,
       max_elements: fine ? 30000 : 12000,
       force_n: force ?? info?.default_force_n ?? 5,
       precond,
@@ -131,7 +134,7 @@ export function StrengthTab({ iris }: { iris: { data: IrisOut | null; busy: bool
           </Card>
           {r && (
             <div className="grid grid-4">
-              <Stat label="Design stress (von Mises)" value={fmt(r.max_vm_mpa, 1)} unit="MPa" note={`raw corner peak ${fmt(r.peak_vm_mpa, 1)} MPa`} />
+              <Stat label="Design stress (von Mises)" value={fmt(r.max_vm_mpa, 1)} unit="MPa" note={`sharp-corner peak ${fmt(r.peak_vm_mpa, 1)} MPa (×${fmt(r.peak_vm_mpa / Math.max(1e-9, r.max_vm_mpa), 2)})`} />
               <Stat
                 label="Safety factor vs yield"
                 value={fmt(sf, 2)}
@@ -144,7 +147,16 @@ export function StrengthTab({ iris }: { iris: { data: IrisOut | null; busy: bool
             </div>
           )}
           {r && (
-            <Card title="Why is it failing here?" subtitle={`Critical point: ${r.hint.region} — the pulsing marker in the view`}>
+            <div className="row" style={{ gap: 8 }}>
+              <Chip tone={sfTone(sf)} title="Recommended requirement: minimum safety factor ≥ 2">{sfWord(sf)} · SF {fmt(sf, 2)}×</Chip>
+              <Chip tone={sfTone(r.yield_mpa / Math.max(1e-9, r.peak_vm_mpa), 1)}>
+                {r.peak_vm_mpa < r.yield_mpa ? '✓ corner peak below yield' : '! corner peak above yield — fillet it'}
+              </Chip>
+              <Chip>{r.converged ? `✓ solver converged (${r.iterations} it)` : '! not converged — raise the iteration limit'}</Chip>
+            </div>
+          )}
+          {r && (
+            <Card title={sf >= 2 ? 'Where is it working hardest?' : 'Why is it failing here?'} subtitle={`Critical point: ${r.hint.region} — the pulsing marker in the view`}>
               <div className="stack" style={{ gap: 8 }}>
                 <div className="small">{r.hint.mechanism}</div>
                 <div className="callout small">{r.hint.advice}</div>
@@ -203,7 +215,7 @@ export function StrengthTab({ iris }: { iris: { data: IrisOut | null; busy: bool
             <Select
               label="Voxel size"
               value={String(voxel)}
-              options={VOXELS.map((v) => ({ value: String(v), label: `${v} mm${v === 1.2 ? ' (= wall)' : ''}` }))}
+              options={VOXELS.map((v) => ({ value: String(v), label: `${v} mm${v === 2 ? ' (metric: 2 through the temple)' : v === 1.33 ? ' (3 through the temple)' : v === 1 ? ' (4 through the temple)' : ''}` }))}
               onChange={(v) => {
                 setVoxel(Number(v));
                 setFine(false);
@@ -211,7 +223,7 @@ export function StrengthTab({ iris }: { iris: { data: IrisOut | null; busy: bool
             />
             <div className="row" style={{ marginBottom: 10 }}>
               <button className={`btn small ${fine ? 'primary' : ''}`} onClick={() => setFine((f) => !f)} aria-pressed={fine}>
-                {fine ? '✓ Fine run (0.6 mm, ≤ 30 k voxels)' : 'Run finer (0.6 mm)'}
+                {fine ? `✓ Fine run (${FINE_VOXEL} mm, ≤ 30 k voxels)` : `Run finer (${FINE_VOXEL} mm, a few seconds)`}
               </button>
             </div>
             <Select
@@ -264,7 +276,7 @@ export function StrengthTab({ iris }: { iris: { data: IrisOut | null; busy: bool
           )}
           <CompareCg input={input} />
         </Card>
-        <IrisCases iris={iris} />
+        <IrisCases iris={iris} fidelity={fidelity} setFidelity={setFidelity} />
       </div>
       <div className="grid grid-2">
         <MeshStudy part={effPart} caseId={caseId} material={matId} />
@@ -287,6 +299,7 @@ function Legend({ r, mode }: { r: FeaResult; mode: ColorMode }) {
   return (
     <div className="st-legend" aria-label="Colour scale">
       <div className="small" style={{ fontWeight: 600 }}>{mode === 'vm' ? 'von Mises stress, MPa' : 'Utilisation (stress ÷ allowable)'}</div>
+      {mode === 'vm' && <div className="small muted">scale tops out at the design stress</div>}
       <div className="st-legend-bar" style={{ background: HEAT_GRADIENT }} />
       <div className="st-legend-ticks tnum">
         <span>0</span>
@@ -374,12 +387,32 @@ function CompareCg({ input }: { input: Record<string, unknown> }) {
   );
 }
 
-function IrisCases({ iris }: { iris: { data: IrisOut | null; busy: boolean } }) {
+function IrisCases({ iris, fidelity, setFidelity }: { iris: IrisState; fidelity: 'metric' | 'fine'; setFidelity: (f: 'metric' | 'fine') => void }) {
   const o = iris.data;
   return (
-    <Card title="Iris structural verification" subtitle="Every load case on the current design (coarse model used by the requirement metrics)" actions={iris.busy ? <span className="cp-spin" /> : undefined}>
+    <Card
+      title="Iris structural verification"
+      subtitle={
+        fidelity === 'metric'
+          ? 'Every load case on the current design — the coarse pass the requirement metrics use (2 voxels through the temple)'
+          : 'Fine pass: 4 voxels through the temple, plus the pod squeeze (not used by the metrics)'
+      }
+      actions={
+        <>
+          {iris.busy && <span className="cp-spin" aria-label="computing" />}
+          <div className="cp-seg" role="group" aria-label="Fidelity">
+            {(['metric', 'fine'] as const).map((f) => (
+              <button key={f} className={`cp-seg-btn ${fidelity === f ? 'active' : ''}`} onClick={() => setFidelity(f)} aria-pressed={fidelity === f}>
+                {f === 'metric' ? 'metric pass' : 'fine pass'}
+              </button>
+            ))}
+          </div>
+        </>
+      }
+    >
+      <ErrorBox error={iris.error} />
       {!o ? (
-        <div className="muted small">Computing…</div>
+        <div className="muted small">{iris.busy ? 'Solving every load case in the worker…' : 'Waiting for the engine…'}</div>
       ) : (
         <>
           <div className="table-wrap">
@@ -388,7 +421,8 @@ function IrisCases({ iris }: { iris: { data: IrisOut | null; busy: boolean } }) 
                 <tr>
                   <th>Case</th>
                   <th>Force</th>
-                  <th>Stress</th>
+                  <th>Design stress</th>
+                  <th>Corner peak</th>
                   <th>Deflection</th>
                   <th>SF</th>
                 </tr>
@@ -398,14 +432,19 @@ function IrisCases({ iris }: { iris: { data: IrisOut | null; busy: boolean } }) 
                   <tr key={c.label}>
                     <td>
                       {c.label}
-                      <div className="small muted">{c.region}</div>
+                      <div className="small muted">
+                        {c.region} · {c.elements.toLocaleString()} voxels of {fmt(c.h_mm, 2)} mm
+                      </div>
                     </td>
                     <td className="tnum">{fmt(c.force_n, 1)} N</td>
                     <td className="tnum">{fmt(c.max_vm_mpa, c.max_vm_mpa < 1 ? 3 : 1)} MPa</td>
+                    <td className="tnum muted">{fmt(c.peak_vm_mpa, c.peak_vm_mpa < 1 ? 3 : 1)} MPa</td>
                     <td className="tnum">{fmt(c.deflection_mm, 2)} mm</td>
                     <td className="tnum">
                       {c.counts_for_min ? (
-                        <Chip tone={sfTone(c.safety_factor)}>{sfTone(c.safety_factor) === 'pass' ? '✓' : sfTone(c.safety_factor) === 'warn' ? '!' : '✕'} {fmt(c.safety_factor, 2)}×</Chip>
+                        <Chip tone={sfTone(c.safety_factor)}>
+                          {sfTone(c.safety_factor) === 'pass' ? '✓' : sfTone(c.safety_factor) === 'warn' ? '!' : '✕'} {fmt(c.safety_factor, 2)}×
+                        </Chip>
                       ) : (
                         <span className="muted small">unit load</span>
                       )}
@@ -418,14 +457,32 @@ function IrisCases({ iris }: { iris: { data: IrisOut | null; busy: boolean } }) 
           <div className="row small" style={{ marginTop: 10 }}>
             <StatusChip status={o.min_safety_factor >= 2 ? 'pass' : o.min_safety_factor >= 1 ? 'warn' : 'fail'} />
             <span>
-              Minimum safety factor <b className="tnum">{fmt(o.min_safety_factor, 2)}×</b> — {o.worst_case}. Recommended target ≥ 2 for a consumer product.
+              Minimum safety factor <b className="tnum">{fmt(o.min_safety_factor, 2)}×</b> — {o.worst_case}. Recommended requirement ≥ 2 for a consumer product
+              {fidelity === 'fine' ? ' (the metric uses the coarse pass).' : '.'}
             </span>
           </div>
-          {o.solid_fraction_note && <div className="small muted" style={{ marginTop: 6 }}>{o.solid_fraction_note}</div>}
+          <ul className="small muted" style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+            {o.notes.map((n, i) => (
+              <li key={i}>{n}</li>
+            ))}
+            {o.solid_fraction_note && <li>{o.solid_fraction_note}</li>}
+          </ul>
+          <div className="row" style={{ marginTop: 8 }}>
+            <DownloadButton small filename={`iris-structures-${o.fidelity}.csv`} label="load cases CSV" content={() => casesCsv(o)} />
+            <DownloadButton small filename={`iris-structures-${o.fidelity}.json`} label="full verification JSON" content={() => JSON.stringify(o, null, 2)} />
+          </div>
         </>
       )}
     </Card>
   );
+}
+
+function casesCsv(o: IrisOut): string {
+  const rows: (string | number)[][] = [['case', 'part', 'label', 'force_n', 'voxel_mm', 'elements', 'iterations', 'design_vm_mpa', 'corner_peak_mpa', 'safety_factor', 'governing', 'deflection_mm', 'stiffness_n_mm', 'region']];
+  for (const c of o.cases) {
+    rows.push([c.case, c.part, c.label, c.force_n, c.h_mm, c.elements, c.iterations, +c.max_vm_mpa.toFixed(4), +c.peak_vm_mpa.toFixed(4), +c.safety_factor.toFixed(4), c.governing, +c.deflection_mm.toFixed(5), +c.stiffness_n_mm.toFixed(4), c.region]);
+  }
+  return toCsv(rows);
 }
 
 function MeshStudy({ part, caseId, material }: { part: string; caseId: string; material: string }) {
@@ -437,7 +494,7 @@ function MeshStudy({ part, caseId, material }: { part: string; caseId: string; m
     setBusy(true);
     setErr(null);
     try {
-      const { data } = await workerCall<StudyRow[]>('structures.mesh_study', { project, part, case: caseId, material, sizes: [2.0, 1.5, 1.2, 1.0, 0.8, 0.6] });
+      const { data } = await workerCall<StudyRow[]>('structures.mesh_study', { project, part, case: caseId, material, sizes: [2.0, 1.33, 1.0, 0.8, 0.67] });
       setRows(data);
     } catch (e) {
       setErr(String(e));
@@ -448,8 +505,8 @@ function MeshStudy({ part, caseId, material }: { part: string; caseId: string; m
   return (
     <Card
       title="Mesh-convergence study"
-      subtitle="Does the answer change when the voxels shrink? Stiffness should settle; a sharp-corner peak keeps climbing (a singularity)."
-      actions={<button className="btn small" onClick={run} disabled={busy}>{busy ? 'Running 6 models…' : rows ? 'Re-run' : 'Run study'}</button>}
+      subtitle="Does the answer change when the voxels shrink? Deflection settles; the sharp-corner peak keeps climbing (a singularity) and the design stress creeps up as its exclusion zone shrinks."
+      actions={<button className="btn small" onClick={run} disabled={busy}>{busy ? 'Running 5 models…' : rows ? 'Re-run' : 'Run study'}</button>}
     >
       <ErrorBox error={err} />
       {rows ? (
@@ -457,7 +514,7 @@ function MeshStudy({ part, caseId, material }: { part: string; caseId: string; m
           <Plot
             series={[
               { name: 'Design stress (MPa)', x: rows.map((r) => r.h_mm), y: rows.map((r) => r.max_vm_mpa) },
-              { name: 'Raw corner peak (MPa)', x: rows.map((r) => r.h_mm), y: rows.map((r) => r.peak_vm_mpa), dash: '4 3' },
+              { name: 'Sharp-corner peak (MPa)', x: rows.map((r) => r.h_mm), y: rows.map((r) => r.peak_vm_mpa), dash: '4 3' },
             ]}
             xLabel="voxel size, mm"
             yLabel="stress, MPa"
@@ -477,7 +534,7 @@ function MeshStudy({ part, caseId, material }: { part: string; caseId: string; m
           </div>
         </>
       ) : (
-        <div className="muted small">{busy ? 'Solving the same case at 2.0 → 0.6 mm…' : 'Six solves from 2 mm to 0.6 mm voxels (a few seconds in the worker).'}</div>
+        <div className="muted small">{busy ? 'Solving the same case at 2.0 → 0.67 mm…' : 'Five solves from 2 mm to 0.67 mm voxels (several seconds in the worker).'}</div>
       )}
     </Card>
   );

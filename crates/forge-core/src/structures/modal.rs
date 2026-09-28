@@ -24,7 +24,10 @@ pub fn jacobi_eigen(mut a: Vec<Vec<f64>>) -> (Vec<f64>, Vec<Vec<f64>>) {
         row[i] = 1.0;
     }
     for _sweep in 0..100 {
-        let off: f64 = (0..n).flat_map(|i| (0..n).filter(move |&j| j != i).map(move |j| (i, j))).map(|(i, j)| a[i][j] * a[i][j]).sum();
+        let off: f64 = (0..n)
+            .flat_map(|i| (0..n).filter(move |&j| j != i).map(move |j| (i, j)))
+            .map(|(i, j)| a[i][j] * a[i][j])
+            .sum();
         let diag: f64 = (0..n).map(|i| a[i][i] * a[i][i]).sum();
         if off <= 1e-24 * diag.max(1e-300) {
             break;
@@ -179,7 +182,15 @@ pub struct ModalOut {
 }
 
 /// Slice a voxel grid along Y into beam segments (from `y_clamp` towards −Y).
-pub fn temple_modal(g: &super::fea3d::Grid, part: &str, e_mpa: f64, density_g_cm3: f64, y_clamp: f64, pod_rear_y: f64, added_pod_g: f64) -> ModalOut {
+pub fn temple_modal(
+    g: &super::fea3d::Grid,
+    part: &str,
+    e_mpa: f64,
+    density_g_cm3: f64,
+    y_clamp: f64,
+    pod_rear_y: f64,
+    added_pod_g: f64,
+) -> ModalOut {
     let h = g.h;
     // Per y-layer sums.
     let mut rows: Vec<(f64, [f64; 6])> = Vec::new(); // (y centre, [A, Σx dA, Σz dA, Σx² dA, Σz² dA, count])
@@ -256,8 +267,22 @@ pub fn temple_modal(g: &super::fea3d::Grid, part: &str, e_mpa: f64, density_g_cm
     }
     out.added_mass_g = added_pod_g;
     // SI: m, N·m², kg/m (g/mm = kg/m).
-    let lat: Vec<Seg> = segs.iter().map(|s| Seg { len: s.0 / 1000.0, ei: s.1 * 1e-6, m: s.3 }).collect();
-    let ver: Vec<Seg> = segs.iter().map(|s| Seg { len: s.0 / 1000.0, ei: s.2 * 1e-6, m: s.3 }).collect();
+    let lat: Vec<Seg> = segs
+        .iter()
+        .map(|s| Seg {
+            len: s.0 / 1000.0,
+            ei: s.1 * 1e-6,
+            m: s.3,
+        })
+        .collect();
+    let ver: Vec<Seg> = segs
+        .iter()
+        .map(|s| Seg {
+            len: s.0 / 1000.0,
+            ei: s.2 * 1e-6,
+            m: s.3,
+        })
+        .collect();
     let (fl, sl) = cantilever_modes(&lat, 3);
     let (fv, sv) = cantilever_modes(&ver, 3);
     out.first_mode_hz = fl.first().copied().unwrap_or(0.0).min(fv.first().copied().unwrap_or(f64::INFINITY));

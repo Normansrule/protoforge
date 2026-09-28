@@ -353,7 +353,7 @@ pub fn presets() -> Vec<PresetInfo> {
         },
         PresetInfo {
             id: "iris_hinge",
-            label: "Iris hinge endpiece (top view)",
+            label: "Iris hinge bracket (endpiece, top view)",
             description: "The endpiece joining an Iris rim (clamped, left) to the hinge knuckle (pin hole with a solid ring, right). Opening the temple pulls the knuckle rearward and outward. 0.25 mm elements: a 12 × 6 mm design space.",
             nelx: 48,
             nely: 24,
@@ -416,18 +416,33 @@ fn setup(i: &mut TopoIn) -> Result<(), String> {
     match i.preset.as_str() {
         "mbb" => {
             i.supports = vec![full(0, 0, 0, ny, true, false), full(nx, 0, nx, 0, false, true)];
-            i.loads = vec![Load { i: 0, j: ny, fx: 0.0, fy: -1.0 }];
+            i.loads = vec![Load {
+                i: 0,
+                j: ny,
+                fx: 0.0,
+                fy: -1.0,
+            }];
             i.passive = vec![];
         }
         "cantilever" => {
             i.supports = vec![full(0, 0, 0, ny, true, true)];
-            i.loads = vec![Load { i: nx, j: ny / 2, fx: 0.0, fy: -1.0 }];
+            i.loads = vec![Load {
+                i: nx,
+                j: ny / 2,
+                fx: 0.0,
+                fy: -1.0,
+            }];
             i.passive = vec![];
         }
         "bracket" => {
             let (cx, cy) = (nx * 2 / 5, ny * 2 / 5);
             i.supports = vec![full(0, ny, cx, ny, true, true)];
-            i.loads = vec![Load { i: nx, j: cy / 2, fx: 0.0, fy: -1.0 }];
+            i.loads = vec![Load {
+                i: nx,
+                j: cy / 2,
+                fx: 0.0,
+                fy: -1.0,
+            }];
             i.passive = vec![Passive {
                 kind: "void".into(),
                 shape: "rect".into(),
@@ -441,8 +456,18 @@ fn setup(i: &mut TopoIn) -> Result<(), String> {
             let ic = (cx + r + 1.0).round() as usize;
             let jc = cy.round() as usize;
             i.loads = vec![
-                Load { i: ic, j: jc, fx: 0.35, fy: -0.5 },
-                Load { i: ic - 2, j: jc - 2, fx: 0.35, fy: -0.5 },
+                Load {
+                    i: ic,
+                    j: jc,
+                    fx: 0.35,
+                    fy: -0.5,
+                },
+                Load {
+                    i: ic - 2,
+                    j: jc - 2,
+                    fx: 0.35,
+                    fy: -0.5,
+                },
             ];
             i.passive = vec![
                 Passive {
@@ -459,7 +484,12 @@ fn setup(i: &mut TopoIn) -> Result<(), String> {
         }
         "temple_arm" => {
             i.supports = vec![full(0, 0, 0, ny, true, true)];
-            i.loads = vec![Load { i: nx, j: ny / 2, fx: 0.0, fy: -1.0 }];
+            i.loads = vec![Load {
+                i: nx,
+                j: ny / 2,
+                fx: 0.0,
+                fy: -1.0,
+            }];
             i.passive = vec![];
         }
         _ => {
@@ -473,7 +503,10 @@ fn setup(i: &mut TopoIn) -> Result<(), String> {
 
 /// Passive flag per element: 0 free, −1 void, +1 solid (later entries win).
 fn passive_map(i: &TopoIn) -> Vec<i8> {
-    let m = Mesh2 { nelx: i.nelx, nely: i.nely };
+    let m = Mesh2 {
+        nelx: i.nelx,
+        nely: i.nely,
+    };
     let mut out = vec![0i8; i.nelx * i.nely];
     for ex in 0..i.nelx {
         for ey in 0..i.nely {
@@ -585,7 +618,10 @@ fn filter_weights(nelx: usize, nely: usize, rmin: f64) -> (Vec<Vec<(u32, f64)>>,
 /// Run SIMP topology optimisation.
 pub fn optimize(mut i: TopoIn) -> Result<TopoOut, String> {
     setup(&mut i)?;
-    let m = Mesh2 { nelx: i.nelx, nely: i.nely };
+    let m = Mesh2 {
+        nelx: i.nelx,
+        nely: i.nely,
+    };
     let ne = i.nelx * i.nely;
     let kk = ke(i.nu);
     let (fixed, f) = bcs(&i, &m);
@@ -593,7 +629,18 @@ pub fn optimize(mut i: TopoIn) -> Result<TopoOut, String> {
     let (h, hs) = filter_weights(i.nelx, i.nely, i.rmin);
     let density = i.filter == "density";
     let (e0, emin, p) = (1.0, 1e-9, i.penal);
-    let mut x: Vec<f64> = pas.iter().map(|&q| if q < 0 { 0.0 } else if q > 0 { 1.0 } else { i.volfrac }).collect();
+    let mut x: Vec<f64> = pas
+        .iter()
+        .map(|&q| {
+            if q < 0 {
+                0.0
+            } else if q > 0 {
+                1.0
+            } else {
+                i.volfrac
+            }
+        })
+        .collect();
     let mut xphys = x.clone();
     let mut out = TopoOut {
         preset: i.preset.clone(),
@@ -634,7 +681,9 @@ pub fn optimize(mut i: TopoIn) -> Result<TopoOut, String> {
         let mut dv = vec![1.0; ne];
         // Filtering.
         if density {
-            dc = (0..ne).map(|e| h[e].iter().map(|&(k, w)| w * dc[k as usize] / hs[k as usize]).sum()).collect();
+            dc = (0..ne)
+                .map(|e| h[e].iter().map(|&(k, w)| w * dc[k as usize] / hs[k as usize]).sum())
+                .collect();
             dv = (0..ne).map(|e| h[e].iter().map(|&(k, w)| w / hs[k as usize]).sum()).collect();
         } else {
             let xd: Vec<f64> = (0..ne).map(|e| x[e] * dc[e]).collect();
@@ -740,7 +789,12 @@ pub fn outline(m: &Mesh2, rho: &[f64], level: f64, scale: f64) -> Vec<Vec<[f64; 
             let (i, j) = (a - 1, b - 1);
             let mut s = 0.0;
             let mut c = 0.0;
-            for (ex, ey) in [(i as i64 - 1, j as i64 - 1), (i as i64, j as i64 - 1), (i as i64 - 1, j as i64), (i as i64, j as i64)] {
+            for (ex, ey) in [
+                (i as i64 - 1, j as i64 - 1),
+                (i as i64, j as i64 - 1),
+                (i as i64 - 1, j as i64),
+                (i as i64, j as i64),
+            ] {
                 if ex >= 0 && ey >= 0 && (ex as usize) < nx && (ey as usize) < ny {
                     s += rho[m.eid(ex as usize, ey as usize)];
                 }
@@ -861,7 +915,10 @@ fn openscad(loops: &[Vec<[f64; 2]>], name: &str) -> String {
     for lp in loops {
         let start = pts.len();
         pts.extend(lp.iter().map(|p| format!("[{:.3},{:.3}]", p[0], p[1])));
-        paths.push(format!("[{}]", (start..pts.len()).map(|k| k.to_string()).collect::<Vec<_>>().join(",")));
+        paths.push(format!(
+            "[{}]",
+            (start..pts.len()).map(|k| k.to_string()).collect::<Vec<_>>().join(",")
+        ));
     }
     format!(
         "// Protoforge Structures Lab — topology-optimised outline ({name}).\n// Extrude to the part thickness; smooth the edges in your CAD tool before use.\nthickness = 4; // mm\nlinear_extrude(height = thickness)\n  polygon(points = [{}],\n          paths = [{}]);\n",
@@ -906,7 +963,12 @@ impl Default for PlaneIn {
                 fix_x: true,
                 fix_y: true,
             }],
-            loads: vec![Load { i: 40, j: 5, fx: 0.0, fy: -10.0 }],
+            loads: vec![Load {
+                i: 40,
+                j: 5,
+                fx: 0.0,
+                fy: -10.0,
+            }],
         }
     }
 }
@@ -926,7 +988,11 @@ pub fn plane_stress(i: PlaneIn) -> Result<PlaneOut, String> {
     let (nx, ny) = (i.nelx.clamp(1, 200), i.nely.clamp(1, 100));
     let m = Mesh2 { nelx: nx, nely: ny };
     let ne = nx * ny;
-    let solid: Vec<bool> = if i.solid.len() == ne { i.solid.iter().map(|v| *v != 0).collect() } else { vec![true; ne] };
+    let solid: Vec<bool> = if i.solid.len() == ne {
+        i.solid.iter().map(|v| *v != 0).collect()
+    } else {
+        vec![true; ne]
+    };
     let et = i.e_mpa * i.thickness_mm;
     let e_el: Vec<f64> = solid.iter().map(|s| if *s { et } else { et * 1e-9 }).collect();
     let spec = TopoIn {
@@ -1015,9 +1081,9 @@ mod tests {
     fn mbb_converges_to_a_truss() {
         let o = optimize(TopoIn {
             preset: "mbb".into(),
-            nelx: 30,
-            nely: 10,
-            max_iter: 60,
+            nelx: 60,
+            nely: 20,
+            max_iter: 120,
             ..Default::default()
         })
         .unwrap();
@@ -1027,7 +1093,10 @@ mod tests {
         let c0 = o.compliance[0];
         let c1 = *o.compliance.last().unwrap();
         assert!(c1 < 0.7 * c0, "compliance {c0} -> {c1}");
-        // Mostly black and white.
+        // The 88-line setting (60 × 20, r_min = 1.5, sensitivity filter)
+        // converges in about 94 iterations to a mostly black-and-white truss;
+        // the filter leaves a one-element grey rim along every member.
+        assert!(o.converged && o.iterations < 110, "iterations {}", o.iterations);
         let grey = o.final_rho.iter().filter(|r| **r > 0.1 && **r < 0.9).count() as f64 / o.final_rho.len() as f64;
         assert!(grey < 0.3, "grey fraction {grey}");
         assert!(!o.outline.is_empty() && o.svg.contains("<path"));

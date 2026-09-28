@@ -109,7 +109,11 @@ pub fn untilt(l: &FrameLayout) -> Affine {
 fn part_mesh(p: &Project, part: &str) -> Result<(Mesh, P3, FrameLayout), String> {
     let geom = crate::cad::frame_geom(p);
     let l = geom.layout.clone();
-    let b = geom.parts.iter().find(|b| b.name == part).ok_or_else(|| format!("unknown part `{part}`"))?;
+    let b = geom
+        .parts
+        .iter()
+        .find(|b| b.name == part)
+        .ok_or_else(|| format!("unknown part `{part}`"))?;
     if part == "front" {
         let t = untilt(&l);
         Ok((b.assembly.transformed(&t), crate::cad::mesh::v_norm(t.apply_linear(b.pull)), l))
@@ -131,6 +135,33 @@ fn select(g: &Grid, pred: impl Fn([f64; 3]) -> bool) -> Vec<usize> {
     (0..g.solid.len()).filter(|&e| g.solid[e] && pred(g.center(e))).collect()
 }
 
+/// Grid anchors that align voxel faces with the part's slender members: the
+/// temple arm's inner face (X) and the front's back face (Y, after untilt).
+fn anchors(mesh: &Mesh, part: &str, l: &FrameLayout) -> [Option<f64>; 3] {
+    let mut lo = f64::INFINITY;
+    for p in mesh.positions.chunks(3) {
+        match part {
+            "front" => {
+                if p[0].abs() < 4.0 {
+                    lo = lo.min(p[1]);
+                }
+            }
+            _ => {
+                if p[1] < l.pod_rear_y - 2.0 {
+                    lo = lo.min(p[0]);
+                }
+            }
+        }
+    }
+    if !lo.is_finite() {
+        return [None; 3];
+    }
+    match part {
+        "front" => [None, Some(lo), None],
+        _ => [Some(lo), None, None],
+    }
+}
+
 /// Choose the voxel size: the requested one, coarsened until the estimated
 /// element count fits the budget.
 pub fn pick_h(volume_mm3: f64, requested: f64, max_elems: usize) -> f64 {
@@ -140,7 +171,10 @@ pub fn pick_h(volume_mm3: f64, requested: f64, max_elems: usize) -> f64 {
 
 /// Build the voxel model of `part` for load case `case` with total force `force_n`.
 pub fn build_model(p: &Project, part: &str, case: &str, h_req: f64, max_elems: usize, force_n: f64) -> Result<Model, String> {
-    let info = cases().into_iter().find(|c| c.id == case).ok_or_else(|| format!("unknown load case `{case}`"))?;
+    let info = cases()
+        .into_iter()
+        .find(|c| c.id == case)
+        .ok_or_else(|| format!("unknown load case `{case}`"))?;
     if !info.parts.contains(&part) {
         return Err(format!("load case `{case}` applies to {:?}, not `{part}`", info.parts));
     }
@@ -152,8 +186,9 @@ pub fn build_model(p: &Project, part: &str, case: &str, h_req: f64, max_elems: u
     let mut h = pick_h(vol_est, h_req, max_elems);
     let side = if part == "temple_l" { -1.0 } else { 1.0 };
     let mut attempt = 0;
+    let anchor = anchors(&mesh, part, &l);
     loop {
-        let mut g = voxel::voxelize(&mesh, h);
+        let mut g = voxel::voxelize_aligned(&mesh, h, anchor);
         if squeeze {
             let y_cut = l.pod_rear_y - 3.0;
             crop(&mut g, |c| c[1] >= y_cut);
@@ -187,7 +222,10 @@ pub fn build_model(p: &Project, part: &str, case: &str, h_req: f64, max_elems: u
         match case {
             "temple_spread" => {
                 let dist = |c: [f64; 3]| ((c[1] - pin[1]).powi(2) + (c[2] - pin[2]).powi(2)).sqrt();
-                let dmax = (0..g.solid.len()).filter(|&e| g.solid[e]).map(|e| dist(g.center(e))).fold(0.0, f64::max);
+                let dmax = (0..g.solid.len())
+                    .filter(|&e| g.solid[e])
+                    .map(|e| dist(g.center(e)))
+                    .fold(0.0, f64::max);
                 let tip = select(&g, |c| dist(c) >= dmax - 4.0);
                 groups.push((tip, [side * force_n, 0.0, 0.0]));
             }
@@ -204,7 +242,9 @@ pub fn build_model(p: &Project, part: &str, case: &str, h_req: f64, max_elems: u
             "drop_side" => {
                 let pod_len = (l.pod_front_y - l.pod_rear_y).abs();
                 let outer = if side > 0.0 { hi[0] } else { lo[0] };
-                let patch = select(&g, |c| (c[0] - outer).abs() <= 1.6 * h.max(1.0) && (c[1] - y_mid).abs() <= pod_len / 6.0);
+                let patch = select(&g, |c| {
+                    (c[0] - outer).abs() <= 1.6 * h.max(1.0) && (c[1] - y_mid).abs() <= pod_len / 6.0
+                });
                 groups.push((patch, [-side * force_n, 0.0, 0.0]));
             }
             _ => unreachable!(),
@@ -294,7 +334,7 @@ pub struct FeaResult {
     pub converged: bool,
     pub history: Vec<f64>,
     pub force_n: f64,
-    /// Design stress: max von Mises excluding re-entrant voxel corners and clamped nodes.
+    /// Design stress: max nodal von Mises outside the sharp-corner zones and the clamps.
     pub max_vm_mpa: f64,
     pub max_vm_pos: P3,
     /// Raw nodal peak including stair-step corners.
@@ -400,44 +440,82 @@ pub fn solve_model(model: Model, mat: &'static StructMaterial, precond: Precond,
 }
 
 /// Summary numbers of a solved model (cheap; no surface data).
+///
+/// **Design stress.** Nodal (corner-extrapolated) stresses are accurate on
+/// smooth surfaces — they carry the outer-fibre bending stress — but at sharp
+/// re-entrant edges they are *singular*: they grow without bound as the
+/// voxels shrink. The design stress is the largest nodal von Mises stress
+/// outside a one-voxel zone around every re-entrant edge (nodes shared by 6
+/// or 7 solid voxels) and away from the clamps. At the metric resolution
+/// (two voxels through the member) that zone is half a member thick, so the
+/// design stress is the *nominal* stress beside a sharp corner — the right
+/// basis for the static strength of ductile thermoplastics, where local
+/// yielding redistributes the peak (Shigley ch. 3 & 5). The excluded peak is
+/// reported separately as the stress-concentration warning; fatigue and
+/// brittle materials need a notch factor on top (see `structures.stress_conc`).
 pub struct Summary {
-    /// Design von Mises stress (re-entrant voxel corners and clamped nodes excluded), MPa.
+    /// Design von Mises stress (nodal, singular corners excluded), MPa.
     pub max_vm: f64,
-    pub max_vm_node: usize,
-    /// Raw peak over every node, MPa.
+    pub max_vm_pos: P3,
+    /// Raw nodal peak including sharp corners, MPa.
     pub peak_vm: f64,
     pub peak_node: usize,
+    /// Safety factor on yield including the print-layer check.
     pub sf: f64,
+    /// Safety factor on von Mises only (isotropic).
     pub sf_vm: f64,
-    pub crit_node: usize,
+    /// Governing node and its stresses.
+    pub crit_pos: P3,
+    pub crit_vm: f64,
+    pub crit_sb: f64,
     pub across: bool,
     pub max_across: f64,
     pub load_disp: f64,
     pub max_disp: f64,
 }
 
+/// Nodes that count for the design stress: attached, not clamped, and not
+/// within one voxel of a re-entrant edge.
+pub fn design_nodes(g: &Grid, fixed: &[u8]) -> Vec<bool> {
+    let val = g.node_valence();
+    let mut ok: Vec<bool> = (0..g.nnodes()).map(|n| val[n] > 0 && fixed[n] == 0).collect();
+    for e in 0..g.solid.len() {
+        if !g.solid[e] {
+            continue;
+        }
+        let nodes = g.elem_nodes(e);
+        if nodes.iter().any(|&n| val[n as usize] == 6 || val[n as usize] == 7) {
+            for n in nodes {
+                ok[n as usize] = false;
+            }
+        }
+    }
+    // Tiny or all-corner parts: fall back to every attached, free node.
+    if !ok.iter().any(|v| *v) {
+        ok = (0..g.nnodes()).map(|n| val[n] > 0 && fixed[n] == 0).collect();
+    }
+    ok
+}
+
 pub fn summarize(s: &Solved) -> Summary {
     let g = &s.model.grid;
     let y = s.mat.yield_mpa;
     let zf = s.mat.z_strength_factor;
+    let ok = design_nodes(g, &s.model.bcs.fixed);
     let mut worst = 0.0;
-    let mut crit = 0;
+    let mut crit = usize::MAX;
     let mut across = false;
     let mut max_across: f64 = 0.0;
-    // Design stress: skip clamped nodes and re-entrant voxel corners (6 or 7
-    // of the 8 surrounding voxels solid) — stair-step singularities whose
-    // value grows without bound as the voxels shrink.
-    let val = g.node_valence();
     let mut max_design: f64 = 0.0;
-    let mut max_design_node = 0;
+    let mut max_design_n = usize::MAX;
     for n in 0..g.nnodes() {
         let vm = s.st.node_vm[n];
-        if vm == 0.0 || s.model.bcs.fixed[n] != 0 || val[n] == 6 || val[n] == 7 {
+        if !ok[n] || vm == 0.0 {
             continue;
         }
         if vm > max_design {
             max_design = vm;
-            max_design_node = n;
+            max_design_n = n;
         }
         let sb = s.st.node_sbuild[n].max(0.0);
         max_across = max_across.max(sb);
@@ -449,20 +527,35 @@ pub fn summarize(s: &Solved) -> Summary {
             across = u_z > u_in;
         }
     }
-    // Load-point displacement along the load direction.
+    // Load-point displacement along the load direction:
+    // work-conjugate displacement fᵀu / Σ|F_group| per group.
     let ld: f64 = s.model.bcs.force.iter().zip(&s.u).map(|(f, u)| f * u).sum();
-    // Work-conjugate displacement: fᵀu / Σ|F_group|.
-    let ftot: f64 = s.model.load_groups.iter().map(|(_, f)| (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).sqrt()).sum();
-    let load_disp = if ftot > 0.0 { ld / ftot * s.model.load_groups.len() as f64 } else { 0.0 };
-    let max_disp = s.u.chunks(3).map(|v| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()).fold(0.0, f64::max);
+    let ftot: f64 = s
+        .model
+        .load_groups
+        .iter()
+        .map(|(_, f)| (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).sqrt())
+        .sum();
+    let load_disp = if ftot > 0.0 {
+        ld / ftot * s.model.load_groups.len() as f64
+    } else {
+        0.0
+    };
+    let max_disp =
+        s.u.chunks(3)
+            .map(|v| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt())
+            .fold(0.0, f64::max);
+    let pos = |n: usize| if n == usize::MAX { [0.0; 3] } else { g.node_pos(n) };
     Summary {
         max_vm: max_design,
-        max_vm_node: max_design_node,
-        peak_vm: s.st.max_vm,
+        max_vm_pos: pos(max_design_n),
+        peak_vm: s.st.max_vm.max(max_design),
         peak_node: s.st.max_node,
         sf: if worst > 0.0 { 1.0 / worst } else { f64::INFINITY },
         sf_vm: if max_design > 0.0 { y / max_design } else { f64::INFINITY },
-        crit_node: crit,
+        crit_pos: pos(crit),
+        crit_vm: if crit == usize::MAX { 0.0 } else { s.st.node_vm[crit] },
+        crit_sb: if crit == usize::MAX { 0.0 } else { s.st.node_sbuild[crit] },
         across,
         max_across,
         load_disp,
@@ -498,26 +591,24 @@ fn region_name(part: &str, p: P3, l: &FrameLayout) -> (&'static str, bool) {
 }
 
 pub fn hint_for(s: &Solved, sm: &Summary) -> Hint {
-    let g = &s.model.grid;
-    let pos = g.node_pos(sm.crit_node);
-    let (region, junction) = region_name(&s.model.part, pos, &s.model.layout);
+    let (region, junction) = region_name(&s.model.part, sm.crit_pos, &s.model.layout);
     let mat = s.mat;
     let mechanism = if sm.across {
         format!(
             "Tension across the print layers: {:.1} MPa pulls the layers apart where the interlayer strength is only ≈ {:.0} % of the in-plane {:.0} MPa — layer-line cracking starts here.",
-            s.st.node_sbuild[sm.crit_node],
+            sm.crit_sb,
             mat.z_strength_factor * 100.0,
             mat.yield_mpa
         )
     } else {
         format!(
             "Bending stress peaks here: von Mises {:.1} MPa vs {:.0} MPa yield. Stress in a bent section grows with the distance from the neutral axis, so the outer fibres of the thinnest section see it first.",
-            s.st.node_vm[sm.crit_node], mat.yield_mpa
+            sm.crit_vm, mat.yield_mpa
         )
     };
     let mut advice = String::new();
     if junction {
-        advice.push_str("It is a sharp inside corner: add a fillet (radius ≥ half the wall) to spread the stress; a voxel model stair-steps corners, so treat the peak as indicative. ");
+        advice.push_str("It is a sharp inside corner: the local peak there is a stress concentration (singular in a sharp model — the raw nodal peak keeps rising as voxels shrink). Add a fillet (radius ≥ half the wall) before trusting it in fatigue. ");
     }
     match (s.model.case.as_str(), sm.across) {
         (_, true) => advice.push_str("Re-orient the part on the bed so the layers run along the load path, switch to an isotropic process (MJF PA12 or molding), or thicken the section."),
@@ -539,7 +630,13 @@ fn voxel_surface(s: &Solved, util: &[f64]) -> SurfaceField {
     let mut map = vec![u32::MAX; g.nnodes()];
     let mut out = SurfaceField::default();
     let solid = |i: isize, j: isize, k: isize| -> bool {
-        i >= 0 && j >= 0 && k >= 0 && (i as usize) < g.nx && (j as usize) < g.ny && (k as usize) < g.nz && g.solid[g.eid(i as usize, j as usize, k as usize)]
+        i >= 0
+            && j >= 0
+            && k >= 0
+            && (i as usize) < g.nx
+            && (j as usize) < g.ny
+            && (k as usize) < g.nz
+            && g.solid[g.eid(i as usize, j as usize, k as usize)]
     };
     let mut vid = |n: usize, out: &mut SurfaceField| -> u32 {
         if map[n] == u32::MAX {
@@ -612,7 +709,10 @@ fn cad_surface(s: &Solved, util: &[f64]) -> SurfaceField {
             if !attached[n] {
                 continue;
             }
-            let w = (if o[0] == 1 { t[0] } else { 1.0 - t[0] }) * (if o[1] == 1 { t[1] } else { 1.0 - t[1] }) * (if o[2] == 1 { t[2] } else { 1.0 - t[2] }) + 1e-9;
+            let w = (if o[0] == 1 { t[0] } else { 1.0 - t[0] })
+                * (if o[1] == 1 { t[1] } else { 1.0 - t[1] })
+                * (if o[2] == 1 { t[2] } else { 1.0 - t[2] })
+                + 1e-9;
             acc[0] += w * s.u[3 * n];
             acc[1] += w * s.u[3 * n + 1];
             acc[2] += w * s.u[3 * n + 2];
@@ -693,8 +793,8 @@ pub fn result(s: &Solved, surface: &str, precond: Precond, incompatible: bool) -
     let want_vox = surface == "voxels" || surface == "both";
     let want_cad = surface == "cad" || surface == "both";
     let mut notes = vec![
-        "Linear elastic, small displacement, isotropic stiffness; stresses are nodal averages of corner stresses.".to_string(),
-        "Sharp inside corners are stress singularities: the peak there grows as voxels shrink — compare trends, and fillet real corners.".to_string(),
+        "Linear elastic, small displacement, isotropic stiffness. The heat map shows nodal averages of corner stresses; the design stress and safety factor skip a one-voxel zone around sharp inside edges and the clamps.".to_string(),
+        "Sharp inside corners are stress singularities: the raw nodal peak there grows as voxels shrink — compare trends, and fillet real corners.".to_string(),
     ];
     if s.mat.printed {
         notes.push(format!(
@@ -721,25 +821,33 @@ pub fn result(s: &Solved, surface: &str, precond: Precond, incompatible: bool) -
         free_dofs: s.free_dofs,
         removed_voxels: s.model.removed_voxels,
         levels: s.levels,
-        precond: if precond == Precond::Jacobi { "jacobi".into() } else { "multigrid".into() },
+        precond: if precond == Precond::Jacobi {
+            "jacobi".into()
+        } else {
+            "multigrid".into()
+        },
         element: if incompatible { "h8i".into() } else { "h8".into() },
         iterations: s.hist.len().saturating_sub(1),
         converged: s.converged,
         history: s.hist.clone(),
         force_n: s.model.total_force_n,
         max_vm_mpa: sm.max_vm,
-        max_vm_pos: g.node_pos(sm.max_vm_node),
+        max_vm_pos: sm.max_vm_pos,
         peak_vm_mpa: sm.peak_vm,
         peak_vm_pos: g.node_pos(sm.peak_node),
         max_disp_mm: sm.max_disp,
         load_disp_mm: sm.load_disp,
-        stiffness_n_mm: if sm.load_disp > 0.0 { s.model.total_force_n / sm.load_disp } else { 0.0 },
+        stiffness_n_mm: if sm.load_disp > 0.0 {
+            s.model.total_force_n / sm.load_disp
+        } else {
+            0.0
+        },
         yield_mpa: y,
         z_factor: zf,
         sf_von_mises: sm.sf_vm,
         safety_factor: sm.sf,
         governing: if sm.across { "across layers".into() } else { "in-plane".into() },
-        crit_pos: g.node_pos(sm.crit_node),
+        crit_pos: sm.crit_pos,
         max_across_layers_mpa: sm.max_across,
         hint: hint_for(s, &sm),
         build_dir: s.model.build_dir,
@@ -756,15 +864,27 @@ pub fn result(s: &Solved, surface: &str, precond: Precond, incompatible: bool) -
 pub fn run(i: FeaIn) -> Result<FeaResult, String> {
     let p = i.project.unwrap_or_else(Project::iris);
     let mat = materials::get(i.material.as_deref().unwrap_or(&p.design.frame.material));
-    let default_f = cases().into_iter().find(|c| c.id == i.case).map(|c| c.default_force_n).unwrap_or(1.0);
+    let default_f = cases()
+        .into_iter()
+        .find(|c| c.id == i.case)
+        .map(|c| c.default_force_n)
+        .unwrap_or(1.0);
     let force = i.force_n.unwrap_or(default_f);
     if !(force.is_finite() && force > 0.0) {
         return Err("force_n must be positive".into());
     }
-    let h = if i.voxel_mm.is_finite() && i.voxel_mm > 0.0 { i.voxel_mm } else { 1.0 };
+    let h = if i.voxel_mm.is_finite() && i.voxel_mm > 0.0 {
+        i.voxel_mm
+    } else {
+        1.0
+    };
     let max_el = i.max_elements.clamp(200, 60_000);
     let model = build_model(&p, &i.part, &i.case, h, max_el, force)?;
-    let pc = if i.precond == "jacobi" { Precond::Jacobi } else { Precond::Multigrid };
+    let pc = if i.precond == "jacobi" {
+        Precond::Jacobi
+    } else {
+        Precond::Multigrid
+    };
     let inc = i.element != "h8";
     let tol = if i.tol > 0.0 { i.tol.clamp(1e-12, 1e-2) } else { 1e-6 };
     let s = solve_model(model, mat, pc, inc, tol, i.max_iter.clamp(10, 20_000));
@@ -805,7 +925,11 @@ pub fn drop_analysis(height_m: f64, moving_mass_g: f64, k_n_mm: f64, stress_per_
     let k = k_n_mm * 1000.0; // N/m
     let f = v * (k * m).sqrt();
     let delta_mm = if k > 0.0 { f / k * 1000.0 } else { 0.0 };
-    let t = if k > 0.0 { std::f64::consts::PI * (m / k).sqrt() * 1000.0 } else { 0.0 };
+    let t = if k > 0.0 {
+        std::f64::consts::PI * (m / k).sqrt() * 1000.0
+    } else {
+        0.0
+    };
     let peak = stress_per_n * f;
     DropResult {
         height_m,
@@ -834,7 +958,11 @@ pub fn drop_analysis(height_m: f64, moving_mass_g: f64, k_n_mm: f64, stress_per_
 pub fn moving_mass_g(p: &Project, struck: &str) -> f64 {
     let geom = crate::cad::frame_geom(p);
     let dens = p.design.frame.density_g_cm3;
-    let side_parts: &[&str] = if struck == "temple_l" { &["temple_l", "lid_l"] } else { &["temple_r", "lid_r"] };
+    let side_parts: &[&str] = if struck == "temple_l" {
+        &["temple_l", "lid_l"]
+    } else {
+        &["temple_r", "lid_r"]
+    };
     let frame: f64 = geom
         .parts
         .iter()
@@ -851,40 +979,38 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore]
-    fn bench_iris_cases() {
+    fn temple_arm_is_aligned_with_the_grid() {
+        // The 4 mm temple on a 2 mm grid must be exactly two full voxels thick.
         let p = Project::iris();
-        for (part, case, h, pc) in [
-            ("temple_r", "temple_spread", 1.2, Precond::Multigrid),
-            ("temple_r", "temple_spread", 1.0, Precond::Multigrid),
-            ("temple_r", "temple_spread", 0.6, Precond::Multigrid),
-            ("temple_r", "temple_spread", 1.2, Precond::Jacobi),
-            ("front", "bridge_bend", 2.5, Precond::Multigrid),
-            ("front", "bridge_bend", 1.0, Precond::Multigrid),
-            ("temple_r", "pod_squeeze", 1.2, Precond::Multigrid),
-            ("temple_r", "pod_squeeze", 0.6, Precond::Multigrid),
-            ("temple_r", "drop_side", 1.2, Precond::Multigrid),
-        ] {
-            let t0 = std::time::Instant::now();
-            let f = cases().into_iter().find(|c| c.id == case).unwrap().default_force_n;
-            let m = build_model(&p, part, case, h, 60_000, f).unwrap();
-            let t1 = t0.elapsed();
-            let s = solve_model(m, materials::get("PETG"), pc, true, 1e-5, 20000);
-            let t2 = t0.elapsed();
-            let sm = summarize(&s);
-            println!(
-                "{part:9} {case:14} h={h:.1} {:?} elems={:6} lv={} it={:5} conv={} build={:?} total={:?} maxvm={:.2} SF={:.2} across={} disp={:.3} ld={:.3}",
-                pc, s.model.grid.count(), s.levels, s.hist.len() - 1, s.converged, t1, t2, sm.max_vm, sm.sf, sm.across, sm.max_disp, sm.load_disp
-            );
-            let h = hint_for(&s, &sm);
-            let g = &s.model.grid;
-            println!("   crit {:?} region {}  maxvm at {:?}", g.node_pos(sm.crit_node), h.region, g.node_pos(sm.max_vm_node));
-            let l = &s.model.layout;
-            println!("   layout pod_front_y {:.1} pod_rear_y {:.1} pin ({:.1},{:.1},{:.1}) ear {:.1} xin {:.1}", l.pod_front_y, l.pod_rear_y, l.pin_x, l.pin_y, l.hinge_z, l.ear_bend_y, l.temple_inner_x);
-            // Stress profile along y for temple: max vm per 5 mm slab.
-            let mut prof = std::collections::BTreeMap::new();
-            for n in 0..g.nnodes() { let v = s.st.node_vm[n]; if v > 0.0 { let y = (g.node_pos(n)[1] / 5.0).floor() as i64 * 5; let e = prof.entry(y).or_insert(0.0f64); if v > *e { *e = v; } } }
-            println!("   profile {:?}", prof.iter().map(|(k, v)| format!("{k}:{v:.0}")).collect::<Vec<_>>().join(" "));
+        let m = build_model(&p, "temple_r", "temple_spread", 2.0, 20_000, 5.0).unwrap();
+        let g = &m.grid;
+        let l = &m.layout;
+        let j = ((l.pod_rear_y - 30.0 - g.origin[1]) / g.h) as usize;
+        let mut cols = std::collections::BTreeMap::new();
+        for k in 0..g.nz {
+            for i in 0..g.nx {
+                let e = g.eid(i, j, k);
+                if g.solid[e] {
+                    let r = cols.entry(i).or_insert(0.0f32);
+                    *r = r.max(g.rho[e]);
+                }
+            }
         }
+        // Two columns across the width, each full (partial voxels only at the
+        // tapered top and bottom edges).
+        assert_eq!(cols.len(), 2, "arm columns {cols:?}");
+        assert!(cols.values().all(|r| *r > 0.99), "{cols:?}");
+    }
+
+    #[test]
+    fn drop_model_is_an_upper_bound_energy_balance() {
+        // ½ m v² = ½ k δ² and F = k δ.
+        let d = drop_analysis(1.0, 30.0, 50.0, 2.0, 40.0, "in-plane");
+        let v = (2.0 * 9.81f64).sqrt();
+        let f = v * (50_000.0f64 * 0.03).sqrt();
+        assert!((d.peak_force_n - f).abs() < 1e-9 * f);
+        assert!((0.5 * 0.03 * v * v - 0.5 * 50_000.0 * (d.deflection_mm / 1000.0).powi(2)).abs() < 1e-9);
+        assert!((d.peak_stress_mpa - 2.0 * f).abs() < 1e-9 * f);
+        assert!((d.safety_factor - 40.0 / f).abs() < 1e-12);
     }
 }

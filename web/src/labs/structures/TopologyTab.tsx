@@ -18,7 +18,7 @@ export function TopologyTab() {
   const [penal, setPenal] = useState(3);
   const [res, setRes] = useState(1);
   const [filter, setFilter] = useState<'sensitivity' | 'density'>('sensitivity');
-  const [maxIter, setMaxIter] = useState(80);
+  const [maxIter, setMaxIter] = useState(120);
   const input = useMemo(() => {
     if (!p) return null;
     return {
@@ -164,9 +164,12 @@ export function TopologyTab() {
           ]}
         >
           <p>Every element gets a density x between 0 (void) and 1 (solid). Its stiffness is penalised, so grey is a bad deal:</p>
-          <Formula>{`E(x) = Emin + x^p (E0 − Emin)        minimise c = fᵀu = Σ E(x_e) u_eᵀ k0 u_e
-∂c/∂x_e = −p x_e^(p−1) (E0 − Emin) u_eᵀ k0 u_e     subject to Σ x_e = V* · N
-OC update: x_new = clamp( x · √(−∂c/∂x / λ),  x ± 0.2 )   (λ by bisection so the volume fits)`}</Formula>
+          <Formula>{`E(x) = Emin + x^p (E0 − Emin)
+minimise  c = fᵀu = Σ E(x_e) u_eᵀ k0 u_e
+subject to  Σ x_e = V* · N
+∂c/∂x_e = −p x_e^(p−1) (E0 − Emin) u_eᵀ k0 u_e
+OC update: x_new = clamp(x · √(−∂c/∂x / λ), x ± 0.2)
+           (λ by bisection so the volume fits)`}</Formula>
           <p className="small">
             Each iteration is one plane-stress finite element solve (bilinear quads, banded Cholesky), a sensitivity per element, a filter over radius r_min
             (stops checkerboards and makes the answer mesh-independent) and the optimality-criteria update. Elements that carry strain energy thicken; idle ones fade.

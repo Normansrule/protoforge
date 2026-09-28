@@ -133,7 +133,8 @@ pub struct StackOut {
 pub fn norm_cdf(z: f64) -> f64 {
     let x = z.abs() / std::f64::consts::SQRT_2;
     let t = 1.0 / (1.0 + 0.327_591_1 * x);
-    let y = 1.0 - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t - 0.284_496_736) * t + 0.254_829_592) * t * (-x * x).exp();
+    let y =
+        1.0 - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t - 0.284_496_736) * t + 0.254_829_592) * t * (-x * x).exp();
     if z >= 0.0 {
         0.5 * (1.0 + y)
     } else {
@@ -165,7 +166,11 @@ pub fn stackup(i: StackIn) -> Result<StackOut, String> {
             wmax -= lo;
         }
         let half = 0.5 * (hi - lo);
-        let sd = if d.dist == "uniform" { half / 3f64.sqrt() } else { half / d.sigmas.max(0.5) };
+        let sd = if d.dist == "uniform" {
+            half / 3f64.sqrt()
+        } else {
+            half / d.sigmas.max(0.5)
+        };
         var += sd * sd;
         vars.push(sd * sd);
         ranges.push(hi - lo);
@@ -272,9 +277,15 @@ const IT: [[f64; 10]; 13] = [
 ];
 
 /// Shaft fundamental deviations, µm: es for d–h, ei for k–p (per range).
-const FD_D: [f64; 13] = [-20.0, -30.0, -40.0, -50.0, -65.0, -80.0, -100.0, -120.0, -145.0, -170.0, -190.0, -210.0, -230.0];
-const FD_E: [f64; 13] = [-14.0, -20.0, -25.0, -32.0, -40.0, -50.0, -60.0, -72.0, -85.0, -100.0, -110.0, -125.0, -135.0];
-const FD_F: [f64; 13] = [-6.0, -10.0, -13.0, -16.0, -20.0, -25.0, -30.0, -36.0, -43.0, -50.0, -56.0, -62.0, -68.0];
+const FD_D: [f64; 13] = [
+    -20.0, -30.0, -40.0, -50.0, -65.0, -80.0, -100.0, -120.0, -145.0, -170.0, -190.0, -210.0, -230.0,
+];
+const FD_E: [f64; 13] = [
+    -14.0, -20.0, -25.0, -32.0, -40.0, -50.0, -60.0, -72.0, -85.0, -100.0, -110.0, -125.0, -135.0,
+];
+const FD_F: [f64; 13] = [
+    -6.0, -10.0, -13.0, -16.0, -20.0, -25.0, -30.0, -36.0, -43.0, -50.0, -56.0, -62.0, -68.0,
+];
 const FD_G: [f64; 13] = [-2.0, -4.0, -5.0, -6.0, -7.0, -9.0, -10.0, -12.0, -14.0, -15.0, -17.0, -18.0, -20.0];
 /// k: IT4–IT7 values (0 for IT ≤ 3 and > 7).
 const FD_K: [f64; 13] = [0.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0, 4.0, 5.0];
@@ -284,14 +295,36 @@ const FD_P: [f64; 13] = [6.0, 12.0, 15.0, 18.0, 22.0, 26.0, 32.0, 37.0, 43.0, 50
 
 /// r and s shafts need the finer sub-ranges above 50 mm; supported up to 120 mm.
 fn fd_rs(letter: char, d: f64) -> Option<f64> {
-    let r = [(3.0, 10.0), (6.0, 15.0), (10.0, 19.0), (18.0, 23.0), (30.0, 28.0), (50.0, 34.0), (65.0, 41.0), (80.0, 43.0), (100.0, 51.0), (120.0, 54.0)];
-    let s = [(3.0, 14.0), (6.0, 19.0), (10.0, 23.0), (18.0, 28.0), (30.0, 35.0), (50.0, 43.0), (65.0, 53.0), (80.0, 59.0), (100.0, 71.0), (120.0, 79.0)];
+    let r = [
+        (3.0, 10.0),
+        (6.0, 15.0),
+        (10.0, 19.0),
+        (18.0, 23.0),
+        (30.0, 28.0),
+        (50.0, 34.0),
+        (65.0, 41.0),
+        (80.0, 43.0),
+        (100.0, 51.0),
+        (120.0, 54.0),
+    ];
+    let s = [
+        (3.0, 14.0),
+        (6.0, 19.0),
+        (10.0, 23.0),
+        (18.0, 28.0),
+        (30.0, 35.0),
+        (50.0, 43.0),
+        (65.0, 53.0),
+        (80.0, 59.0),
+        (100.0, 71.0),
+        (120.0, 79.0),
+    ];
     let t = if letter == 'r' { &r } else { &s };
     t.iter().find(|(ub, _)| d <= *ub + 1e-9).map(|(_, v)| *v)
 }
 
 fn range_idx(d: f64) -> Option<usize> {
-    if !(d > 0.0) {
+    if d.is_nan() || d <= 0.0 {
         return None;
     }
     RANGES.iter().position(|ub| d <= *ub + 1e-9)
@@ -528,7 +561,11 @@ pub fn pod_stack(p: &crate::project::Project, i: &PodStackIn) -> Result<PodStack
     let pcb = p.design.pcb.width_mm;
     let molded = i.process == "molded";
     let pod_tol = i.pod_tol_mm.unwrap_or(if molded { 0.10 } else { 0.20 });
-    let pod_mat = super::materials::get(if molded { &p.design.manufacturing.molding_material } else { &p.design.frame.material });
+    let pod_mat = super::materials::get(if molded {
+        &p.design.manufacturing.molding_material
+    } else {
+        &p.design.frame.material
+    });
     let fr4 = super::materials::get("FR-4");
     let temps: Vec<f64> = (0..=24).map(|k| i.t_min_c + (i.t_max_c - i.t_min_c) * k as f64 / 24.0).collect();
     let dalpha = (pod_mat.cte_ppm_k - fr4.cte_ppm_k) * 1e-6;
@@ -545,7 +582,8 @@ pub fn pod_stack(p: &crate::project::Project, i: &PodStackIn) -> Result<PodStack
             dist: "normal".into(),
             sigmas: 3.0,
             note: if molded {
-                "Injection molded: ±0.10 mm typical for a 60 mm feature in a well-controlled tool (check the molder's tolerance class).".into()
+                "Injection molded: ±0.10 mm typical for a 60 mm feature in a well-controlled tool (check the molder's tolerance class)."
+                    .into()
             } else {
                 "FDM print: ±0.2 mm typical; internal pockets often print slightly small — calibrate on a test pod.".into()
             },
@@ -611,6 +649,178 @@ pub fn pod_stack(p: &crate::project::Project, i: &PodStackIn) -> Result<PodStack
         notes: vec![
             "Clearance = pod usable inner length − PCB length − edge overhang (+ thermal). Positive = the board drops in.".into(),
             "Worst case stacks every limit at once; RSS and Monte Carlo assume independent, centred dimensions.".into(),
+        ],
+    })
+}
+
+// ---------------------------------------------------------------- Iris display focus chain
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
+pub struct FocusStackIn {
+    /// "fdm" or "molded" optics housing.
+    pub process: String,
+    /// Housing seat-to-seat tolerance (±, mm); default from the process.
+    pub housing_tol_mm: Option<f64>,
+    /// Lens principal-plane location relative to its seat (±, mm).
+    pub lens_tol_mm: f64,
+    /// Display pixel plane below its mounting face — cover glass + optical adhesive (±, mm).
+    pub glass_tol_mm: f64,
+    /// Adhesive tape bond line under the display (±, mm, uniform).
+    pub bond_tol_mm: f64,
+    /// Allowed focus error, diopters (±).
+    pub allowable_d: f64,
+    pub samples: usize,
+}
+
+impl Default for FocusStackIn {
+    fn default() -> Self {
+        FocusStackIn {
+            process: "fdm".into(),
+            housing_tol_mm: None,
+            lens_tol_mm: 0.05,
+            glass_tol_mm: 0.05,
+            bond_tol_mm: 0.03,
+            allowable_d: 0.25,
+            samples: 20_000,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct FocusStackOut {
+    pub dims: Vec<Dim>,
+    pub stack: StackOut,
+    pub nominal_mm: f64,
+    pub focal_mm: f64,
+    /// Image vergence at the nominal spacing, diopters (negative = virtual image).
+    pub nominal_vergence_d: f64,
+    /// Virtual-image distance at nominal, m (∞ when collimated).
+    pub image_distance_m: f64,
+    /// |dV/dd| at nominal, diopters per mm.
+    pub sensitivity_d_per_mm: f64,
+    pub allowable_d: f64,
+    /// Gap limits that keep the focus error within ±allowable, mm.
+    pub lower_mm: f64,
+    pub upper_mm: f64,
+    /// Worst-case focus error, diopters.
+    pub worst_diopters: f64,
+    /// RSS (3σ) focus error, diopters.
+    pub rss_diopters: f64,
+    /// Focus error vs spacing curve for plotting.
+    pub curve_mm: Vec<f64>,
+    pub curve_d: Vec<f64>,
+    pub notes: Vec<String>,
+}
+
+/// Image vergence (diopters) for a display at `d` mm from a thin lens of focal
+/// length `f` mm: V = 1000/f − 1000/d (Gaussian lens equation; V < 0 means a
+/// virtual image 1/|V| metres away).
+pub fn vergence_d(f: f64, d: f64) -> f64 {
+    1000.0 / f - 1000.0 / d
+}
+
+/// The display-to-lens spacing chain of the Iris optics housing and its
+/// focus error. dV/dd = 1000/d² diopters per mm, so a 20 mm spacing moves the
+/// virtual image by ≈ 2.5 D per millimetre — the tightest mechanical
+/// tolerance in the product.
+pub fn focus_stack(p: &crate::project::Project, i: &FocusStackIn) -> Result<FocusStackOut, String> {
+    let o = &p.design.optics;
+    let (f, d) = (o.lens_focal_mm, o.display_to_lens_mm);
+    if !(f > 0.0 && d > 0.0) {
+        return Err("focal length and display spacing must be positive".into());
+    }
+    let molded = i.process == "molded";
+    let housing_tol = i.housing_tol_mm.unwrap_or(if molded { 0.03 } else { 0.10 });
+    let (glass, lens_pp, bond) = (0.5, 1.5, 0.10);
+    let dims = vec![
+        Dim {
+            name: "Housing: lens seat → display seat".into(),
+            nominal: d - glass + lens_pp - bond,
+            plus: housing_tol,
+            minus: housing_tol,
+            dir: 1.0,
+            dist: "normal".into(),
+            sigmas: 3.0,
+            note: if molded {
+                "Molded housing: a few hundredths of a millimetre is achievable on a short, well-controlled feature (check the molder)."
+                    .into()
+            } else {
+                "Printed housing: ±0.1 mm typical after calibration on a short feature; resin (SLA) printers do better.".into()
+            },
+        },
+        Dim {
+            name: "Display: pixel plane below the seat face (cover glass + adhesive)".into(),
+            nominal: glass,
+            plus: i.glass_tol_mm,
+            minus: i.glass_tol_mm,
+            dir: 1.0,
+            dist: "normal".into(),
+            sigmas: 3.0,
+            note: "Assumed 0.5 mm; take the real value and tolerance from the display module drawing.".into(),
+        },
+        Dim {
+            name: "Lens: principal plane ahead of its seat".into(),
+            nominal: lens_pp,
+            plus: i.lens_tol_mm,
+            minus: i.lens_tol_mm,
+            dir: -1.0,
+            dist: "normal".into(),
+            sigmas: 3.0,
+            note: "Assumed 1.5 mm; the lens drawing gives the flange-to-principal-plane distance.".into(),
+        },
+        Dim {
+            name: "Adhesive tape bond line under the display".into(),
+            nominal: bond,
+            plus: i.bond_tol_mm,
+            minus: i.bond_tol_mm,
+            dir: 1.0,
+            dist: "uniform".into(),
+            sigmas: 3.0,
+            note: "Pressure-sensitive tape thickness varies with compression — uniform distribution.".into(),
+        },
+    ];
+    let a = i.allowable_d.abs().max(1e-3);
+    let lower = 1000.0 / (1000.0 / d + a);
+    let upper = if 1000.0 / d - a > 0.0 {
+        1000.0 / (1000.0 / d - a)
+    } else {
+        f64::INFINITY
+    };
+    let stack = stackup(StackIn {
+        dims: dims.clone(),
+        lower: Some(lower),
+        upper: if upper.is_finite() { Some(upper) } else { None },
+        samples: i.samples,
+        seed: 11,
+        bins: 40,
+    })?;
+    let v0 = vergence_d(f, d);
+    let err = |g: f64| (vergence_d(f, g) - v0).abs();
+    let worst = err(stack.worst_min).max(err(stack.worst_max));
+    let rss = err(stack.rss_min).max(err(stack.rss_max));
+    let span = (stack.worst_max - stack.worst_min).max(0.1);
+    let curve_mm: Vec<f64> = (0..=60).map(|k| d - span + 2.0 * span * k as f64 / 60.0).collect();
+    let curve_d: Vec<f64> = curve_mm.iter().map(|&g| vergence_d(f, g) - v0).collect();
+    Ok(FocusStackOut {
+        dims,
+        nominal_mm: d,
+        focal_mm: f,
+        nominal_vergence_d: v0,
+        image_distance_m: if v0.abs() > 1e-9 { 1.0 / v0.abs() } else { f64::INFINITY },
+        sensitivity_d_per_mm: 1000.0 / (d * d),
+        allowable_d: a,
+        lower_mm: lower,
+        upper_mm: upper,
+        worst_diopters: worst,
+        rss_diopters: rss,
+        curve_mm,
+        curve_d,
+        stack,
+        notes: vec![
+            "Gap = display-to-lens spacing along the optical axis. Focus error ΔV = 1000/d_nominal − 1000/d (diopters), from the thin-lens equation.".into(),
+            format!("±{a:.2} D is used as the allowable focus error — a conservative choice of the order of the eye's depth of focus; set your own from the optical specification."),
+            "If the worst case exceeds the allowance, add a focus adjustment (threaded lens cell or shim) or tighten the housing process — cheaper than tightening every part.".into(),
         ],
     })
 }
@@ -687,6 +897,23 @@ mod tests {
         assert!((o.mc_sigma - s).abs() < 0.02 * s, "{} vs {s}", o.mc_sigma);
         assert!(o.yield_pct > 99.99);
         assert!((norm_cdf(1.0) - 0.841_344_7).abs() < 1e-6);
+    }
+
+    #[test]
+    fn focus_sensitivity_is_one_over_d_squared() {
+        let p = crate::project::Project::iris();
+        let o = focus_stack(&p, &FocusStackIn::default()).unwrap();
+        let d = p.design.optics.display_to_lens_mm;
+        assert!((o.sensitivity_d_per_mm - 1000.0 / (d * d)).abs() < 1e-12);
+        // Nominal chain sums to the design spacing.
+        assert!((o.stack.nominal - d).abs() < 1e-9, "{} vs {d}", o.stack.nominal);
+        // Worst case: ±(0.10 + 0.05 + 0.05 + 0.03) mm ≈ ±0.23 mm → ≈ 0.6 D.
+        assert!((o.stack.worst_max - o.stack.worst_min - 0.46).abs() < 1e-9);
+        let lin = 0.23 * o.sensitivity_d_per_mm;
+        assert!((o.worst_diopters - lin).abs() < 0.05 * lin, "{} vs {lin}", o.worst_diopters);
+        // Limits are symmetric in vergence.
+        assert!(((vergence_d(o.focal_mm, o.upper_mm) - o.nominal_vergence_d) - 0.25).abs() < 1e-9);
+        assert!(((vergence_d(o.focal_mm, o.lower_mm) - o.nominal_vergence_d) + 0.25).abs() < 1e-9);
     }
 
     #[test]

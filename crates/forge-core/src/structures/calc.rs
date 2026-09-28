@@ -177,12 +177,16 @@ pub fn beam(i: BeamIn) -> Result<BeamOut, String> {
                         }
                     })
                     .collect(),
-                xs.iter().map(|&x| if x <= a { f * b * x / l } else { f * a * (l - x) / l }).collect(),
+                xs.iter()
+                    .map(|&x| if x <= a { f * b * x / l } else { f * a * (l - x) / l })
+                    .collect(),
                 "δ(x ≤ a) = F b x (L² − b² − x²) / (6 L E I);  M_max = F a b / L".into(),
             )
         }
         ("simply_supported", false) => (
-            xs.iter().map(|&x| w * x * (l.powi(3) - 2.0 * l * x * x + x.powi(3)) / (24.0 * ei)).collect(),
+            xs.iter()
+                .map(|&x| w * x * (l.powi(3) - 2.0 * l * x * x + x.powi(3)) / (24.0 * ei))
+                .collect(),
             xs.iter().map(|&x| w * x * (l - x) / 2.0).collect(),
             "δ_max = 5 w L⁴ / (384 E I);  M_max = w L² / 8".into(),
         ),
@@ -223,7 +227,9 @@ pub fn beam(i: BeamIn) -> Result<BeamOut, String> {
             )
         }
         (_, false) => (
-            xs.iter().map(|&x| w * x * x * (6.0 * l * l - 4.0 * l * x + x * x) / (24.0 * ei)).collect(),
+            xs.iter()
+                .map(|&x| w * x * x * (6.0 * l * l - 4.0 * l * x + x * x) / (24.0 * ei))
+                .collect(),
             xs.iter().map(|&x| -w * (l - x).powi(2) / 2.0).collect(),
             "δ_max = w L⁴ / (8 E I);  M_max = w L² / 2 at the root".into(),
         ),
@@ -443,6 +449,10 @@ pub fn boss(i: BossIn) -> Result<BossOut, String> {
     if m.printed {
         notes.push("3D-printed bosses: threads formed across layers are weaker; heat-set inserts are the reliable choice for parts opened repeatedly.".into());
     }
+    notes.push(
+        "Insert table: typical dimensions for brass heat-set inserts in printed parts — use the hole size your insert maker specifies."
+            .into(),
+    );
     let inserts = vec![
         InsertRow {
             thread: "M2",
@@ -509,6 +519,10 @@ pub struct BoltIn {
     pub member_e_mpa: f64,
     /// External separating load per bolt, N.
     pub load_n: f64,
+    /// Material the internal thread is cut or formed in (tapped part, insert or nut).
+    pub nut_material: String,
+    /// Length of thread engagement, mm.
+    pub engagement_mm: f64,
 }
 
 impl Default for BoltIn {
@@ -522,6 +536,8 @@ impl Default for BoltIn {
             torque_nm: None,
             member_e_mpa: 68_900.0,
             load_n: 500.0,
+            nut_material: "AL6061-T6".into(),
+            engagement_mm: 4.5,
         }
     }
 }
@@ -544,6 +560,21 @@ pub struct BoltOut {
     pub load_factor: f64,
     pub separation_factor: f64,
     pub bolt_stress_mpa: f64,
+    /// Internal-thread shear area at the bolt major diameter, mm².
+    pub strip_area_internal_mm2: f64,
+    /// External-thread shear area at the nut minor diameter, mm².
+    pub strip_area_external_mm2: f64,
+    /// Force that strips the internal (tapped) thread, N.
+    pub strip_force_internal_n: f64,
+    /// Force that strips the bolt's own thread, N.
+    pub strip_force_external_n: f64,
+    /// Force that breaks the bolt in tension (proof load), N.
+    pub tensile_capacity_n: f64,
+    /// What fails first as the load rises.
+    pub first_failure: String,
+    /// Engagement at which the internal thread is as strong as the bolt (proof), mm.
+    pub min_engagement_mm: f64,
+    pub nut_material: String,
     pub notes: Vec<String>,
 }
 
@@ -611,6 +642,34 @@ pub fn bolt(i: BoltIn) -> Result<BoltOut, String> {
     if i.member_e_mpa < 10_000.0 {
         notes.push("Plastic members creep and relax the preload: use metal inserts or compression limiters and modest torque.".into());
     }
+    // Thread stripping on the ISO basic profile (60° thread, H = 0.866 p):
+    // at the bolt major diameter d the internal thread fills 7/8 of every
+    // pitch (the bolt crest flat is p/8); at the nut minor diameter
+    // D1 = d − 1.0825 p the external thread fills 3/4 (the nut crest is p/4).
+    // Shear strength τ ≈ 0.577 S_y (von Mises). Real threads carry tolerance
+    // and uneven load sharing, so treat these as upper bounds.
+    let le = i.engagement_mm.max(0.1);
+    let nut = materials::get(&i.nut_material);
+    let d1 = d - 1.0825 * p;
+    let a_int = std::f64::consts::PI * d * le * 0.875;
+    let a_ext = std::f64::consts::PI * d1 * le * 0.75;
+    let tau_nut = 0.577 * nut.yield_mpa;
+    let tau_bolt = 0.577 * sp;
+    let f_int = a_int * tau_nut;
+    let f_ext = a_ext * tau_bolt;
+    let first = if fp <= f_int.min(f_ext) {
+        "bolt breaks in tension first (good: a visible, safe failure)"
+    } else if f_int <= f_ext {
+        "internal thread strips first — lengthen the engagement or use a stronger insert"
+    } else {
+        "bolt thread strips first — lengthen the engagement"
+    };
+    let le_min = fp / (std::f64::consts::PI * d * 0.875 * tau_nut);
+    notes.push(format!(
+        "Thread stripping uses the basic-profile shear areas (upper bounds); in {} a rule of thumb is engagement ≥ {:.1} × d for full bolt strength.",
+        nut.name,
+        (le_min / d).max(0.5)
+    ));
     Ok(BoltOut {
         d_mm: d,
         pitch_mm: p,
@@ -628,6 +687,14 @@ pub fn bolt(i: BoltIn) -> Result<BoltOut, String> {
         load_factor: if pl > 0.0 { (fp - fi) / (c * pl) } else { f64::INFINITY },
         separation_factor: if pl > 0.0 { fi / (pl * (1.0 - c)) } else { f64::INFINITY },
         bolt_stress_mpa: (fi + c * pl) / at,
+        strip_area_internal_mm2: a_int,
+        strip_area_external_mm2: a_ext,
+        strip_force_internal_n: f_int,
+        strip_force_external_n: f_ext,
+        tensile_capacity_n: fp,
+        first_failure: first.into(),
+        min_engagement_mm: le_min,
+        nut_material: nut.id.into(),
         notes,
     })
 }
@@ -912,6 +979,283 @@ pub fn living_hinge(i: HingeIn) -> Result<HingeOut, String> {
     })
 }
 
+// ---------------------------------------------------------------- thermal expansion mismatch
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
+pub struct ThermalIn {
+    /// Outer part (housing, pod, frame).
+    pub outer: String,
+    /// Inner part (PCB, lens, metal insert).
+    pub inner: String,
+    /// Length over which the parts fit, mm.
+    pub length_mm: f64,
+    /// Clearance at the assembly temperature (negative = interference), mm.
+    pub clearance_mm: f64,
+    pub t_assembly_c: f64,
+    pub t_min_c: f64,
+    pub t_max_c: f64,
+    /// Bonded bi-material strip: thickness of the outer and inner layers, mm.
+    pub t_outer_mm: f64,
+    pub t_inner_mm: f64,
+}
+
+impl Default for ThermalIn {
+    fn default() -> Self {
+        ThermalIn {
+            outer: "PETG".into(),
+            inner: "FR-4".into(),
+            length_mm: 60.0,
+            clearance_mm: 0.4,
+            t_assembly_c: 23.0,
+            t_min_c: -10.0,
+            t_max_c: 50.0,
+            t_outer_mm: 1.2,
+            t_inner_mm: 0.8,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct ThermalOut {
+    pub alpha_outer_ppm: f64,
+    pub alpha_inner_ppm: f64,
+    /// Change of clearance per kelvin, µm/K (positive = opens when hot).
+    pub dclear_um_per_k: f64,
+    pub clearance_cold_mm: f64,
+    pub clearance_hot_mm: f64,
+    /// Temperature where the clearance reaches zero (None if it never closes in ±200 K).
+    pub closing_temp_c: Option<f64>,
+    /// Axial stress if the parts were rigidly constrained against each other
+    /// over the whole range (upper bound, uniaxial): E_outer · Δα · ΔT, MPa.
+    pub constrained_stress_mpa: f64,
+    pub outer_yield_mpa: f64,
+    /// Bonded strip (Timoshenko 1925): curvature per kelvin, 1/m per K.
+    pub bimetal_curvature_per_k: f64,
+    /// Bonded strip: bow (mid-span sagitta) of `length_mm` at the cold end, mm.
+    pub bimetal_bow_cold_mm: f64,
+    pub bimetal_bow_hot_mm: f64,
+    pub temps_c: Vec<f64>,
+    pub clearance_mm: Vec<f64>,
+    pub notes: Vec<String>,
+}
+
+/// Differential thermal expansion: Δc = (α_o − α_i) L ΔT. Bonded two-layer
+/// strip: S. Timoshenko, "Analysis of bi-metal thermostats", J. Opt. Soc.
+/// Am. 11, 1925 — κ = 6 Δα ΔT (1 + m)² / (h [3 (1 + m)² + (1 + m n)(m² + 1/(m n))])
+/// with m = t₁/t₂, n = E₁/E₂, h = t₁ + t₂.
+pub fn thermal(i: ThermalIn) -> Result<ThermalOut, String> {
+    let o = materials::get(&i.outer);
+    let n_ = materials::get(&i.inner);
+    let l = i.length_mm;
+    if l.is_nan() || l <= 0.0 {
+        return Err("length must be positive".into());
+    }
+    let da = (o.cte_ppm_k - n_.cte_ppm_k) * 1e-6;
+    let c_at = |t: f64| i.clearance_mm + da * l * (t - i.t_assembly_c);
+    let temps: Vec<f64> = (0..=40).map(|k| i.t_min_c + (i.t_max_c - i.t_min_c) * k as f64 / 40.0).collect();
+    let closing = if da.abs() > 0.0 {
+        let t = i.t_assembly_c - i.clearance_mm / (da * l);
+        ((t - i.t_assembly_c).abs() <= 200.0).then_some(t)
+    } else {
+        None
+    };
+    let dt_max = (i.t_max_c - i.t_assembly_c).abs().max((i.t_assembly_c - i.t_min_c).abs());
+    // Bi-material strip (layer 1 = outer, layer 2 = inner).
+    let (t1, t2) = (i.t_outer_mm.max(1e-3), i.t_inner_mm.max(1e-3));
+    let m = t1 / t2;
+    let nn = o.e_mpa() / n_.e_mpa();
+    let h_m = (t1 + t2) / 1000.0;
+    let kappa = 6.0 * da * (1.0 + m).powi(2) / (h_m * (3.0 * (1.0 + m).powi(2) + (1.0 + m * nn) * (m * m + 1.0 / (m * nn))));
+    let bow = |dt: f64| {
+        let k = kappa * dt; // 1/m
+        let lm = l / 1000.0;
+        k * lm * lm / 8.0 * 1000.0 // sagitta ≈ κ L² / 8, mm
+    };
+    let mut notes = vec![
+        format!(
+            "{} expands {:.0} ppm/K and {} {:.0} ppm/K (typical values — check the data sheets): over {:.0} mm the clearance changes by {:.1} µm per kelvin.",
+            o.name,
+            o.cte_ppm_k,
+            n_.name,
+            n_.cte_ppm_k,
+            l,
+            da * l * 1000.0
+        ),
+        "Polymers also shrink after printing or molding and swell with moisture — keep a margin beyond the thermal term.".into(),
+    ];
+    if c_at(i.t_min_c).min(c_at(i.t_max_c)) < 0.0 {
+        notes.push(
+            "The clearance closes inside the temperature range: the parts will press on each other (see the constrained stress).".into(),
+        );
+    }
+    Ok(ThermalOut {
+        alpha_outer_ppm: o.cte_ppm_k,
+        alpha_inner_ppm: n_.cte_ppm_k,
+        dclear_um_per_k: da * l * 1000.0,
+        clearance_cold_mm: c_at(i.t_min_c),
+        clearance_hot_mm: c_at(i.t_max_c),
+        closing_temp_c: closing,
+        constrained_stress_mpa: o.e_mpa() * da.abs() * dt_max,
+        outer_yield_mpa: o.yield_mpa,
+        bimetal_curvature_per_k: kappa,
+        bimetal_bow_cold_mm: bow(i.t_min_c - i.t_assembly_c),
+        bimetal_bow_hot_mm: bow(i.t_max_c - i.t_assembly_c),
+        clearance_mm: temps.iter().map(|&t| c_at(t)).collect(),
+        temps_c: temps,
+        notes,
+    })
+}
+
+// ---------------------------------------------------------------- stress concentration
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(default)]
+pub struct KtIn {
+    /// "hole" (central hole in a finite-width plate, tension), "ellipse"
+    /// (elliptical hole in a wide plate) or "notch" (surface notch, depth a, root radius ρ).
+    pub geometry: String,
+    /// Plate width W (hole), mm.
+    pub width_mm: f64,
+    /// Hole diameter d (hole), mm.
+    pub hole_mm: f64,
+    /// Ellipse semi-axis across the load a / notch depth a, mm.
+    pub a_mm: f64,
+    /// Ellipse semi-axis along the load b, mm.
+    pub b_mm: f64,
+    /// Notch root radius ρ, mm.
+    pub radius_mm: f64,
+    /// Plate thickness, mm.
+    pub thickness_mm: f64,
+    /// Applied tensile force, N.
+    pub force_n: f64,
+    /// Notch sensitivity q ∈ [0, 1] for the fatigue factor K_f = 1 + q (K_t − 1).
+    pub q: f64,
+    pub material: String,
+}
+
+impl Default for KtIn {
+    fn default() -> Self {
+        KtIn {
+            geometry: "hole".into(),
+            width_mm: 8.0,
+            hole_mm: 1.6,
+            a_mm: 1.0,
+            b_mm: 0.5,
+            radius_mm: 0.3,
+            thickness_mm: 4.0,
+            force_n: 100.0,
+            q: 1.0,
+            material: "PETG".into(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+pub struct KtOut {
+    pub kt: f64,
+    pub kf: f64,
+    /// Nominal stress the factor applies to (net section for "hole"), MPa.
+    pub nominal_mpa: f64,
+    pub peak_mpa: f64,
+    pub yield_mpa: f64,
+    /// Safety factor on the nominal stress (static, ductile) and on the peak.
+    pub sf_nominal: f64,
+    pub sf_peak: f64,
+    pub basis: String,
+    /// K_t vs the geometry ratio for the chart (x = d/W, a/b or a/ρ).
+    pub curve_x: Vec<f64>,
+    pub curve_kt: Vec<f64>,
+    pub curve_label: String,
+    pub notes: Vec<String>,
+}
+
+/// Stress concentration factors: finite-width plate with a central hole in
+/// tension (Heywood's approximation K_tn = 2 + (1 − d/W)³ on the net section,
+/// as tabulated in W. D. Pilkey & D. F. Pilkey, *Peterson's Stress
+/// Concentration Factors*, 3rd ed., 2008); elliptical hole (Inglis 1913,
+/// K_t = 1 + 2a/b); and a notch of depth a and root radius ρ approximated by
+/// the equivalent ellipse, K_t ≈ 1 + 2√(a/ρ) (an upper-bound estimate).
+pub fn stress_conc(i: KtIn) -> Result<KtOut, String> {
+    let m = materials::get(&i.material);
+    let t = i.thickness_mm;
+    if t.is_nan() || t <= 0.0 {
+        return Err("thickness must be positive".into());
+    }
+    let (kt, nominal, basis, cx, ck, lbl) = match i.geometry.as_str() {
+        "ellipse" => {
+            if !(i.a_mm > 0.0 && i.b_mm > 0.0 && i.width_mm > 2.0 * i.a_mm) {
+                return Err("need a, b > 0 and width > 2a".into());
+            }
+            let kt = 1.0 + 2.0 * i.a_mm / i.b_mm;
+            let x: Vec<f64> = (1..=40).map(|k| 0.25 * k as f64).collect();
+            let y = x.iter().map(|r| 1.0 + 2.0 * r).collect();
+            (
+                kt,
+                i.force_n / (i.width_mm * t),
+                "gross section F / (W t) — wide plate".to_string(),
+                x,
+                y,
+                "a / b".to_string(),
+            )
+        }
+        "notch" => {
+            if !(i.a_mm > 0.0 && i.radius_mm > 0.0 && i.width_mm > i.a_mm) {
+                return Err("need depth a > 0, root radius ρ > 0 and width > a".into());
+            }
+            let kt = 1.0 + 2.0 * (i.a_mm / i.radius_mm).sqrt();
+            let x: Vec<f64> = (1..=40).map(|k| 0.5 * k as f64).collect();
+            let y = x.iter().map(|r: &f64| 1.0 + 2.0 * r.sqrt()).collect();
+            (
+                kt,
+                i.force_n / ((i.width_mm - i.a_mm) * t),
+                "net section F / ((W − a) t)".to_string(),
+                x,
+                y,
+                "a / ρ".to_string(),
+            )
+        }
+        _ => {
+            let r = i.hole_mm / i.width_mm;
+            if !(i.hole_mm > 0.0 && r < 1.0) {
+                return Err("need 0 < hole diameter < width".into());
+            }
+            let kt = 2.0 + (1.0 - r).powi(3);
+            let x: Vec<f64> = (0..=40).map(|k| 0.02 * k as f64).collect();
+            let y = x.iter().map(|q| 2.0 + (1.0 - q).powi(3)).collect();
+            (
+                kt,
+                i.force_n / ((i.width_mm - i.hole_mm) * t),
+                "net section F / ((W − d) t)".to_string(),
+                x,
+                y,
+                "d / W".to_string(),
+            )
+        }
+    };
+    let q = i.q.clamp(0.0, 1.0);
+    let kf = 1.0 + q * (kt - 1.0);
+    let peak = kt * nominal;
+    Ok(KtOut {
+        kt,
+        kf,
+        nominal_mpa: nominal,
+        peak_mpa: peak,
+        yield_mpa: m.yield_mpa,
+        sf_nominal: if nominal > 0.0 { m.yield_mpa / nominal } else { f64::INFINITY },
+        sf_peak: if peak > 0.0 { m.yield_mpa / peak } else { f64::INFINITY },
+        basis,
+        curve_x: cx,
+        curve_kt: ck,
+        curve_label: lbl,
+        notes: vec![
+            "Static loads on ductile materials: local yielding blunts the peak, so strength is usually checked on the nominal stress (Shigley). Brittle materials and fatigue feel the full peak.".into(),
+            "Fatigue: use K_f = 1 + q (K_t − 1). Notch sensitivity q depends on the material and the notch radius; q = 1 (full sensitivity) is the safe assumption for printed and glass-filled plastics.".into(),
+            "Printed parts: every layer line is a small notch, and the nozzle cannot print a radius much below half its width — model inside corners with a real radius.".into(),
+        ],
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1037,6 +1381,71 @@ mod tests {
         let exact = std::f64::consts::PI.powi(2) * 68_900.0 * i / 40_000.0;
         assert!((o.euler_load_n - exact).abs() < 1e-9 * exact);
         assert_eq!(o.regime, "Euler (elastic buckling)");
+    }
+
+    #[test]
+    fn thread_stripping_areas() {
+        let o = bolt(BoltIn::default()).unwrap();
+        // M3 × 0.5, 4.5 mm engagement: A_int = π · 3 · 4.5 · 0.875.
+        let a = std::f64::consts::PI * 3.0 * 4.5 * 0.875;
+        assert!((o.strip_area_internal_mm2 - a).abs() < 1e-9);
+        assert!((o.strip_force_internal_n - a * 0.577 * 276.0).abs() < 1e-6);
+        // Engagement for equal strength scales linearly with the proof load.
+        assert!((o.min_engagement_mm * std::f64::consts::PI * 3.0 * 0.875 * 0.577 * 276.0 - o.tensile_capacity_n).abs() < 1e-6);
+    }
+
+    #[test]
+    fn thermal_mismatch_and_bimetal() {
+        let o = thermal(ThermalIn::default()).unwrap();
+        // (65 − 15) ppm/K × 60 mm = 3 µm/K; −33 K → 0.099 mm tighter.
+        assert!((o.dclear_um_per_k - 3.0).abs() < 1e-9);
+        assert!((o.clearance_cold_mm - (0.4 - 0.099)).abs() < 1e-9);
+        // Equal layers (m = n = 1): κ = 3 Δα ΔT / (2 h) (Timoshenko's special case).
+        let e = thermal(ThermalIn {
+            outer: "AL6061-T6".into(),
+            inner: "AL6061-T6".into(),
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(e.bimetal_curvature_per_k, 0.0);
+        let da = 50e-6;
+        let h = 0.002;
+        let m: f64 = 1.0;
+        let k = 6.0 * da * (1.0 + m).powi(2) / (h * (3.0 * (1.0 + m).powi(2) + 2.0 * 2.0));
+        assert!((k - 1.5 * da / h).abs() < 1e-12);
+    }
+
+    #[test]
+    fn stress_concentration_limits() {
+        // Tiny hole in a wide plate → K_t → 3; ellipse a = b → 3; notch a/ρ = 1 → 3.
+        let h = stress_conc(KtIn {
+            width_mm: 1000.0,
+            hole_mm: 0.01,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!((h.kt - 3.0).abs() < 1e-4);
+        let e = stress_conc(KtIn {
+            geometry: "ellipse".into(),
+            a_mm: 1.0,
+            b_mm: 1.0,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!((e.kt - 3.0).abs() < 1e-12);
+        let n = stress_conc(KtIn {
+            geometry: "notch".into(),
+            a_mm: 0.5,
+            radius_mm: 0.5,
+            q: 0.5,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!((n.kt - 3.0).abs() < 1e-12 && (n.kf - 2.0).abs() < 1e-12);
+        // Net-section nominal stress for the default hole: 100 / ((8 − 1.6) · 4).
+        let d = stress_conc(KtIn::default()).unwrap();
+        assert!((d.nominal_mpa - 100.0 / 25.6).abs() < 1e-12);
+        assert!((d.kt - (2.0 + 0.8f64.powi(3))).abs() < 1e-12);
     }
 
     #[test]

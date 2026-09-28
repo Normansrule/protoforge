@@ -89,6 +89,7 @@ export interface CaseSummary {
   elements: number;
   iterations: number;
   max_vm_mpa: number;
+  peak_vm_mpa: number;
   safety_factor: number;
   sf_von_mises: number;
   governing: string;
@@ -204,17 +205,21 @@ export interface FatigueOut {
 }
 
 export interface IrisOut {
+  fidelity: string;
   material: string;
   material_name: string;
   printed: boolean;
+  yield_mpa: number;
   cases: CaseSummary[];
   min_safety_factor: number;
   worst_case: string;
   temple_deflection_mm: number;
   drop: DropResult;
   pod: PodStackOut;
+  focus: FocusStackOut;
   modal: ModalOut;
   fatigue: FatigueOut;
+  hinge_cycles: number;
   solid_fraction_note: string;
   notes: string[];
 }
@@ -310,4 +315,192 @@ export interface FitOut {
   min_clearance_um: number;
   fit_type: string;
   description: string;
+}
+
+export interface FocusStackOut {
+  dims: Dim[];
+  stack: StackOut;
+  nominal_mm: number;
+  focal_mm: number;
+  nominal_vergence_d: number;
+  image_distance_m: number;
+  sensitivity_d_per_mm: number;
+  allowable_d: number;
+  lower_mm: number;
+  upper_mm: number;
+  worst_diopters: number;
+  rss_diopters: number;
+  curve_mm: number[];
+  curve_d: number[];
+  notes: string[];
+}
+
+export interface Section {
+  shape: 'rect' | 'round' | 'tube';
+  b: number;
+  h: number;
+  t: number;
+}
+
+export interface SectionProps {
+  area_mm2: number;
+  i_mm4: number;
+  c_mm: number;
+  z_mm3: number;
+  r_gyr_mm: number;
+}
+
+export interface BeamOut {
+  section: SectionProps;
+  e_mpa: number;
+  max_moment_nmm: number;
+  max_moment_x_mm: number;
+  max_stress_mpa: number;
+  max_deflection_mm: number;
+  stiffness_n_mm: number;
+  yield_mpa: number;
+  safety_factor: number;
+  x: number[];
+  deflection: number[];
+  moment: number[];
+  formula: string;
+}
+
+export interface SnapOut {
+  strain_pct: number;
+  allowable_strain_pct: number;
+  utilisation: number;
+  max_undercut_mm: number;
+  deflection_force_n: number;
+  mating_force_n: number;
+  separation_force_n: number;
+  self_locking: boolean;
+  e_mpa: number;
+  root_stress_mpa: number;
+  shape_x: number[];
+  shape_y: number[];
+  verdict: string;
+}
+
+export interface BoltOut {
+  d_mm: number;
+  pitch_mm: number;
+  stress_area_mm2: number;
+  proof_mpa: number;
+  proof_load_n: number;
+  preload_n: number;
+  torque_nm: number;
+  bolt_stiffness_n_mm: number;
+  member_stiffness_n_mm: number;
+  joint_constant: number;
+  bolt_load_n: number;
+  member_load_n: number;
+  separation_load_n: number;
+  load_factor: number;
+  separation_factor: number;
+  bolt_stress_mpa: number;
+  strip_area_internal_mm2: number;
+  strip_area_external_mm2: number;
+  strip_force_internal_n: number;
+  strip_force_external_n: number;
+  tensile_capacity_n: number;
+  first_failure: string;
+  min_engagement_mm: number;
+  nut_material: string;
+  notes: string[];
+}
+
+export interface BossOut {
+  pilot_hole_mm: number;
+  boss_od_mm: number;
+  boss_od_range_mm: [number, number];
+  min_engagement_mm: number;
+  max_boss_wall_at_base_mm: number;
+  base_fillet_mm: number;
+  pullout_force_n: number;
+  shear_strength_mpa: number;
+  safety_factor: number;
+  notes: string[];
+  inserts: { thread: string; hole_mm: number; insert_od_mm: number; length_mm: number; min_boss_od_mm: number }[];
+}
+
+export interface PressOut {
+  pressure_mpa: number;
+  hub_hoop_mpa: number;
+  hub_von_mises_mpa: number;
+  shaft_hoop_mpa: number;
+  hub_yield_mpa: number;
+  hub_safety_factor: number;
+  axial_force_n: number;
+  torque_nm: number;
+  hub_radial_growth_um: number;
+  r: number[];
+  hoop: number[];
+  radial: number[];
+}
+
+export interface BuckleOut {
+  k_factor: number;
+  slenderness: number;
+  transition_slenderness: number;
+  euler_load_n: number;
+  johnson_load_n: number;
+  critical_load_n: number;
+  regime: string;
+  safety_factor: number;
+  plate_k: number;
+  plate_stress_mpa: number;
+  plate_load_n: number;
+  applied_stress_mpa: number;
+  curve_l: number[];
+  curve_p: number[];
+}
+
+export interface HingeOut {
+  strain_pct: number;
+  bend_radius_mm: number;
+  guidance_limit_pct: number;
+  verdict: string;
+  min_length_mm: number;
+}
+
+export interface ThermalOut {
+  alpha_outer_ppm: number;
+  alpha_inner_ppm: number;
+  dclear_um_per_k: number;
+  clearance_cold_mm: number;
+  clearance_hot_mm: number;
+  closing_temp_c: number | null;
+  constrained_stress_mpa: number;
+  outer_yield_mpa: number;
+  bimetal_curvature_per_k: number;
+  bimetal_bow_cold_mm: number;
+  bimetal_bow_hot_mm: number;
+  temps_c: number[];
+  clearance_mm: number[];
+  notes: string[];
+}
+
+export interface KtOut {
+  kt: number;
+  kf: number;
+  nominal_mpa: number;
+  peak_mpa: number;
+  yield_mpa: number;
+  sf_nominal: number;
+  sf_peak: number;
+  basis: string;
+  curve_x: number[];
+  curve_kt: number[];
+  curve_label: string;
+  notes: string[];
+}
+
+export interface BeamModesOut {
+  freqs_hz: number[];
+  analytic_hz: number[];
+  stations_mm: number[];
+  shapes: number[][];
+  ei_nmm2: number;
+  mass_g: number;
 }

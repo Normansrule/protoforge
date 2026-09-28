@@ -52,6 +52,34 @@ pub fn voxelize(mesh: &Mesh, h: f64) -> Grid {
     g
 }
 
+/// Voxelise with the grid snapped so that, on every axis with an anchor,
+/// the anchor coordinate lies exactly on a voxel face. Aligning the grid
+/// with a slender member's faces (a 4 mm temple on a 2 mm grid) makes it
+/// exactly two full voxels thick instead of three partial ones — partial
+/// voxels scale stiffness with ρ, which is right for membranes but
+/// over-stiffens thin walls in bending (∝ t³, not ∝ t).
+pub fn voxelize_aligned(mesh: &Mesh, h: f64, anchor: [Option<f64>; 3]) -> Grid {
+    let (lo, hi) = bounds(mesh);
+    let mut origin = [0.0; 3];
+    let mut dims = [1usize; 3];
+    for d in 0..3 {
+        match anchor[d] {
+            Some(a) => {
+                let o = a - h * ((a - lo[d]) / h - 1e-9).ceil();
+                origin[d] = o;
+                dims[d] = (((hi[d] - o) / h - 1e-9).ceil() as usize).max(1);
+            }
+            None => {
+                dims[d] = (((hi[d] - lo[d]) / h).ceil() as usize).max(1);
+                origin[d] = 0.5 * (lo[d] + hi[d]) - 0.5 * dims[d] as f64 * h;
+            }
+        }
+    }
+    let mut g = Grid::new(dims[0], dims[1], dims[2], h, origin);
+    fill(&mut g, mesh);
+    g
+}
+
 /// Sub-samples per axis for the partial-volume fraction (3 → 27 per voxel).
 pub const SUB: usize = 3;
 /// Minimum material fraction for a voxel to become an element.
@@ -161,6 +189,22 @@ mod tests {
     }
 
     #[test]
+    fn aligned_grid_puts_the_anchor_on_a_voxel_face() {
+        // A 4 mm thick plate starting at x = 0.3: centred 2 mm voxels straddle
+        // it (partial voxels), aligned ones fit it exactly.
+        let m = box_mesh([0.3, 0.0, 0.0], [4.3, 10.0, 6.0]);
+        let g = voxelize_aligned(&m, 2.0, [Some(0.3), None, None]);
+        assert!((g.origin[0] - 0.3).abs() < 1e-12, "{:?}", g.origin);
+        assert_eq!(g.nx, 2);
+        assert_eq!(g.count(), 2 * 5 * 3);
+        assert!(g.rho.iter().all(|r| (*r - 1.0).abs() < 1e-6));
+        let c = voxelize(&m, 2.0);
+        assert_eq!(c.nx, 2);
+        let off = voxelize_aligned(&m, 1.5, [Some(0.3), None, None]);
+        assert!(off.origin[0] <= 0.3 + 1e-9 && off.origin[0] + 1.5 * off.nx as f64 >= 4.3 - 1e-9);
+    }
+
+    #[test]
     fn iris_parts_voxelise_close_to_their_volume() {
         let p = crate::project::Project::iris();
         for part in crate::cad::frame_parts(&p) {
@@ -173,7 +217,12 @@ mod tests {
                 // Partial-volume voxels keep the material volume even when
                 // walls (1.2 mm) are thinner than a voxel.
                 let rel = (g.volume() - vol) / vol;
-                assert!(rel.abs() < 0.06, "{} h={h}: voxel {:.0} vs mesh {vol:.0} mm³", part.name, g.volume());
+                assert!(
+                    rel.abs() < 0.06,
+                    "{} h={h}: voxel {:.0} vs mesh {vol:.0} mm³",
+                    part.name,
+                    g.volume()
+                );
             }
         }
     }

@@ -154,12 +154,17 @@ pub fn analyze(i: FatigueIn) -> Result<FatigueOut, String> {
         "Polymers have no true endurance limit; S-N data depend on frequency, temperature, humidity and notches.".into(),
     ];
     if m.printed {
-        notes.push("Printed parts: layer lines act as notches — use the strength factor (e.g. 0.5–0.7) when stress crosses the layers.".into());
+        notes.push(
+            "Printed parts: layer lines act as notches — use the strength factor (e.g. 0.5–0.7) when stress crosses the layers.".into(),
+        );
     }
     let (sfp, b) = m.basquin().unwrap_or((m.uts_mpa, 0.0));
     let has = m.basquin().is_some();
     if !has {
-        notes.push(format!("No fatigue data for {} in the database — life cannot be estimated.", m.name));
+        notes.push(format!(
+            "No fatigue data for {} in the database — life cannot be estimated.",
+            m.name
+        ));
     }
     // Stress margin: scale all stresses until D = 1.
     let margin = if has && d > 0.0 {

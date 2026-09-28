@@ -44,7 +44,16 @@ pub const NODES: [[f64; 3]; 8] = [
 ];
 
 /// Grid offsets (0/1) of the 8 nodes.
-pub const OFFS: [[usize; 3]; 8] = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]];
+pub const OFFS: [[usize; 3]; 8] = [
+    [0, 0, 0],
+    [1, 0, 0],
+    [1, 1, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 0, 1],
+    [1, 1, 1],
+    [0, 1, 1],
+];
 
 /// Isotropic elasticity matrix for E = 1 (Voigt order xx, yy, zz, xy, yz, zx
 /// with engineering shear strains).

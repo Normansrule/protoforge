@@ -9,16 +9,19 @@
 //! | [`strength`] | Iris load cases, stress/safety-factor post-processing, drop model |
 //! | [`iris`] | the full Iris verification behind the metrics |
 //! | [`topo`] | 2D plane-stress solver and SIMP topology optimisation |
-//! | [`calc`] | beams, snap fits, bosses/inserts, bolted joints, press fits, buckling, living hinges |
+//! | [`calc`] | beams, snap fits, bosses/inserts, bolted joints and thread stripping, press fits, buckling, living hinges, thermal mismatch, stress concentrations |
 //! | [`fatigue`] | S-N (Basquin), Goodman, Miner |
-//! | [`tolerance`] | stack-ups (worst case, RSS, Monte Carlo), ISO 286 fits, the PCB-in-pod stack |
+//! | [`tolerance`] | stack-ups (worst case, RSS, Monte Carlo), ISO 286 fits, the PCB-in-pod and display-focus stacks |
 //! | [`modal`] | beam modes of the temples |
 //!
-//! Metrics (see [`metrics`]): `structures.min_safety_factor`,
-//! `structures.temple_deflection_mm`, `structures.drop_safety_factor`,
-//! `structures.pod_fit_worst_mm`, plus informational
-//! `structures.first_mode_hz`, `structures.pod_fit_yield_pct`,
-//! `structures.hinge_fatigue_life_years` and `structures.temple_stiffness_n_mm`.
+//! Metrics (see [`metrics`]): `structures.min_safety_factor` (recommend ≥ 2)
+//! and `structures.pod_fit_worst_mm` (recommend ≥ 0), plus informational
+//! `structures.temple_deflection_mm`, `structures.temple_stiffness_n_mm`,
+//! `structures.drop_safety_factor`, `structures.pod_fit_yield_pct`,
+//! `structures.first_mode_hz`, `structures.hinge_fatigue_cycles` and
+//! `structures.focus_error_worst_d`.
+
+#![allow(clippy::needless_range_loop)] // index-heavy numeric code reads better with explicit indices
 
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -52,6 +55,14 @@ struct PodIn {
     project: Option<Project>,
     #[serde(flatten)]
     opts: tolerance::PodStackIn,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct FocusIn {
+    project: Option<Project>,
+    #[serde(flatten)]
+    opts: tolerance::FocusStackIn,
 }
 
 #[derive(Deserialize)]
@@ -127,11 +138,11 @@ struct IrisFatigueIn {
     material: Option<String>,
 }
 
-fn fidelity(s: &str) -> iris::Fidelity {
+fn fidelity(s: &str, p: &Project) -> iris::Fidelity {
     if s == "fine" {
-        iris::Fidelity::FINE
+        iris::Fidelity::fine(p)
     } else {
-        iris::Fidelity::METRIC
+        iris::Fidelity::metric(p)
     }
 }
 
@@ -143,7 +154,7 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         "structures.fea" => handle(input, strength::run),
         "structures.iris" => handle(input, |i: ProjIn| {
             let p = i.project.unwrap_or_else(Project::iris);
-            iris::analyze(&p, fidelity(&i.fidelity))
+            iris::analyze(&p, fidelity(&i.fidelity, &p))
         }),
         "structures.drop" => handle(input, drop),
         "structures.mesh_study" => handle(input, mesh_study),
@@ -172,8 +183,15 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         }),
         "structures.modal" => handle(input, |i: ProjIn| {
             let p = i.project.unwrap_or_else(Project::iris);
-            iris::analyze(&p, fidelity(&i.fidelity)).map(|o| o.modal)
+            iris::analyze(&p, fidelity(&i.fidelity, &p)).map(|o| o.modal)
         }),
+        "structures.focus_stack" => handle(input, |i: FocusIn| {
+            let p = i.project.unwrap_or_else(Project::iris);
+            tolerance::focus_stack(&p, &i.opts)
+        }),
+        "structures.thermal" => handle(input, calc::thermal),
+        "structures.stress_conc" => handle(input, calc::stress_conc),
+        "structures.beam_modes" => handle(input, beam_modes),
         _ => None,
     }
 }
@@ -212,7 +230,11 @@ struct StudyRow {
 fn mesh_study(i: StudyIn) -> Result<Vec<StudyRow>, String> {
     let p = i.project.unwrap_or_else(Project::iris);
     let mat = materials::get(i.material.as_deref().unwrap_or(&p.design.frame.material));
-    let f = strength::cases().into_iter().find(|c| c.id == i.case).map(|c| c.default_force_n).unwrap_or(1.0);
+    let f = strength::cases()
+        .into_iter()
+        .find(|c| c.id == i.case)
+        .map(|c| c.default_force_n)
+        .unwrap_or(1.0);
     let mut rows = Vec::new();
     for &h in i.sizes.iter().take(8) {
         let m = strength::build_model(&p, &i.part, &i.case, h.max(0.4), 40_000, f)?;
@@ -310,7 +332,7 @@ fn locking_demo(i: LockIn) -> Result<LockOut, String> {
 
 fn iris_fatigue(i: IrisFatigueIn) -> Result<fatigue::FatigueOut, String> {
     let p = i.project.unwrap_or_else(Project::iris);
-    let o = iris::analyze(&p, iris::Fidelity::METRIC)?;
+    let o = iris::analyze(&p, iris::Fidelity::metric(&p))?;
     if i.blocks.is_none() && i.years.is_none() && i.material.is_none() {
         return Ok(o.fatigue);
     }
@@ -326,7 +348,90 @@ fn iris_fatigue(i: IrisFatigueIn) -> Result<fatigue::FatigueOut, String> {
         material: mat.id.into(),
         years: i.years.unwrap_or(3.0),
         blocks: i.blocks.unwrap_or_else(|| iris::hinge_spectrum(per_n)),
-        strength_factor: if worse.governing == "across layers" { mat.z_strength_factor } else { 1.0 },
+        strength_factor: if worse.governing == "across layers" {
+            mat.z_strength_factor
+        } else {
+            1.0
+        },
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(default)]
+struct BeamModesIn {
+    length_mm: f64,
+    section: calc::Section,
+    material: String,
+    /// Tip mass (e.g. an ear piece or a pod), g.
+    tip_mass_g: f64,
+    /// "cantilever" (clamped–free) or "simply_supported"-like free–free is not
+    /// supported; clamped–free only.
+    segments: usize,
+}
+
+impl Default for BeamModesIn {
+    fn default() -> Self {
+        BeamModesIn {
+            length_mm: 80.0,
+            section: calc::Section {
+                shape: "rect".into(),
+                b: 8.0,
+                h: 4.0,
+                t: 0.0,
+            },
+            material: "PETG".into(),
+            tip_mass_g: 0.0,
+            segments: 24,
+        }
+    }
+}
+
+#[derive(serde::Serialize)]
+struct BeamModesOut {
+    freqs_hz: Vec<f64>,
+    /// Analytical first three modes for a uniform cantilever without tip mass.
+    analytic_hz: Vec<f64>,
+    stations_mm: Vec<f64>,
+    shapes: Vec<Vec<f64>>,
+    ei_nmm2: f64,
+    mass_g: f64,
+}
+
+/// Natural frequencies of a uniform clamped–free beam (Hermite beam
+/// elements, consistent mass) with an optional tip mass, next to the
+/// analytical β_n L = 1.8751, 4.6941, 7.8548.
+fn beam_modes(i: BeamModesIn) -> Result<BeamModesOut, String> {
+    let sp = calc::section_props(&i.section)?;
+    let m = materials::get(&i.material);
+    let l = i.length_mm;
+    if l.is_nan() || l <= 0.0 {
+        return Err("length must be positive".into());
+    }
+    let n = i.segments.clamp(4, 60);
+    let ei = m.e_mpa() * sp.i_mm4; // N·mm²
+    let mu = sp.area_mm2 * m.density_g_cm3 / 1000.0; // g/mm = kg/m
+    let mut segs: Vec<modal::Seg> = (0..n)
+        .map(|_| modal::Seg {
+            len: l / n as f64 / 1000.0,
+            ei: ei * 1e-6,
+            m: mu,
+        })
+        .collect();
+    // Tip mass lumped into the last segment's distributed mass (over its length).
+    if i.tip_mass_g > 0.0 {
+        if let Some(last) = segs.last_mut() {
+            last.m += i.tip_mass_g / 1000.0 / last.len;
+        }
+    }
+    let (f, shapes) = modal::cantilever_modes(&segs, 3);
+    let base = (ei * 1e-6 / (mu * (l / 1000.0).powi(4))).sqrt() / (2.0 * std::f64::consts::PI);
+    Ok(BeamModesOut {
+        freqs_hz: f,
+        analytic_hz: [1.875_104, 4.694_091, 7.854_757].iter().map(|b: &f64| b * b * base).collect(),
+        stations_mm: (0..=n).map(|k| l * k as f64 / n as f64).collect(),
+        shapes,
+        ei_nmm2: ei,
+        mass_g: mu * l + i.tip_mass_g,
     })
 }
 
@@ -334,32 +439,44 @@ thread_local! {
     static METRICS: crate::memo::Slot<Vec<Metric>> = const { std::cell::RefCell::new(None) };
 }
 
-/// Metrics this module contributes to requirement verification (memoised on
-/// the frame, PCB, print settings and component masses).
+/// Metrics this module contributes to requirement verification. The finite
+/// element solves are memoised inside [`iris::analyze`] on the frame, optics
+/// and PCB; the whole list is memoised on everything it reads.
 pub fn metrics(p: &Project) -> Vec<Metric> {
     let comps: Vec<(&str, f64, f64)> = p.components.iter().map(|c| (c.location.as_str(), c.mass_g, c.qty)).collect();
-    let key = crate::memo::key(&(&p.design.frame, &p.design.optics, &p.design.pcb, &p.design.print, comps));
+    let key = crate::memo::key(&(
+        &p.design.frame,
+        &p.design.optics,
+        &p.design.pcb,
+        &p.design.print,
+        &p.design.manufacturing.molding_material,
+        comps,
+    ));
     crate::memo::memo(&METRICS, key, || metrics_uncached(p))
 }
 
 fn metrics_uncached(p: &Project) -> Vec<Metric> {
-    let o = match iris::analyze(p, iris::Fidelity::METRIC) {
+    let fid = iris::Fidelity::metric(p);
+    let o = match iris::analyze(p, fid) {
         Ok(o) => o,
         Err(_) => return vec![],
     };
     let src = "structures";
+    let peak = o
+        .cases
+        .iter()
+        .filter(|c| c.counts_for_min)
+        .map(|c| c.peak_vm_mpa)
+        .fold(0.0, f64::max);
     let mut m = vec![
         Metric::new("structures.min_safety_factor", "Minimum structural safety factor", o.min_safety_factor, "x", src).with_note(&format!(
-            "worst of temple spread, bridge bend and pod squeeze: {} — {} vs yield{} (coarse voxel model)",
+            "worst of temple spread (5 N, both temples) and bridge bend (10 N): {} — {} yield {:.0} MPa vs design von Mises on {:.1} mm voxels (sharp-corner zones excluded){}; sharp-corner nodal peak {:.0} MPa (stress concentration — fillet it)",
             o.worst_case,
             o.material_name,
-            if o.printed { ", print-layer knock-down applied" } else { "" }
-        )),
-        Metric::new("structures.temple_deflection_mm", "Temple tip deflection (5 N spread)", o.temple_deflection_mm, "mm", src)
-            .with_note("larger of the two temples; hinge end clamped, 5 N outward at the tip"),
-        Metric::new("structures.drop_safety_factor", "Drop safety factor (1.5 m onto the pod)", o.drop.safety_factor, "x", src).with_note(&format!(
-            "1-DOF energy method: {:.0} N peak on a {:.1} N/mm temple, {:.0} g moving mass — an upper bound on force",
-            o.drop.peak_force_n, o.drop.stiffness_n_mm, o.drop.moving_mass_g
+            o.yield_mpa,
+            fid.h_temple,
+            if o.printed { ", print-layer check included" } else { "" },
+            peak
         )),
         Metric::new("structures.pod_fit_worst_mm", "PCB-in-pod worst-case clearance", o.pod.stack.worst_min, "mm", src).with_note(&format!(
             "stack-up: pod {:.2} ± {:.2} mm ({}) − PCB {:.2} mm − edge overhang, incl. cold (−10 °C) shrink; RSS −3σ {:.2} mm",
@@ -369,17 +486,38 @@ fn metrics_uncached(p: &Project) -> Vec<Metric> {
             o.pod.pcb_len_mm,
             o.pod.stack.rss_min
         )),
+        Metric::new("structures.temple_deflection_mm", "Temple tip deflection (5 N spread)", o.temple_deflection_mm, "mm", src)
+            .with_note("larger of the two temples; hinge end clamped, 5 N outward at the tip (coarse voxels read slightly stiff)"),
+        Metric::new("structures.drop_safety_factor", "Drop safety factor (1.5 m onto the pod)", o.drop.safety_factor, "x", src).with_note(&format!(
+            "1-DOF energy method, rigid floor: {:.0} N peak on a {:.0} N/mm pod, {:.0} g moving mass — an upper bound on force (a physical drop test decides)",
+            o.drop.peak_force_n, o.drop.stiffness_n_mm, o.drop.moving_mass_g
+        )),
         Metric::new("structures.pod_fit_yield_pct", "PCB-in-pod assembly yield (Monte Carlo)", o.pod.stack.yield_pct, "%", src),
         Metric::new("structures.first_mode_hz", "First bending mode of the right temple", o.modal.first_mode_hz, "Hz", src)
             .with_note("Euler–Bernoulli beam from voxel slices, clamped at the hinge, electronics as added mass"),
+        Metric::new("structures.focus_error_worst_d", "Display focus error, worst case", o.focus.worst_diopters, "D", src).with_note(&format!(
+            "display-to-lens chain ±{:.2} mm worst case × {:.2} D/mm; RSS {:.2} D; allowance ±{:.2} D",
+            0.5 * (o.focus.stack.worst_max - o.focus.stack.worst_min),
+            o.focus.sensitivity_d_per_mm,
+            o.focus.rss_diopters,
+            o.focus.allowable_d
+        )),
     ];
     if let Some(c) = o.cases.iter().find(|c| c.case == "temple_spread" && c.part == "temple_r") {
-        m.push(Metric::new("structures.temple_stiffness_n_mm", "Right temple lateral stiffness", c.stiffness_n_mm, "N/mm", src));
+        m.push(Metric::new(
+            "structures.temple_stiffness_n_mm",
+            "Right temple lateral stiffness",
+            c.stiffness_n_mm,
+            "N/mm",
+            src,
+        ));
     }
     if o.fatigue.has_data {
         m.push(
-            Metric::new("structures.hinge_fatigue_life_years", "Temple fatigue life (Miner, usage spectrum)", o.fatigue.life_years.min(1e6), "years", src)
-                .with_note("10 put-on/take-off + 2 wide spreads per day + walking; Basquin + Goodman"),
+            Metric::new("structures.hinge_fatigue_cycles", "Temple open/close cycles to fatigue failure", o.hinge_cycles.min(1e12), "cycles", src).with_note(&format!(
+                "Miner's rule on the usage spectrum (12 open/close per day + walking), Basquin + Goodman on the design stress (no notch factor): {:.1} years",
+                o.fatigue.life_years.min(1e9)
+            )),
         );
     }
     m
@@ -394,10 +532,12 @@ mod tests {
         let m = metrics(&Project::iris());
         for k in [
             "structures.min_safety_factor",
+            "structures.pod_fit_worst_mm",
             "structures.temple_deflection_mm",
             "structures.drop_safety_factor",
-            "structures.pod_fit_worst_mm",
             "structures.first_mode_hz",
+            "structures.focus_error_worst_d",
+            "structures.hinge_fatigue_cycles",
         ] {
             let x = m.iter().find(|x| x.key == k).unwrap_or_else(|| panic!("missing {k}"));
             assert!(x.value.is_finite(), "{k} = {}", x.value);
@@ -405,6 +545,15 @@ mod tests {
         let u = |k: &str| m.iter().find(|x| x.key == k).unwrap().unit.clone();
         assert_eq!(u("structures.min_safety_factor"), "x");
         assert_eq!(u("structures.temple_deflection_mm"), "mm");
+        // Recommended requirements: SF ≥ 2 and a non-negative worst-case fit.
+        let v = |k: &str| m.iter().find(|x| x.key == k).unwrap().value;
+        assert!(v("structures.min_safety_factor") > 1.0, "{}", v("structures.min_safety_factor"));
+        assert!(v("structures.pod_fit_worst_mm") > 0.0);
+        // Warm call is served from the memo.
+        let t = std::time::Instant::now();
+        let again = metrics(&Project::iris());
+        assert_eq!(again.len(), m.len());
+        assert!(t.elapsed().as_millis() < 200);
     }
 
     #[test]
@@ -426,10 +575,29 @@ mod tests {
             ("structures.plane_stress", json!({})),
             ("structures.stackup", json!({"dims": [{"name": "a", "nominal": 1.0}]})),
             ("structures.locking_demo", json!({"layers": 2})),
+            ("structures.thermal", json!({})),
+            ("structures.stress_conc", json!({})),
+            ("structures.beam_modes", json!({"tip_mass_g": 2.0})),
+            ("structures.focus_stack", json!({})),
         ] {
             let r = dispatch(mth, &inp).unwrap();
             assert!(r.is_ok(), "{mth}: {r:?}");
         }
         assert!(dispatch("structures.nope", &json!({})).is_none());
+    }
+
+    #[test]
+    fn beam_modes_match_the_analytic_cantilever() {
+        let r = beam_modes(BeamModesIn::default()).unwrap();
+        for k in 0..3 {
+            let rel = (r.freqs_hz[k] - r.analytic_hz[k]).abs() / r.analytic_hz[k];
+            assert!(rel < 2e-3, "mode {k}: {} vs {}", r.freqs_hz[k], r.analytic_hz[k]);
+        }
+        let with_mass = beam_modes(BeamModesIn {
+            tip_mass_g: 5.0,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(with_mass.freqs_hz[0] < r.freqs_hz[0]);
     }
 }

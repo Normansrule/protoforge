@@ -1,0 +1,64 @@
+/* Structures Lab — layout and diagram styles (colours only via theme tokens). */
+
+.st-fea { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .st-fea { grid-template-columns: minmax(0, 1fr); } }
+
+.st-legend {
+  position: absolute; right: 12px; top: 12px; width: 190px; pointer-events: none;
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 10px; backdrop-filter: blur(6px);
+}
+.st-legend-bar { height: 10px; border-radius: 5px; margin: 6px 0 3px; border: 1px solid var(--border); }
+.st-legend-ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-2); }
+@media (max-width: 560px) { .st-legend { width: 150px; right: 8px; top: 8px; padding: 6px 8px; } }
+
+.st-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.st-preset {
+  display: flex; flex-direction: column; gap: 3px; text-align: left; font: inherit; color: var(--text);
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; cursor: pointer;
+}
+.st-preset:hover { border-color: var(--border-strong); }
+.st-preset.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+
+.st-drop { display: grid; place-items: center; }
+
+.st-calc { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .st-calc { grid-template-columns: minmax(0, 1fr); } }
+
+.st-diagram { width: 100%; max-width: 600px; margin: 0 auto; height: auto; display: block; border-radius: 10px; border: 1px solid var(--border); background: var(--surface-2); }
+.st-diagram text { fill: var(--text-2); font-size: 11px; font-family: var(--font); }
+.st-diagram .lbl { fill: var(--text); font-weight: 600; }
+.st-diagram .part { fill: color-mix(in srgb, var(--series-1) 26%, var(--surface-1)); stroke: var(--series-1); stroke-width: 1.5; }
+.st-diagram .part2 { fill: color-mix(in srgb, var(--series-3) 24%, var(--surface-1)); stroke: var(--series-3); stroke-width: 1.5; }
+.st-diagram .ghost { fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 3; }
+.st-diagram .dim { stroke: var(--muted); stroke-width: 1; fill: none; }
+.st-diagram .load { stroke: var(--series-2); stroke-width: 2.2; fill: var(--series-2); }
+.st-diagram .ground { stroke: var(--text-2); stroke-width: 1.5; fill: none; }
+.st-diagram .hatch { stroke: var(--muted); stroke-width: 1; }
+
+.st-calc-nav { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.st-kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 13px; margin: 0; }
+.st-kv dt { color: var(--muted); }
+.st-kv dd { margin: 0; font-family: var(--mono); font-size: 12.5px; text-align: right; }
+
+.st-verdict { border-left: 3px solid var(--border-strong); padding: 6px 10px; font-size: 13px; background: var(--surface-2); border-radius: 0 8px 8px 0; }
+.st-verdict.pass { border-left-color: var(--good); }
+.st-verdict.warn { border-left-color: var(--warn); }
+.st-verdict.fail { border-left-color: var(--bad); }
+
+.st-pareto { display: grid; gap: 6px; }
+.st-pareto-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px 48px; gap: 8px; align-items: center; font-size: 12.5px; }
+.st-pareto-bar { height: 10px; border-radius: 5px; background: var(--surface-3); overflow: hidden; }
+.st-pareto-bar > div { height: 100%; border-radius: 5px; background: var(--series-1); transition: width 0.4s ease; }
+@media (max-width: 560px) { .st-pareto-row { grid-template-columns: minmax(0, 1fr) 70px 42px; } }
+@media (prefers-reduced-motion: reduce) { .st-pareto-bar > div { transition: none; } }
+
+.st-table-input input, .st-table-input select { width: 100%; min-width: 0; padding: 4px 6px; font-size: 12.5px; }
+.st-table-input td { padding: 4px 4px; }
+
+.st-grad { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.st-grad > div { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-1); font-size: 13px; }
+.st-grad b { display: block; margin-bottom: 3px; }
+
+.st-scroll-x { overflow-x: auto; }
