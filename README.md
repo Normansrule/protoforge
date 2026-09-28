@@ -124,6 +124,16 @@ The heart of Protoforge. Eleven tabs cover the systems-engineering life cycle:
 <br/><sub>The overview page's live pipeline: each node shows how many of its requirements currently pass.</sub>
 </div>
 
+### Light theme and phones
+
+Every page has a dark and a light theme (the sun/moon button) and works down to phone width.
+
+<p align="center">
+<img src="docs/images/pcb-light.webp" alt="PCB Studio in the light theme" width="49%"/>
+<img src="docs/images/cad-light.webp" alt="CAD Studio in the light theme" width="49%"/>
+</p>
+<p align="center"><img src="docs/images/mobile.webp" alt="Overview, Systems Studio, Optics Lab and PCB Studio on a phone" width="90%"/></p>
+
 ---
 
 ## Iris: smart glasses from scratch
