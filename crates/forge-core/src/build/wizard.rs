@@ -189,7 +189,8 @@ pub const PROCESSES: &[ProcessCap] = &[
         id: "laser",
         name: "Laser cutting",
         materials: &["metal", "plastic", "wood"],
-        geometry: [0.0, 1.0, 0.2, 0.2],
+        // 2D profiles only: bent or boxed parts are sheet-metal fabrication (which laser-cuts the blank)
+        geometry: [0.0, 1.0, 0.0, 0.0],
         qty: [1.0, 10000.0],
         tol_mm: 0.1,
         finish: 2.0,
@@ -569,6 +570,26 @@ mod tests {
             }),
             "sheet"
         );
+    }
+
+    #[test]
+    fn iris_frame_needs_a_3d_process() {
+        // the "Iris frame · EVT (10)" preset in the UI: a thin-wall plastic housing
+        let o = rank(&WizardIn {
+            quantity: 10.0,
+            material: "plastic".into(),
+            geometry: "enclosure".into(),
+            size_mm: 150.0,
+            tolerance_mm: 0.2,
+            finish: 2.0,
+            strength: 2.0,
+            lead_days: 10.0,
+            ..Default::default()
+        });
+        let top = o.ranked[0].process.id;
+        assert!(["fdm", "sla", "sls", "resin", "powder", "mjf"].contains(&top), "{top}");
+        let laser = o.ranked.iter().find(|r| r.process.id == "laser").unwrap();
+        assert!(!laser.feasible);
     }
 
     #[test]

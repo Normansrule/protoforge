@@ -7,8 +7,9 @@
 //! | [`machining`] | Feeds and speeds: RPM from surface speed, feed from chip load, radial chip thinning, material-removal rate and cutting power from specific cutting energy |
 //! | [`sheet`] | Bend allowance / deduction with the K-factor (DIN 6935 estimate) |
 //! | [`reflow`] | Reflow profile windows (SAC305, Sn63Pb37), a lumped oven simulation with pass/fail checks, IPC-7525 stencil area ratios for every Iris pad |
-//! | [`laser`] | Laser power × speed test-grid SVG and kerf strip |
-//! | [`pcbcap`] | PCB capability tiers and a DFM checker on the routed Iris layout |
+//! | [`laser`] | Laser power × speed test-grid SVG, kerf strip, thickness scaling and laser types |
+//! | [`resin`] | Resin exposure from Jacobs' working curve, staircase fit of D_p and E_c |
+//! | [`pcbcap`] | PCB capability tiers, IPC performance classes and a DFM checker on the routed Iris layout |
 //! | [`wizard`] | Transparent weighted process-selection model |
 //! | [`vendors`] | The Manufacturing Hub directory extended: categories, accepted formats, which Protoforge file to upload |
 //! | [`compliance`] | Certification planner traced to components/interfaces, with a timeline |
@@ -33,6 +34,7 @@ pub mod library;
 pub mod machining;
 pub mod pcbcap;
 pub mod reflow;
+pub mod resin;
 pub mod roadmap;
 pub mod sheet;
 pub mod vendors;
@@ -49,27 +51,43 @@ pub const REFERENCES: &[(&str, &str)] = &[
         "",
     ),
     (
-        "Sandvik Coromant / Harvey Tool published milling guidance (chip thinning, speeds and feeds)",
+        "Sandvik Coromant, Harvey Tool and Kennametal published milling formulas and chip-thinning guidance (vendor technical guides)",
         "",
     ),
     ("IPC-7525 — Stencil design guidelines", ""),
     (
-        "IPC/JEDEC J-STD-020 — Moisture/reflow sensitivity classification for non-hermetic SMDs",
+        "IPC/JEDEC J-STD-020 — Moisture/reflow sensitivity classification for non-hermetic surface-mount devices",
         "",
     ),
     ("IPC-A-610 — Acceptability of electronic assemblies", ""),
     ("IPC-2221 — Generic standard on printed board design", ""),
+    (
+        "IPC-6012 — Qualification and performance specification for rigid printed boards (Class 1 / 2 / 3)",
+        "",
+    ),
     ("ISO/ASTM 52900 — Additive manufacturing: general principles and vocabulary", ""),
     (
         "I. Gibson, D. Rosen, B. Stucker, Additive Manufacturing Technologies (3rd ed., Springer, 2021)",
         "",
     ),
+    (
+        "P. F. Jacobs, Rapid Prototyping & Manufacturing: Fundamentals of Stereolithography (Society of Manufacturing Engineers, 1992)",
+        "",
+    ),
+    ("W. M. Steen, J. Mazumder, Laser Material Processing (4th ed., Springer, 2010)", ""),
     ("D. V. Rosato, M. G. Rosato, Injection Molding Handbook (3rd ed., 2000)", ""),
     ("DIN 6935 — Cold bending of flat rolled steel products", ""),
     (
         "G. Boothroyd, P. Dewhurst, W. Knight, Product Design for Manufacture and Assembly (3rd ed., 2010)",
         "",
     ),
+    (
+        "Protolabs and Xometry design guides for CNC machining, sheet metal, 3D printing and injection molding (vendor design guides)",
+        "",
+    ),
+    ("Prusa Knowledge Base — material guides (vendor guide)", "https://help.prusa3d.com"),
+    ("Bambu Lab Wiki — filament guides (vendor guide)", "https://wiki.bambulab.com"),
+    ("UltiMaker material guides and technical data sheets (vendor guides)", ""),
     (
         "FCC 47 CFR Part 15 — Radio frequency devices",
         "https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15",
@@ -79,6 +97,8 @@ pub const REFERENCES: &[(&str, &str)] = &[
         "https://eur-lex.europa.eu/eli/dir/2014/53/oj",
     ),
     ("EU RoHS Directive 2011/65/EU", "https://eur-lex.europa.eu/eli/dir/2011/65/oj"),
+    ("EU REACH Regulation (EC) No 1907/2006", ""),
+    ("EU WEEE Directive 2012/19/EU", ""),
     ("UN Manual of Tests and Criteria, section 38.3 (lithium batteries)", ""),
     (
         "IEC 62368-1 — Audio/video, information and communication technology equipment: safety",
@@ -87,8 +107,8 @@ pub const REFERENCES: &[(&str, &str)] = &[
     ("IEC 62133-2 — Safety of portable sealed secondary lithium cells and batteries", ""),
     ("IEC 62471 — Photobiological safety of lamps and lamp systems", ""),
     ("ISO 12870 — Ophthalmic optics: spectacle frames, requirements and test methods", ""),
-    ("Prusa Knowledge Base", "https://help.prusa3d.com"),
-    ("Bambu Lab Wiki", "https://wiki.bambulab.com"),
+    ("ISO 12312-1 — Eye and face protection: sunglasses for general use", ""),
+    ("Bluetooth SIG — Qualification Program", "https://www.bluetooth.com"),
 ];
 
 #[derive(Deserialize, Default)]
@@ -179,6 +199,9 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         }),
         "build.laser_materials" => Some(to_value(library::LASER_MATERIALS)),
         "build.laser_grid" => handle(input, |i: laser::GridIn| laser::grid(&i)),
+        "build.laser_scale" => handle(input, |i: laser::ScaleIn| laser::scale(&i)),
+        "build.laser_types" => Some(to_value(laser::LASER_TYPES)),
+        "build.resin_exposure" => handle(input, |i: resin::ResinIn| resin::exposure(&i)),
         "build.kerf" => handle(input, |i: KerfIn| {
             let k = laser::kerf_from_strip(i.nominal_mm, i.measured_mm, i.slices);
             Ok(serde_json::json!({ "kerf_mm": k, "offset_mm": k / 2.0 }))
@@ -196,6 +219,7 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
             Ok(reflow::stencil_check(&p, t))
         }),
         "build.pcb_tiers" => Some(to_value(pcbcap::TIERS)),
+        "build.pcb_classes" => Some(to_value(pcbcap::IPC_CLASSES)),
         "build.pcb_dfm" => handle(input, |i: DfmIn| {
             let p = proj(i.project);
             let t = i.tier.unwrap_or_else(|| pcbcap::project_tier(&p).to_string());
@@ -328,6 +352,10 @@ mod tests {
             ("build.library", Value::Null),
             ("build.settings_sheet", serde_json::json!({"process": "cnc", "format": "csv"})),
             ("build.laser_grid", Value::Null),
+            ("build.laser_scale", Value::Null),
+            ("build.laser_types", Value::Null),
+            ("build.resin_exposure", Value::Null),
+            ("build.pcb_classes", Value::Null),
             ("build.kerf", Value::Null),
             ("build.feeds_speeds", Value::Null),
             ("build.bend", Value::Null),

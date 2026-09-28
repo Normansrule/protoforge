@@ -12,7 +12,8 @@
 //! between pads (solder-mask web).
 //!
 //! References: IPC-2221 *Generic Standard on Printed Board Design*;
-//! IPC-A-600 *Acceptability of Printed Boards*.
+//! IPC-6012 *Qualification and Performance Specification for Rigid Printed
+//! Boards*; IPC-A-600 *Acceptability of Printed Boards*.
 
 use serde::{Deserialize, Serialize};
 
@@ -107,6 +108,41 @@ pub const TIERS: &[Tier] = &[
         via_in_pad: true,
         impedance: "yes",
         notes: "3 mil rules and laser-drilled microvias — phone-class boards, highest cost.",
+    },
+];
+
+/// IPC performance classes (IPC-6011 / IPC-6012 for bare boards, IPC-A-600
+/// and IPC-A-610 for acceptability). The class is a quality level ordered
+/// from the fab and the assembler — it tightens inspection and acceptance
+/// criteria (annular-ring breakout, plating thickness, cosmetic defects),
+/// independent of the capability tier. Concepts only; the numbers live in
+/// the standards.
+#[derive(Clone, Debug, Serialize)]
+pub struct IpcClass {
+    pub class: u8,
+    pub name: &'static str,
+    pub typical: &'static str,
+    pub effect: &'static str,
+}
+
+pub const IPC_CLASSES: &[IpcClass] = &[
+    IpcClass {
+        class: 1,
+        name: "General electronic products",
+        typical: "Toys, simple gadgets — function is what matters",
+        effect: "Most relaxed acceptance; cosmetic imperfections and some annular-ring breakout accepted",
+    },
+    IpcClass {
+        class: 2,
+        name: "Dedicated service electronic products",
+        typical: "Consumer and communication products, laptops, wearables — the default for most fabs and for Iris",
+        effect: "Longer life and uninterrupted service desired; tighter plating and annular-ring rules than Class 1",
+    },
+    IpcClass {
+        class: 3,
+        name: "High reliability electronic products",
+        typical: "Medical life support, aerospace, military — equipment that must work on demand",
+        effect: "Strictest acceptance, more inspection and test coupons; costs more and not every fab offers it",
     },
 ];
 

@@ -9,7 +9,7 @@ import { useProject } from '../../state/project';
 import { PlayButton, pct, usePlaying, useTicker } from './anim';
 import { Diagram } from './diagrams';
 import { ProcessAnim } from './illustrations';
-import type { FileOut, GridOut, LaserMaterial, Process, ProjectCheck, Range } from './types';
+import type { FileOut, GridOut, LaserMaterial, LaserType, Process, ProjectCheck, Range, ScaleOut } from './types';
 
 const GROUP_ORDER = ['Additive', 'Subtractive', 'Forming', 'Electronics'];
 
@@ -50,6 +50,33 @@ function CheckRow({ c }: { c: ProjectCheck }) {
   );
 }
 
+/** Cross-section of the kerf through the sheet: the beam focuses, then diverges, so thick cuts taper; extra passes deepen the slot. */
+function KerfSection({ t, t0, passes }: { t: number; t0: number; passes: number }) {
+  const [playing, setPlaying] = usePlaying();
+  const clk = useTicker(playing);
+  const sc = 90 / Math.max(t, t0, 1);
+  const H = t * sc;
+  const p = (clk / 3) % 1;
+  const pass = Math.min(passes, Math.floor(p * passes) + 1);
+  const cutDepth = Math.min(H, H * (pass - 1 + (p * passes) % 1) / passes);
+  const top = 32, cx = 165;
+  const wTop = 10, wBot = 10 + Math.min(12, (2 * t) / Math.max(t0, 1));
+  return (
+    <div className="bd-anim-wrap" style={{ margin: '8px 0' }}>
+      <svg viewBox="0 0 360 160" className="bd-anim" role="img" aria-label="Kerf cross-section through the sheet, cut in one or more passes">
+        <rect x={40} y={top} width={250} height={H} fill="var(--series-4)" opacity={0.45} />
+        <polygon points={`${cx - wTop / 2},${top} ${cx + wTop / 2},${top} ${cx + (wTop / 2 + ((wBot - wTop) / 2) * (cutDepth / Math.max(H, 1)))},${top + cutDepth} ${cx - (wTop / 2 + ((wBot - wTop) / 2) * (cutDepth / Math.max(H, 1)))},${top + cutDepth}`} fill="var(--bg)" stroke="var(--series-8)" strokeWidth={0.6} />
+        <polygon points={`${cx - 16},${top - 26} ${cx + 16},${top - 26} ${cx},${top + 4}`} fill="var(--series-8)" opacity={0.35 + 0.25 * Math.abs(Math.sin(clk * 12))} />
+        <text x={cx + 24} y={top - 10} className="bd-svg-small">beam focused at the surface</text>
+        <line x1={298} x2={298} y1={top} y2={top + H} stroke="var(--text-2)" />
+        <text x={303} y={top + H / 2 + 4} className="bd-svg-small">{t} mm</text>
+        <text x={40} y={top + H + 18} className="bd-svg-small">pass {pass} of {passes} · the kerf tapers below the focus</text>
+      </svg>
+      <div className="row" style={{ justifyContent: 'flex-end' }}><PlayButton playing={playing} onChange={setPlaying} /></div>
+    </div>
+  );
+}
+
 function LaserTools() {
   const mats = useCompute<LaserMaterial[]>('build.laser_materials', {});
   const [g, setG] = useState({ rows: 5, cols: 5, power_min: 20, power_max: 100, speed_min: 5, speed_max: 25, speed_unit: 'mm/s', cell_mm: 10, gap_mm: 3, mode: 'cut', kerf_strip: true, title: 'LASER TEST' });
@@ -57,8 +84,48 @@ function LaserTools() {
   const [kerf, setKerf] = useState({ nominal_mm: 50, measured_mm: 48.5, slices: 10 });
   const k = useCompute<{ kerf_mm: number; offset_mm: number }>('build.kerf', kerf);
   const img = grid.data ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(grid.data.svg)}` : null;
+  const types = useCompute<LaserType[]>('build.laser_types', {});
+  const [sc, setSc] = useState({ known_thickness_mm: 3, known_power_pct: 70, known_speed_mm_s: 12, target_thickness_mm: 5, min_speed_mm_s: 3 });
+  const so = useCompute<ScaleOut>('build.laser_scale', sc);
   return (
     <>
+      <div className="grid grid-2">
+        <Card title="Scale a known cut to a new thickness" subtitle="First-order energy balance — the result centres a test grid, it is not a setting">
+          <div className="grid grid-2" style={{ gap: 8 }}>
+            <NumberField label="Known thickness" unit="mm" value={sc.known_thickness_mm} step={0.5} onChange={(v) => setSc({ ...sc, known_thickness_mm: v })} />
+            <NumberField label="Target thickness" unit="mm" value={sc.target_thickness_mm} step={0.5} onChange={(v) => setSc({ ...sc, target_thickness_mm: v })} />
+            <NumberField label="Known power" unit="%" value={sc.known_power_pct} onChange={(v) => setSc({ ...sc, known_power_pct: v })} />
+            <NumberField label="Known speed" unit="mm/s" value={sc.known_speed_mm_s} step={0.5} onChange={(v) => setSc({ ...sc, known_speed_mm_s: v })} />
+            <NumberField label="Slowest clean speed" unit="mm/s" value={sc.min_speed_mm_s} step={0.5} onChange={(v) => setSc({ ...sc, min_speed_mm_s: v })} />
+          </div>
+          <ErrorBox error={so.error} />
+          {so.data && (
+            <>
+              <KerfSection t={sc.target_thickness_mm} t0={sc.known_thickness_mm} passes={so.data.passes} />
+              <ol className="bd-steps">{so.data.steps.map((x) => <li key={x} className="mono small">{x}</li>)}</ol>
+              <button className="btn small primary" onClick={() => setG({ ...g, speed_min: +so.data!.grid_speed[0].toFixed(1), speed_max: +so.data!.grid_speed[1].toFixed(1), power_min: +so.data!.grid_power[0].toFixed(0), power_max: +so.data!.grid_power[1].toFixed(0), mode: 'cut' })}>
+                Centre the test grid on {so.data.speed_per_pass_mm_s.toFixed(1)} mm/s{so.data.passes > 1 ? ` × ${so.data.passes} passes` : ''}
+              </button>
+            </>
+          )}
+        </Card>
+        <Card title="Which laser?" subtitle="Typical single-pass capability — lens, air assist and material grade change it">
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Type</th><th>Cuts / marks</th><th>Cannot</th></tr></thead>
+              <tbody>
+                {types.data?.map((x) => (
+                  <tr key={x.name}>
+                    <td><b>{x.name}</b><div className="small muted">{x.wavelength} · {x.where}</div></td>
+                    <td className="small">{x.cuts}</td>
+                    <td className="small">{x.cannot}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
       <Card title="Laser-safe materials" subtitle="If you cannot identify a plastic, do not put it in the laser">
         <div className="bd-laser-mats">
           {mats.data?.map((m) => (

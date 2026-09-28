@@ -1,6 +1,6 @@
 // Feeds & speeds calculator with a cutter that spins at a rate proportional
 // to the computed RPM (slowed 1000×) and a radial-engagement diagram.
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, Chip, DownloadButton, ErrorBox, Explainer, Formula, NumberField, Select, Slider, Stat, Toggle } from '../../components/ui';
 import { useCompute } from '../../engine/hooks';
 import { PlayButton, usePlaying, useTicker } from './anim';
@@ -39,12 +39,76 @@ function Cutter({ t, rpm, flutes, d, woc, chip }: { t: number; rpm: number; flut
       ))}
       <circle cx={cx} cy={cy} r={6} fill="var(--text-2)" />
       <text x={cx} y={cy + R + 22} textAnchor="middle" className="bd-svg-small">Ø{d.toFixed(1)} mm · {flutes} flutes · shown {SLOW}× slower</text>
-      <g transform="translate(250,150)">
-        <text x={0} y={0} className="bd-svg-small">radial engagement</text>
+      <g transform="translate(262,150)">
+        <text x={0} y={0} className="bd-svg-small">engagement</text>
         <text x={0} y={16} className="bd-svg-label">{(100 * e).toFixed(0)} % of D</text>
-        <text x={0} y={34} className="bd-svg-small">shaded arc = where each</text>
-        <text x={0} y={46} className="bd-svg-small">flute cuts a chip</text>
+        <text x={0} y={34} className="bd-svg-small">shaded arc:</text>
+        <text x={0} y={46} className="bd-svg-small">flute in the cut</text>
       </g>
+    </svg>
+  );
+}
+
+/** Raster pocket path for the tool centre (mm), plus a finishing contour. */
+function pocketPath(L: number, W: number, d: number, step: number): [number, number][] {
+  const r = d / 2;
+  const pts: [number, number][] = [];
+  const ys: number[] = [];
+  for (let y = r; y < W - r + 1e-9; y += Math.max(0.05, step)) ys.push(y);
+  if (ys[ys.length - 1] < W - r - 1e-6) ys.push(W - r);
+  ys.forEach((y, k) => {
+    const a: [number, number] = [r, y], b: [number, number] = [L - r, y];
+    if (k % 2 === 0) pts.push(a, b);
+    else pts.push(b, a);
+  });
+  pts.push([r, W - r], [r, r], [L - r, r], [L - r, W - r], [r, W - r]);
+  return pts;
+}
+
+function cum(pts: [number, number][]) {
+  const c = [0];
+  for (let k = 1; k < pts.length; k++) c.push(c[k - 1] + Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]));
+  return c;
+}
+
+const POCKET_DEPTH = 6;
+
+function ToolPath({ t, d, woc, doc, feed, flutes, rpm }: { t: number; d: number; woc: number; doc: number; feed: number; flutes: number; rpm: number }) {
+  const L = Math.max(40, 6 * d), W = Math.max(25, 4 * d);
+  const pts = useMemo(() => pocketPath(L, W, d, Math.min(woc, d)), [L, W, d, woc]);
+  const c = useMemo(() => cum(pts), [pts]);
+  const len = c[c.length - 1];
+  const layers = Math.max(1, Math.ceil(POCKET_DEPTH / Math.max(0.05, doc)));
+  const layerMin = feed > 0 ? len / feed : Infinity;
+  const speedup = Number.isFinite(layerMin) ? Math.max(1, (layerMin * 60) / 7) : 1;
+  const sNow = Number.isFinite(layerMin) ? ((t * speedup * feed) / 60) % len : 0;
+  let k = 1;
+  while (k < c.length - 1 && c[k] < sNow) k++;
+  const f = (sNow - c[k - 1]) / Math.max(1e-9, c[k] - c[k - 1]);
+  const cur: [number, number] = [pts[k - 1][0] + (pts[k][0] - pts[k - 1][0]) * f, pts[k - 1][1] + (pts[k][1] - pts[k - 1][1]) * f];
+  const sc = Math.min(320 / L, 140 / W);
+  const ox = (360 - L * sc) / 2;
+  const X = (x: number) => ox + x * sc, Y = (y: number) => 26 + y * sc;
+  const done = [...pts.slice(0, k), cur].map(([x, y]) => `${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join(' ');
+  const all = pts.map(([x, y]) => `${X(x).toFixed(1)},${Y(y).toFixed(1)}`).join(' ');
+  const spin = (t * rpm) / 60 / 1000 * 2 * Math.PI;
+  const R = (d / 2) * sc;
+  return (
+    <svg viewBox="0 0 360 220" className="bd-anim" role="img" aria-label="Top view of an end mill clearing a rectangular pocket along a raster tool path">
+      <rect x={X(0)} y={Y(0)} width={L * sc} height={W * sc} fill="var(--surface-3)" stroke="var(--border-strong)" />
+      <polyline points={all} fill="none" stroke="var(--muted)" strokeWidth={0.8} strokeDasharray="3 3" />
+      <polyline points={done} fill="none" stroke="var(--surface-1)" strokeWidth={2 * R} strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={done} fill="none" stroke="var(--accent)" strokeWidth={1} opacity={0.7} />
+      <g transform={`translate(${X(cur[0])},${Y(cur[1])})`}>
+        <circle r={R} fill="var(--muted)" stroke="var(--text-2)" />
+        {Array.from({ length: flutes }, (_, n) => {
+          const a = spin + (n * 2 * Math.PI) / flutes;
+          return <line key={n} x1={0} y1={0} x2={R * Math.cos(a)} y2={R * Math.sin(a)} stroke="var(--surface-1)" strokeWidth={Math.max(1, R / 5)} />;
+        })}
+      </g>
+      <text x={8} y={16} className="bd-svg-small">pocket {L.toFixed(0)} × {W.toFixed(0)} × {POCKET_DEPTH} mm · stepover {Math.min(woc, d).toFixed(2)} mm · {len.toFixed(0)} mm path/layer</text>
+      <text x={8} y={Y(W) + 18} className="bd-svg-small">{layers} layer{layers > 1 ? 's' : ''} × {Math.min(doc, POCKET_DEPTH).toFixed(2)} mm at {feed.toFixed(0)} mm/min → {(layers * layerMin).toFixed(1)} min cutting</text>
+      <text x={8} y={Y(W) + 32} className="bd-svg-small">shown {speedup.toFixed(0)}× faster · first pass is a full slot: ramp in, keep it shallow</text>
     </svg>
   );
 }
@@ -90,6 +154,9 @@ export function FeedsCalc() {
               <Card title="The cutter" subtitle={`MRR ${o.mrr_cm3_min.toFixed(2)} cm³/min (${o.mrr_in3_min.toFixed(3)} in³/min) · torque ${(o.torque_nm * 1000).toFixed(0)} mN·m`} actions={<PlayButton playing={playing} onChange={setPlaying} />}>
                 <Cutter t={t} rpm={o.rpm} flutes={i.flutes} d={i.diameter_mm} woc={i.woc_mm} chip={o.chip_load_adjusted_mm} />
                 {o.warnings.map((w) => <div key={w} className="small" style={{ marginTop: 6 }}><Chip tone="warn">! note</Chip> {w}</div>)}
+              </Card>
+              <Card title="Tool path: clearing a pocket" subtitle="Raster passes at the chosen stepover, then a finishing contour — cycle time from the computed feed" actions={<PlayButton playing={playing} onChange={setPlaying} />}>
+                <ToolPath t={t} d={i.diameter_mm} woc={i.woc_mm} doc={i.doc_mm} feed={o.feed_mm_min} flutes={i.flutes} rpm={o.rpm} />
               </Card>
             </>
           )}

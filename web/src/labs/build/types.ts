@@ -83,3 +83,15 @@ export interface RoadStage {
   compliance: string[]; risks: string[]; typical_weeks: [number, number];
 }
 export interface GridOut { svg: string; cells: { row: number; col: number; power_pct: number; speed: number; color: string }[]; width_mm: number; height_mm: number; csv: string }
+
+export interface ScaleOut {
+  energy_ratio: number; speed_same_power_mm_s: number; power_same_speed_pct: number; passes: number; speed_per_pass_mm_s: number;
+  grid_speed: [number, number]; grid_power: [number, number]; steps: string[];
+}
+export interface LaserType { name: string; wavelength: string; cuts: string; cannot: string; where: string }
+export interface ResinFit { dp_mm: number; ec_mj_cm2: number; r2: number; n: number }
+export interface ResinOut {
+  dp_mm: number; ec_mj_cm2: number; fitted: ResinFit | null; cure_mm: number; exposure_mj_cm2: number; time_s: number; bottom_time_s: number; bottom_cure_mm: number;
+  curve_e: number[]; curve_cd: number[]; table: { layer_mm: number; cure_mm: number; exposure_mj_cm2: number; time_s: number }[]; steps: string[]; warnings: string[];
+}
+export interface IpcClass { class: number; name: string; typical: string; effect: string }

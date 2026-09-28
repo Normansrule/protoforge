@@ -106,6 +106,10 @@ pub const CATEGORIES: &[Category] = &[
         id: "cm",
         label: "Contract manufacturing",
     },
+    Category {
+        id: "fulfil",
+        label: "Fulfilment",
+    },
 ];
 
 const GERBER: Output = o("Gerber + drill zip (PCB Studio / fab package)", "/pcb");
@@ -281,7 +285,10 @@ fn new_vendors() -> Vec<Vendor> {
     };
     vec![
         v("Arrow Electronics", "https://www.arrow.com", &["parts"], "Electronic component distributor", &["BOM upload (CSV/XLS)"], vec![BOM], "Components", "Global"),
-        v("Hubs (Protolabs network)", "https://www.hubs.com", &["cnc", "print", "sheet", "molding"], "Manufacturing network: CNC machining, 3D printing, sheet metal, injection molding", &["STEP", "STL", "2D drawing (PDF)"], vec![STEP_VIA, STL, DRAWING], "Parts from partner factories", "Europe / USA"),
+        v("Protolabs Network (formerly Hubs)", "https://www.hubs.com", &["cnc", "print", "sheet", "molding"], "Manufacturing network: CNC machining, 3D printing, sheet metal, injection molding", &["STEP", "STL", "2D drawing (PDF)"], vec![STEP_VIA, STL, DRAWING], "Parts from partner factories", "Europe / USA"),
+        v("Ponoko", "https://www.ponoko.com", &["laser"], "Online laser cutting and engraving of sheet materials (acrylic, wood, card and more — see its materials list)", &["2D vector files (SVG / DXF / AI)"], vec![o("Laser test grid / outline SVG (this page, CAD Studio)", "/build")], "Laser-cut parts", "USA"),
+        v("OSH Cut", "https://www.oshcut.com", &["laser", "sheet"], "Online laser cutting and bending of sheet metal", &["DXF / 2D outlines", "STEP for bent parts"], vec![o("DXF flat pattern / outline", "/cad"), STEP_VIA], "Cut and formed sheet-metal parts", "USA"),
+        v("Crowd Supply", "https://www.crowdsupply.com", &["fulfil"], "Crowdfunding and online store for open and independent hardware, including warehousing and shipping of orders", &["Product page, photos, BOM and cost model for the campaign"], vec![o("Cost model (Manufacturing Hub)", "/mfg"), COMPLIANCE], "Backer orders shipped; ongoing store sales", "USA / global shipping"),
         v("Edmund Optics", "https://www.edmundoptics.com", &["optics"], "Catalogue optics — lenses, beamsplitters, mirrors, filters — and custom optics", &["Catalogue part selection", "Optical drawing / prescription for custom parts"], vec![o("Lens prescription and layout (Optics Lab)", "/optics")], "Lenses, beamsplitters, test optics", "Global"),
         v("Thorlabs", "https://www.thorlabs.com", &["optics"], "Optics, optomechanics and breadboards for building an optical test bench", &["Catalogue part selection"], vec![o("Optical layout (Optics Lab)", "/optics")], "Optics, mounts, test equipment", "Global"),
         v("Hammond Manufacturing", "https://www.hammfg.com", &["enclosure"], "Standard plastic and die-cast aluminium enclosures (plus electrical products)", &["Catalogue part selection; modification drawings (PDF/DXF) for machined cut-outs"], vec![DRAWING], "Stock or modified enclosures for test fixtures and dev kits", "North America / Europe"),
@@ -304,6 +311,13 @@ fn new_vendors() -> Vec<Vendor> {
             "Custom flat-flex cables (FFC/FPC), wire harnesses and USB cables are made by cable-assembly houses; many PCB assemblers also build flex circuits and harnesses. Send a drawing with lengths, connectors, pin-out and bend radius.",
             vec![o("Interface list and pin-out (Systems Studio)", "/systems"), DRAWING],
             "The Iris hinge flex (FPC1) is a flex-life risk — ask for bend-cycle data.",
+        ),
+        cat(
+            "Fulfilment / third-party logistics (category)",
+            &["fulfil"],
+            "Third-party logistics (3PL) warehouses store finished units and ship orders from your web shop or marketplace; many also handle returns and kitting. Lithium-battery products need a warehouse and carrier set up for UN3481 shipments.",
+            vec![o("Packaging and labels (Compliance tab)", "/build"), COMPLIANCE],
+            "Ask for the UN 38.3 test summary before the first shipment — carriers and 3PLs request it.",
         ),
         cat(
             "Contract manufacturers (category)",

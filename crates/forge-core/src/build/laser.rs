@@ -209,6 +209,144 @@ pub fn kerf_from_strip(nominal_mm: f64, measured_mm: f64, slices: usize) -> f64 
     (nominal_mm - measured_mm) / slices.max(1) as f64
 }
 
+/// First-order scaling of a known-good cut to a new thickness.
+///
+/// Cutting through removes a kerf-wide slot of the full thickness, so the
+/// energy delivered per millimetre of path, `E_L = P / v`, must grow roughly
+/// in proportion to the thickness `t` (Steen & Mazumder's lumped energy
+/// balance with constant kerf and efficiency). Holding power:
+/// `v = v₀ · t₀ / t`; holding speed: `P = P₀ · t / t₀` (capped at 100 %,
+/// the remainder taken by extra passes). Focus depth, taper and charring
+/// break the proportionality for thick sheet, so the answer is the centre
+/// of a test grid, not a setting.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct ScaleIn {
+    pub known_thickness_mm: f64,
+    pub known_power_pct: f64,
+    pub known_speed_mm_s: f64,
+    pub target_thickness_mm: f64,
+    /// Slowest speed the machine cuts cleanly at (below it, add passes).
+    pub min_speed_mm_s: f64,
+}
+
+impl Default for ScaleIn {
+    fn default() -> Self {
+        ScaleIn {
+            known_thickness_mm: 3.0,
+            known_power_pct: 70.0,
+            known_speed_mm_s: 12.0,
+            target_thickness_mm: 5.0,
+            min_speed_mm_s: 3.0,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ScaleOut {
+    /// Line energy ratio E_L / E_L0 = t / t0.
+    pub energy_ratio: f64,
+    /// Same power, slower: speed per pass.
+    pub speed_same_power_mm_s: f64,
+    /// Same speed, more power (may exceed 100 %).
+    pub power_same_speed_pct: f64,
+    /// Passes needed at the known power if the single-pass speed is below `min_speed_mm_s`.
+    pub passes: u32,
+    /// Speed per pass when `passes` > 1.
+    pub speed_per_pass_mm_s: f64,
+    /// Suggested test-grid speed window (±35 %) around the estimate.
+    pub grid_speed: [f64; 2],
+    /// Suggested test-grid power window.
+    pub grid_power: [f64; 2],
+    pub steps: Vec<String>,
+}
+
+pub fn scale(i: &ScaleIn) -> Result<ScaleOut, String> {
+    if i.known_thickness_mm <= 0.0 || i.target_thickness_mm <= 0.0 {
+        return Err("thicknesses must be positive".into());
+    }
+    if i.known_speed_mm_s <= 0.0 || i.known_power_pct <= 0.0 {
+        return Err("known power and speed must be positive".into());
+    }
+    let ratio = i.target_thickness_mm / i.known_thickness_mm;
+    let v1 = i.known_speed_mm_s / ratio;
+    let p1 = i.known_power_pct * ratio;
+    let vmin = i.min_speed_mm_s.max(0.01);
+    let passes = if v1 >= vmin { 1 } else { (vmin / v1).ceil() as u32 };
+    let vpp = v1 * passes as f64;
+    let steps = vec![
+        format!(
+            "t / t₀ = {:.2} / {:.2} = {ratio:.3} → line energy P/v must grow {ratio:.2}×",
+            i.target_thickness_mm, i.known_thickness_mm
+        ),
+        format!(
+            "Same power {:.0} %: v = {:.2} · {:.2}/{:.2} = {v1:.2} mm/s",
+            i.known_power_pct, i.known_speed_mm_s, i.known_thickness_mm, i.target_thickness_mm
+        ),
+        format!(
+            "Same speed {:.2} mm/s: P = {:.0} % · {ratio:.3} = {p1:.0} %{}",
+            i.known_speed_mm_s,
+            i.known_power_pct,
+            if p1 > 100.0 {
+                " — above 100 %, not possible in one pass"
+            } else {
+                ""
+            }
+        ),
+        if passes > 1 {
+            format!("{v1:.2} mm/s is below the clean-cut minimum {vmin:.2} mm/s → {passes} passes at {vpp:.2} mm/s (energy per pass ÷ {passes})")
+        } else {
+            "One pass should do — confirm with the grid".to_string()
+        },
+    ];
+    Ok(ScaleOut {
+        energy_ratio: ratio,
+        speed_same_power_mm_s: v1,
+        power_same_speed_pct: p1,
+        passes,
+        speed_per_pass_mm_s: vpp,
+        grid_speed: [vpp * 0.65, vpp * 1.35],
+        grid_power: [(i.known_power_pct - 20.0).max(5.0), (i.known_power_pct + 20.0).min(100.0)],
+        steps,
+    })
+}
+
+/// Typical single-pass capability by laser type — orders of magnitude to set
+/// expectations; lens, air assist, material grade and tube age change them.
+#[derive(Clone, Debug, Serialize)]
+pub struct LaserType {
+    pub name: &'static str,
+    pub wavelength: &'static str,
+    pub cuts: &'static str,
+    pub cannot: &'static str,
+    #[serde(rename = "where")]
+    pub where_: &'static str,
+}
+
+pub const LASER_TYPES: &[LaserType] = &[
+    LaserType {
+        name: "Diode (≈5–20 W optical)",
+        wavelength: "≈450 nm (blue)",
+        cuts: "Thin plywood, card, leather, felt, dark / opaque acrylic a few mm thick (several passes); engraves wood, coated and anodised metal",
+        cannot: "Clear or light-coloured acrylic (the blue light passes through); bare metal",
+        where_: "Desktop / hobby",
+    },
+    LaserType {
+        name: "CO₂ (≈40–150 W)",
+        wavelength: "10.6 µm (far infrared)",
+        cuts: "Acrylic, wood, MDF, paper, fabric, leather, rubber (laser-safe grades); thickness grows with tube power",
+        cannot: "Metals (reflect 10.6 µm; only coated metal marking), PVC and other unsafe plastics",
+        where_: "Makerspaces, laser services",
+    },
+    LaserType {
+        name: "Fibre (≈20 W marking … kW cutting)",
+        wavelength: "≈1.06 µm (near infrared)",
+        cuts: "Marking metals and some plastics at low power; cutting sheet steel, stainless and aluminium at kW power",
+        cannot: "Most clear plastics and wood (poor absorption)",
+        where_: "Industrial; order cut sheet metal from a service (see Vendors)",
+    },
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -235,6 +373,33 @@ mod tests {
         assert!(grid(&GridIn {
             rows: 6,
             cols: 6,
+            ..Default::default()
+        })
+        .is_err());
+    }
+
+    #[test]
+    fn scaling_hand_calc() {
+        // 3 mm at 70 %, 12 mm/s → 6 mm: half the speed or double the power
+        let o = scale(&ScaleIn {
+            target_thickness_mm: 6.0,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!((o.energy_ratio - 2.0).abs() < 1e-12);
+        assert!((o.speed_same_power_mm_s - 6.0).abs() < 1e-12);
+        assert!((o.power_same_speed_pct - 140.0).abs() < 1e-9);
+        assert_eq!(o.passes, 1);
+        // 12 mm → 3 mm/s = the minimum → still one pass; 15 mm → 2.4 mm/s → 2 passes at 4.8
+        let o = scale(&ScaleIn {
+            target_thickness_mm: 15.0,
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(o.passes, 2);
+        assert!((o.speed_per_pass_mm_s - 4.8).abs() < 1e-9);
+        assert!(scale(&ScaleIn {
+            known_thickness_mm: 0.0,
             ..Default::default()
         })
         .is_err());

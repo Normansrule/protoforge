@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Card, Chip, DownloadButton, ErrorBox, Explainer } from '../../components/ui';
 import { useCompute } from '../../engine/hooks';
 import { useProject } from '../../state/project';
-import type { Dfm, Tier } from './types';
+import type { Dfm, IpcClass, Tier } from './types';
 
 const IDS = ['basic', 'standard', 'advanced', 'hdi'] as const;
 
@@ -18,6 +18,7 @@ function word(s: string) {
 export function DfmCalc() {
   const project = useProject((s) => s.project);
   const tiers = useCompute<Tier[]>('build.pcb_tiers', {});
+  const classes = useCompute<IpcClass[]>('build.pcb_classes', {});
   const [tier, setTier] = useState<string>(() => String((project.design.extra as Record<string, unknown>)?.pcb_tier ?? 'standard'));
   const all = [
     useCompute<Dfm>('build.pcb_dfm', { project, tier: IDS[0] }),
@@ -88,7 +89,21 @@ export function DfmCalc() {
           </Card>
         </div>
       )}
-      <Explainer title="Capability tiers" refs={[{ label: 'IPC-2221 — Generic standard on printed board design' }, { label: 'IPC-A-600 — Acceptability of printed boards' }]}>
+      {classes.data && (
+        <Card title="Capability tier ≠ quality class" subtitle="The IPC performance class is ordered separately: it sets how strictly boards and assemblies are inspected and accepted">
+          <div className="grid grid-3">
+            {classes.data.map((c) => (
+              <div key={c.class} className={`bd-rule ${c.class === 2 ? 'bd-class-pick' : ''}`} style={{ flexDirection: 'column', gap: 4 }}>
+                <div className="row" style={{ gap: 6 }}><span className="bd-rank-n">{c.class}</span><b>Class {c.class} — {c.name}</b>{c.class === 2 && <Chip tone="info">Iris</Chip>}</div>
+                <div className="small">{c.typical}</div>
+                <div className="small muted">{c.effect}</div>
+              </div>
+            ))}
+          </div>
+          <div className="small muted" style={{ marginTop: 8 }}>Classes come from IPC-6011 / IPC-6012 (bare boards) and IPC-A-600 / IPC-A-610 (acceptability). Class 2 is the usual default; ask the fab and the assembler explicitly if you need Class 3.</div>
+        </Card>
+      )}
+      <Explainer title="Capability tiers" refs={[{ label: 'IPC-2221 — Generic standard on printed board design' }, { label: 'IPC-6012 — Qualification and performance specification for rigid printed boards' }, { label: 'IPC-A-600 — Acceptability of printed boards' }]}>
         Board houses price by capability: finer traces and smaller drills need better imaging, drilling and plating control. The checker reads the finest track, via and hole sizes from the routed layout (PCB Studio), the clearance enforced by its design-rule check, the layer count and thickness, and flags anything the chosen tier cannot make. Warnings (solder-mask webs, thermal vias in exposed pads, surface finish for fine pitch) do not count as violations but affect assembly yield. The metric <code>build.pcb_capability_violations</code> uses the tier stored in <code>design.extra.pcb_tier</code> (default "standard").
       </Explainer>
     </div>

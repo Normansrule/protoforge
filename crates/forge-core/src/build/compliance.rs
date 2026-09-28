@@ -19,7 +19,8 @@
 //! (EU) 2015/863; Regulation (EC) 1907/2006 (REACH); Directive 2012/19/EU
 //! (WEEE); Regulation (EU) 2023/1542 (batteries); Regulation (EU) 2023/988
 //! (General Product Safety Regulation); IEC 62368-1; IEC 62133-2; IEC 62471;
-//! ISO 12870; UN *Manual of Tests and Criteria*, section 38.3.
+//! ISO 12870; ISO 12312-1; Regulation (EU) 2016/425 (PPE); Bluetooth SIG
+//! Qualification Process; UN *Manual of Tests and Criteria*, section 38.3.
 
 use serde::{Deserialize, Serialize};
 
@@ -492,6 +493,16 @@ pub fn plan(p: &Project, o: &Options) -> Plan {
                 .why("The product is a spectacle frame", t),
         );
     }
+    if f.eyewear && f.lenses {
+        let lens_t: Vec<Trace> = comp_traces(p, &["lens"])
+            .into_iter()
+            .filter(|t| !p.components.iter().any(|c| c.refdes == t.id && c.subsystem.contains("OPT")))
+            .collect();
+        items.push(
+            it("iso12312", "Sunglass filters — only if tinted / sun lenses ship", "Eyewear", &["Global"], &["ISO 12312-1 (sunglasses for general use)", "EU PPE Regulation (EU) 2016/425 (sunglasses are personal protective equipment in the EU)"], "DVT", "conditional", "If the product ships with tinted lenses or is marketed as sunglasses: filter category, luminous transmittance, ultraviolet protection, traffic-signal recognition and marking tested to ISO 12312-1 by an optics lab; clear lenses do not need it", Some([1000.0, 4000.0]), [1.0, 3.0], "ISO 12312-1 sets the optical requirements for sunglasses — how much visible light each filter category transmits, ultraviolet protection, and that traffic signals stay recognisable. A heads-up display with sun lenses must meet it through the combiner region too.")
+                .why("Front lenses are part of the product — relevant only for tinted / sun variants", lens_t),
+        );
+    }
     if f.wearable {
         let mut t = skin_t.clone();
         t.push(design(
@@ -607,6 +618,8 @@ pub fn plan(p: &Project, o: &Options) -> Plan {
         .fold([0.0, 0.0], |a, c| [a[0] + c[0], a[1] + c[1]]);
     let mandatory = items.iter().filter(|i| i.obligation == "mandatory").count();
     let mut notes = vec![
+        "Commonly applicable items for these markets and features — confirm the list, editions and dates with an accredited test lab."
+            .to_string(),
         "Planning aid, not legal advice. Costs and durations are rough orders of magnitude to be confirmed with a test lab — never quotes."
             .to_string(),
         "Pre-compliance scans at DVT (a few hours in a chamber) catch most emissions problems while the design can still change."
@@ -733,6 +746,7 @@ mod tests {
             "biocompat",
             "labels",
             "btsig",
+            "iso12312",
         ] {
             assert!(ids.contains(&want), "missing {want}: {ids:?}");
         }

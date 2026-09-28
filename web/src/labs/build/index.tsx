@@ -15,10 +15,10 @@ import './build.css';
 
 type Tab = 'settings' | 'calc' | 'wizard' | 'vendors' | 'compliance' | 'roadmap';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'settings', label: 'Settings library' },
+  { id: 'settings', label: 'Settings' },
   { id: 'calc', label: 'Calculators' },
-  { id: 'wizard', label: 'Process wizard' },
-  { id: 'vendors', label: 'Where to send it' },
+  { id: 'wizard', label: 'Where to send it' },
+  { id: 'vendors', label: 'Vendors' },
   { id: 'compliance', label: 'Compliance' },
   { id: 'roadmap', label: 'Roadmap' },
 ];

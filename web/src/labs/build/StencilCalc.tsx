@@ -1,6 +1,6 @@
 // Stencil area-ratio calculator + every Iris pad checked at the chosen thickness.
 import { useState } from 'react';
-import { Card, Chip, DownloadButton, ErrorBox, Explainer, Formula, Slider, Stat, Toggle } from '../../components/ui';
+import { Card, DownloadButton, ErrorBox, Explainer, Formula, Slider, Stat, Toggle } from '../../components/ui';
 import { useCompute } from '../../engine/hooks';
 import { useProject } from '../../state/project';
 import { PlayButton, usePlaying, useTicker } from './anim';

@@ -17,7 +17,7 @@ function Flow({ v, t }: { v: Vendor; t: number }) {
     <svg viewBox="0 0 360 170" className="bd-anim bd-flow" role="img" aria-label={`Files go from Protoforge to ${v.name}; parts come back`}>
       <rect x={10} y={40} width={90} height={90} rx={12} fill="var(--accent-soft)" stroke="var(--accent)" />
       <text x={55} y={62} textAnchor="middle" className="bd-svg-label">Protoforge</text>
-      {files.slice(0, 4).map((f, k) => <text key={f} x={55} y={80 + k * 12} textAnchor="middle" className="bd-svg-small">{f.length > 18 ? f.slice(0, 17) + '…' : f}</text>)}
+      {files.slice(0, 4).map((f, k) => <text key={f} x={55} y={80 + k * 12} textAnchor="middle" className="bd-svg-small">{f.length > 15 ? f.slice(0, 14) + '…' : f}</text>)}
       <rect x={260} y={40} width={90} height={90} rx={12} fill="var(--surface-2)" stroke="var(--border-strong)" />
       <text x={305} y={80} textAnchor="middle" className="bd-svg-label">{v.name.length > 14 ? v.name.slice(0, 13) + '…' : v.name}</text>
       <text x={305} y={96} textAnchor="middle" className="bd-svg-small">{v.region}</text>

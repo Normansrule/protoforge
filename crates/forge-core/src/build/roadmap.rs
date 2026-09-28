@@ -159,7 +159,15 @@ pub fn roadmap(p: &Project) -> Vec<Stage> {
             ],
             exit: with(e1, &["Every analysis requirement measured on hardware"]),
             milestones: m1,
-            compliance: comp("EVT"),
+            compliance: {
+                let mut c = comp("EVT");
+                c.extend([
+                    "Plan the certification route from the Compliance tab (module vs chip-down, markets)".to_string(),
+                    "Layout hygiene for later EMC: antenna keep-out, ESD protection on touch and USB, clock routing".to_string(),
+                    "Collect UN 38.3 and IEC 62133-2 documents for the chosen cell".to_string(),
+                ]);
+                c
+            },
             risks: risks(&["thermal", "hot", "misalign", "ble", "link"]),
             typical_weeks: [6.0, 10.0],
         },
@@ -194,7 +202,12 @@ pub fn roadmap(p: &Project) -> Vec<Stage> {
             id: "pvt",
             title: "PVT — production validation",
             question: "Can the factory build it repeatably?",
-            quantity: format!("{}–{} units", 100.0f64.min(q).round(), (q * 0.1).clamp(100.0, 1000.0).round()),
+            quantity: {
+                // a pilot run on the production line: a small fraction of the first order
+                let lo = (q * 0.05).clamp(50.0, 500.0);
+                let hi = (q * 0.2).clamp(2.0 * lo, 2000.0);
+                format!("{lo:.0}–{hi:.0} units")
+            },
             builds: vec![
                 b(
                     format!("Hardened steel mold ({}), T1 → T2 samples", p.design.manufacturing.mold_steel),
@@ -246,6 +259,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn pvt_quantity_is_a_range() {
+        let r = roadmap(&Project::iris());
+        let pvt = r.iter().find(|s| s.id == "pvt").unwrap();
+        let nums: Vec<f64> = pvt
+            .quantity
+            .split(|c: char| !c.is_ascii_digit())
+            .filter_map(|x| x.parse().ok())
+            .collect();
+        assert!(nums.len() == 2 && nums[0] < nums[1], "{}", pvt.quantity);
+        assert!(!r.iter().find(|s| s.id == "evt").unwrap().compliance.is_empty());
+    }
+
+    #[test]
     fn iris_roadmap_links_milestones() {
         let r = roadmap(&Project::iris());
         assert_eq!(r.len(), 5);
@@ -255,7 +281,7 @@ mod tests {
         assert!(r[3].milestones.iter().any(|m| m.starts_with("M-5")));
         assert!(r[3].compliance.iter().any(|c| c.contains("FCC")));
         assert!(r[2].risks.iter().any(|x| x.starts_with("F-7")));
-        assert!(r[3].quantity.contains("100"));
+        assert_eq!(r[3].quantity, "50–200 units"); // 5–20 % of the 1000-unit first order
         assert!(r[0].milestones.iter().any(|m| m.starts_with("M-2")) && !r[2].milestones.iter().any(|m| m.starts_with("M-3")));
     }
 }
