@@ -3,8 +3,8 @@
 //! A subset of NIST SP 800-22 Rev. 1a (Rukhin et al., 2010), implemented
 //! from the formulas in §2 and checked against its worked examples:
 //! frequency (monobit) §2.1, frequency within a block §2.2, runs §2.3,
-//! longest run of ones in a block §2.4, serial §2.11 and approximate
-//! entropy §2.12. A test passes when its p-value ≥ α = 0.01.
+//! longest run of ones in a block §2.4, serial §2.11, approximate
+//! entropy §2.12 and cumulative sums §2.13 (forward and backward). A test passes when its p-value ≥ α = 0.01.
 //!
 //! Plus the most-common-value min-entropy estimate of NIST SP 800-90B
 //! (Turan et al., 2018) §6.3.1: p̂ = max count / L,
@@ -204,7 +204,9 @@ pub fn runs_p(bits: &[u8]) -> Option<f64> {
         return None;
     }
     let v = 1 + bits.windows(2).filter(|w| w[0] != w[1]).count();
-    Some(erfc((v as f64 - 2.0 * n * pi * (1.0 - pi)).abs() / (2.0 * (2.0 * n).sqrt() * pi * (1.0 - pi))))
+    Some(erfc(
+        (v as f64 - 2.0 * n * pi * (1.0 - pi)).abs() / (2.0 * (2.0 * n).sqrt() * pi * (1.0 - pi)),
+    ))
 }
 
 pub fn runs(bits: &[u8]) -> TestResult {
@@ -213,10 +215,22 @@ pub fn runs(bits: &[u8]) -> TestResult {
     }
     let v = 1 + bits.windows(2).filter(|w| w[0] != w[1]).count();
     match runs_p(bits) {
-        Some(p) => result("Runs", "2.3", p, format!("V_n = {v}"), "Do 0↔1 switches happen as often as chance predicts?"),
+        Some(p) => result(
+            "Runs",
+            "2.3",
+            p,
+            format!("V_n = {v}"),
+            "Do 0↔1 switches happen as often as chance predicts?",
+        ),
         None => TestResult {
             p_value: 0.0,
-            ..result("Runs", "2.3", 0.0, format!("V_n = {v}"), "Frequency prerequisite failed (|π − ½| ≥ 2/√n), so the runs test fails.")
+            ..result(
+                "Runs",
+                "2.3",
+                0.0,
+                format!("V_n = {v}"),
+                "Frequency prerequisite failed (|π − ½| ≥ 2/√n), so the runs test fails.",
+            )
         },
     }
 }
@@ -361,6 +375,66 @@ pub fn approx_entropy(bits: &[u8], m: usize) -> TestResult {
     )
 }
 
+/// Cumulative sums (SP 800-22 §2.13): z = max |S_k| of the ±1 random walk,
+/// forward (`reverse = false`) or backward. Loop bounds truncate toward zero
+/// as in the reference implementation.
+pub fn cusum_p(bits: &[u8], reverse: bool) -> (f64, i64) {
+    let n = bits.len() as f64;
+    let mut s = 0i64;
+    let mut z = 0i64;
+    let step = |b: u8| if b == 1 { 1 } else { -1 };
+    if reverse {
+        for &b in bits.iter().rev() {
+            s += step(b);
+            z = z.max(s.abs());
+        }
+    } else {
+        for &b in bits {
+            s += step(b);
+            z = z.max(s.abs());
+        }
+    }
+    if z == 0 {
+        return (0.0, 0);
+    }
+    let zf = z as f64;
+    let phi = |x: f64| 0.5 * erfc(-x / 2f64.sqrt());
+    let sq = n.sqrt();
+    let mut sum1 = 0.0;
+    let mut k = ((-n / zf + 1.0) / 4.0) as i64;
+    while k <= ((n / zf - 1.0) / 4.0) as i64 {
+        let kf = k as f64;
+        sum1 += phi((4.0 * kf + 1.0) * zf / sq) - phi((4.0 * kf - 1.0) * zf / sq);
+        k += 1;
+    }
+    let mut sum2 = 0.0;
+    let mut k = ((-n / zf - 3.0) / 4.0) as i64;
+    while k <= ((n / zf - 1.0) / 4.0) as i64 {
+        let kf = k as f64;
+        sum2 += phi((4.0 * kf + 3.0) * zf / sq) - phi((4.0 * kf + 1.0) * zf / sq);
+        k += 1;
+    }
+    ((1.0 - sum1 + sum2).clamp(0.0, 1.0), z)
+}
+
+pub fn cusum(bits: &[u8]) -> TestResult {
+    if bits.len() < 100 {
+        return not_applicable("Cumulative sums", "2.13", "needs n ≥ 100 bits");
+    }
+    let (pf, zf) = cusum_p(bits, false);
+    let (pb, zb) = cusum_p(bits, true);
+    let mut r = result(
+        "Cumulative sums",
+        "2.13",
+        pf,
+        format!("z = {zf} forward, {zb} backward"),
+        "Does the ±1 random walk wander too far from zero (drift, runs of bias)?",
+    );
+    r.p_value2 = Some(pb);
+    r.pass = pf >= ALPHA && pb >= ALPHA;
+    r
+}
+
 /// Run the suite with block sizes chosen from SP 800-22's recommendations.
 pub fn suite(bits: &[u8]) -> Vec<TestResult> {
     let n = bits.len();
@@ -377,6 +451,7 @@ pub fn suite(bits: &[u8]) -> Vec<TestResult> {
         longest_run(bits),
         serial(bits, m_ser),
         approx_entropy(bits, m_ap),
+        cusum(bits),
     ]
 }
 
@@ -467,6 +542,13 @@ mod tests {
         // §2.12.4: ε = 0100110101, m = 3 → P = 0.261961
         let (_, p) = approx_entropy_p(&b("0100110101"), 3);
         assert!((p - 0.261961).abs() < 1e-6, "{p}");
+        // §2.13.4: ε = 1011010111, forward → z = 4, P = 0.4116588
+        let (p, z) = cusum_p(&b("1011010111"), false);
+        assert!(z == 4 && (p - 0.4116588).abs() < 1e-6, "{z} {p}");
+        // §2.13.8: π bits → P = 0.219194 forward, 0.114866 backward
+        let (pf, _) = cusum_p(&pi100(), false);
+        let (pb, _) = cusum_p(&pi100(), true);
+        assert!((pf - 0.219194).abs() < 1e-6 && (pb - 0.114866).abs() < 1e-6, "{pf} {pb}");
     }
 
     #[test]

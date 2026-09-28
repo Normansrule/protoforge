@@ -143,11 +143,17 @@ impl DensityMatrix {
             }
             let p = nz.bit_flip.clamp(0.0, 1.0);
             if p > 0.0 {
-                self.kraus(q, &[m2((1.0 - p).sqrt(), 0.0, 0.0, (1.0 - p).sqrt()), m2(0.0, p.sqrt(), p.sqrt(), 0.0)]);
+                self.kraus(
+                    q,
+                    &[m2((1.0 - p).sqrt(), 0.0, 0.0, (1.0 - p).sqrt()), m2(0.0, p.sqrt(), p.sqrt(), 0.0)],
+                );
             }
             let p = nz.phase_flip.clamp(0.0, 1.0);
             if p > 0.0 {
-                self.kraus(q, &[m2((1.0 - p).sqrt(), 0.0, 0.0, (1.0 - p).sqrt()), m2(p.sqrt(), 0.0, 0.0, -p.sqrt())]);
+                self.kraus(
+                    q,
+                    &[m2((1.0 - p).sqrt(), 0.0, 0.0, (1.0 - p).sqrt()), m2(p.sqrt(), 0.0, 0.0, -p.sqrt())],
+                );
             }
         }
         let g = nz.amplitude_damping.clamp(0.0, 1.0);
@@ -269,7 +275,9 @@ pub fn apply_readout(probs: &[f64], n: usize, e: f64) -> Vec<f64> {
 pub fn run_noisy(circ: &Circuit, nz: &Noise) -> Result<DmOut, String> {
     let c = circ.validated()?;
     if c.qubits > MAX_DM_QUBITS {
-        return Err(format!("the density-matrix simulator handles at most {MAX_DM_QUBITS} qubits (ρ has 4^n entries)"));
+        return Err(format!(
+            "the density-matrix simulator handles at most {MAX_DM_QUBITS} qubits (ρ has 4^n entries)"
+        ));
     }
     let n = c.qubits;
     let mut rho = DensityMatrix::new(n);

@@ -2,7 +2,7 @@
 // eavesdropper, the decoy-state fiber link model against the PLOB bound, and
 // entanglement-based E91 with a CHSH check.
 import { useMemo, useState } from 'react';
-import { Card, Chip, DownloadButton, Explainer, Formula, Slider, Stat, StatusChip, Toggle } from '../../components/ui';
+import { Card, DownloadButton, Explainer, Formula, Slider, Stat, StatusChip, Toggle } from '../../components/ui';
 import { Plot, fmtNum } from '../../components/Plot';
 import { call } from '../../engine/engine';
 import { useCompute } from '../../engine/hooks';
@@ -195,7 +195,7 @@ function FiberLink() {
   const o = r.data;
   const pos = (ys: number[]) => ys.map((v) => (v > 0 ? v : NaN));
   const loadTemplate = () => {
-    if (!window.confirm('Replace the current project with the Qlink fiber QKD template? (Save your project first from the top bar if you need it.)')) return;
+    if (!window.confirm('Replace the current project with the Q-Link fiber QKD testbed template? (Save your project first from the top bar if you need it.)')) return;
     const ts = call<{ id: string; project: typeof project }[]>('systems.templates', {});
     const t = ts.find((x) => x.id === 'qlink');
     if (t) setProject(structuredClone(t.project));
@@ -208,7 +208,7 @@ function FiberLink() {
           <Toggle label={`Edit the project's link (${project.meta.name})`} value={useProjectParams} onChange={setUseProjectParams} />
         ) : (
           <div className="callout small" style={{ marginBottom: 10 }}>
-            This project has no quantum link. <button className="btn small" onClick={loadTemplate}>Load the Qlink template</button> — a two-node fiber QKD link whose requirements are verified by this model.
+            This project has no quantum link. <button className="btn small" onClick={loadTemplate}>Load the Q-Link template</button> — a two-node fiber QKD link whose requirements are verified by this model.
           </div>
         )}
         <div className="row" style={{ gap: 4, marginBottom: 8 }}>
@@ -253,22 +253,69 @@ function FiberLink() {
             <div className="small muted">Every curve falls ~0.2 dB/km × distance on this log axis until dark counts dominate and the decoy rate crashes to zero. The PLOB line is the most any point-to-point protocol can do; beating it needs quantum repeaters (entanglement swapping in the Protocols tab).</div>
           </Card>
         )}
+        {o?.budget && (
+          <Card
+            title="Photon and bit budget at the design distance"
+            subtitle="Every stage per second, on a log scale: each factor of 10 lost is one grid step. Hover a bar for where the loss comes from."
+            actions={<DownloadButton small filename="qkd-budget.csv" content={() => csv(['stage', 'per_second', 'note'], o.budget.map((b) => [b.label, b.rate, b.note]))} label="budget.csv" />}
+          >
+            <BudgetBars stages={o.budget} />
+          </Card>
+        )}
         {o && (
           <div className="grid grid-2">
             <Card title="QBER vs distance">
-              <Plot series={[{ name: 'E_μ', x: o.distance_km, y: o.qber_pct.map((q, k) => (o.decoy_bps[k] > 0 ? q : NaN)) }]} hLines={[{ value: 11, label: '11 %', color: 'var(--bad)' }]} xLabel="km" yLabel="QBER (%)" height={190} legend={false} />
+              <Plot series={[{ name: 'E_μ', x: o.distance_km, y: o.qber_pct.map((q, k) => (o.decoy_bps[k] > 0 ? q : NaN)) }]} hLines={[{ value: 11, label: '11 %', color: 'var(--bad)' }]} yDomain={[0, 13]} xLabel="km" yLabel="QBER (%)" height={190} legend={false} />
             </Card>
             <Card title="Optimal signal intensity μ">
               <Plot series={[{ name: 'μ', x: o.distance_km, y: o.mu_opt.map((m, k) => (o.decoy_bps[k] > 0 ? m : NaN)) }]} xLabel="km" yLabel="mean photons / pulse" height={190} legend={false} />
             </Card>
           </div>
         )}
-        <Explainer title="The decoy-state key rate" refs={[{ label: 'Lo, Ma & Chen, PRL 94, 230504 (2005)' }, { label: 'Gottesman, Lo, Lütkenhaus & Preskill, QIC 4, 325 (2004)' }, { label: 'Pirandola et al., Nat. Commun. 8, 15043 (2017)' }]}>
+        <Card title="Assumptions behind these numbers" subtitle="Read before quoting a key rate">
+          <ul className="qx-howto small">
+            <li><b>Asymptotic keys.</b> Infinitely long blocks: no finite-key penalty. Real sessions of 10⁶–10⁹ sifted bits lose a noticeable share of this rate (see finite-key analyses and Scarani et al. 2009).</li>
+            <li><b>Infinitely many decoys, perfect estimation.</b> Y₁ and e₁ are taken as their true values (Lo–Ma–Chen). Two practical decoys (vacuum + weak) come close but slightly lower.</li>
+            <li><b>BB84 with symmetric bases, sifting factor q = ½.</b> Efficient BB84 (biased basis choice) raises q towards 1.</li>
+            <li><b>Two identical detectors;</b> dark counts give Y₀ = 2 p_dark with 50 % error; no afterpulsing, no efficiency mismatch; dead time only as a non-paralysable cap on the click rate.</li>
+            <li><b>Misalignment e_d</b> lumps interferometer visibility, polarisation drift and timing jitter into one error probability.</li>
+            <li><b>Error correction at f × the Shannon limit, one-way post-processing,</b> and authentication cost ignored.</li>
+            <li><b>Trusted devices.</b> Implementation attacks (detector blinding, Trojan-horse light, phase remapping) are outside the model — the Q-Link template's failure mode and effects analysis (FMEA) lists them; measurement-device-independent QKD removes the detector side channels.</li>
+          </ul>
+        </Card>
+        <Explainer title="The decoy-state key rate" refs={[{ label: 'Lo, Ma & Chen, PRL 94, 230504 (2005)' }, { label: 'Gottesman, Lo, Lütkenhaus & Preskill, QIC 4, 325 (2004)' }, { label: 'Scarani et al., Rev. Mod. Phys. 81, 1301 (2009)' }, { label: 'Pirandola et al., Nat. Commun. 8, 15043 (2017)' }]}>
           A laser pulse attenuated to μ photons on average sometimes carries two; Eve could split one off (photon-number splitting). Decoy intensities let Alice and Bob measure the single-photon yield Y₁ and error e₁ and keep only the provably secret part:
           <Formula>{'η = η_det·10^(−(αL + L_fixed)/10)     Q_μ = Y₀ + 1 − e^(−ημ)\nE_μ Q_μ = e₀Y₀ + e_d(1 − e^(−ημ))    Q₁ = (Y₀ + η) μ e^(−μ)    e₁ = (e₀Y₀ + e_d η)/(Y₀ + η)\nR = q { −Q_μ f h(E_μ) + Q₁ [1 − h(e₁)] }   ×  pulse rate\nPLOB:  R ≤ −log₂(1 − η_fiber)  per channel use'}</Formula>
           Here Y₀ = 2 × dark-count probability (two detectors), q = ½ for standard sifting, and h is the binary entropy. Asymptotic (infinitely long keys, infinitely many decoys); finite-key corrections lower the rate, especially for short blocks. Detector dead time τ caps detections at 1/τ (non-paralysable approximation).
         </Explainer>
       </div>
+    </div>
+  );
+}
+
+function BudgetBars({ stages }: { stages: { label: string; rate: number; note: string }[] }) {
+  const pos = stages.filter((s) => s.rate > 0);
+  const hi = Math.ceil(Math.log10(Math.max(...pos.map((s) => s.rate), 10)));
+  const lo = Math.min(hi - 3, Math.floor(Math.log10(Math.max(1e-3, Math.min(...pos.map((s) => s.rate))))));
+  const span = hi - lo;
+  const w = (r: number) => (r > 0 ? Math.max(0.5, ((Math.log10(r) - lo) / span) * 100) : 0);
+  return (
+    <div className="qx-budget">
+      {stages.map((s, k) => {
+        const prev = k > 0 ? stages[k - 1].rate : 0;
+        const db = k > 0 && prev > 0 && s.rate > 0 ? 10 * Math.log10(prev / s.rate) : null;
+        return (
+          <div key={s.label} className="qx-budget-row" title={s.note}>
+            <div className="qx-budget-label small">{s.label}{db != null && db > 0.005 && <span className="muted"> · −{db.toFixed(1)} dB</span>}</div>
+            <div className="qx-budget-track">
+              <div className="qx-budget-bar" style={{ width: `${w(s.rate)}%`, background: k === stages.length - 1 ? 'var(--good)' : `var(--series-${k < 3 ? 1 : k < 5 ? 4 : 2})` }} />
+              <span className="qx-budget-val tnum small">{fmtNum(s.rate)}/s</span>
+            </div>
+            <div className="qx-budget-note small muted">{s.note}</div>
+          </div>
+        );
+      })}
+      <div className="qx-budget-axis small muted"><span>10^{lo} /s</span><span>10^{hi} /s</span></div>
     </div>
   );
 }
@@ -372,8 +419,8 @@ export default function Qkd() {
       {which === 'bb84' && <Bb84 />}
       {which === 'link' && <FiberLink />}
       {which === 'e91' && <E91 />}
-      <div className="row small">
-        <Chip>Graduate to: NetSquid and SeQUeNCe (network simulators), QuTiP (open systems), Qiskit/Cirq (circuits)</Chip>
+      <div className="small muted">
+        <b>Graduate to:</b> NetSquid and SeQUeNCe (network simulators), QuTiP (open systems), Qiskit and Cirq (circuits).
       </div>
     </div>
   );

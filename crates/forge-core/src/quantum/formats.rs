@@ -11,6 +11,8 @@
 //!   `if (creg == n) op;`. `opaque` and unknown gates are errors with line
 //!   numbers. Programs written here open in the IBM Quantum Composer and in
 //!   Qiskit (`QuantumCircuit.from_qasm_str`).
+//! * **OpenQASM 3.0** writer ([`emit_qasm3`], `stdgates.inc` plus `ctrl @`
+//!   modifiers) and a **Qiskit** Python script writer ([`emit_qiskit`]).
 //! * **Quirk** links (C. Gidney, <https://algassert.com/quirk>): the circuit
 //!   is JSON in the URL fragment, `#circuit={"cols":[["H"],["•","X"]]}`. Gate
 //!   ids were checked against the Quirk source (github.com/Strilanc/Quirk,
@@ -237,7 +239,11 @@ impl P {
         self.toks.get(self.i).map(|t| &t.t)
     }
     fn next(&mut self) -> Result<Tok, String> {
-        let t = self.toks.get(self.i).map(|t| t.t.clone()).ok_or_else(|| "unexpected end of program".to_string())?;
+        let t = self
+            .toks
+            .get(self.i)
+            .map(|t| t.t.clone())
+            .ok_or_else(|| "unexpected end of program".to_string())?;
         self.i += 1;
         Ok(t)
     }
@@ -481,12 +487,24 @@ fn emit_builtin(ctx: &mut Ctx, name: &str, p: &[f64], q: &[usize], cond: &Option
     }
 }
 
-fn expand(ctx: &mut Ctx, call: &Call, env: &HashMap<String, f64>, qmap: Option<&HashMap<String, usize>>, cond: &Option<Cond>, depth: usize) -> Result<(), String> {
+fn expand(
+    ctx: &mut Ctx,
+    call: &Call,
+    env: &HashMap<String, f64>,
+    qmap: Option<&HashMap<String, usize>>,
+    cond: &Option<Cond>,
+    depth: usize,
+) -> Result<(), String> {
     let line = call.line;
     if depth > 32 {
         return Err(format!("line {line}: gate definitions nest too deeply"));
     }
-    let params: Vec<f64> = call.params.iter().map(|e| e.eval(env)).collect::<Result<_, _>>().map_err(|e| format!("line {line}: {e}"))?;
+    let params: Vec<f64> = call
+        .params
+        .iter()
+        .map(|e| e.eval(env))
+        .collect::<Result<_, _>>()
+        .map_err(|e| format!("line {line}: {e}"))?;
     if call.name == "barrier" && qmap.is_none() {
         // a barrier spans every listed qubit (no broadcasting)
         let mut all = vec![];
@@ -576,7 +594,9 @@ pub fn parse_qasm(src: &str) -> Result<ParseOut, String> {
                     t => return Err(format!("line {line}: expected a version, found {}", show(&t))),
                 };
                 if (v - 2.0).abs() > 1e-9 {
-                    return Err(format!("line {line}: only OpenQASM 2.0 is supported (found {v}); OpenQASM 3 adds classical types and loops"));
+                    return Err(format!(
+                        "line {line}: only OpenQASM 2.0 is supported (found {v}); OpenQASM 3 adds classical types and loops"
+                    ));
                 }
                 p.expect(";")?;
                 saw_header = true;
@@ -655,7 +675,9 @@ pub fn parse_qasm(src: &str) -> Result<ParseOut, String> {
                 p.expect("==")?;
                 let v = p.int()? as u64;
                 p.expect(")")?;
-                let (off, size) = ctx.creg(&reg).ok_or_else(|| format!("line {line}: unknown classical register `{reg}`"))?;
+                let (off, size) = ctx
+                    .creg(&reg)
+                    .ok_or_else(|| format!("line {line}: unknown classical register `{reg}`"))?;
                 let cond = Some(Cond {
                     bits: (off..off + size).collect(),
                     value: v,
@@ -688,7 +710,10 @@ pub fn parse_qasm(src: &str) -> Result<ParseOut, String> {
         return Err("no `qreg` declared".into());
     }
     if nq > super::statevec::MAX_QUBITS {
-        warnings.push(format!("{nq} qubits: the simulator runs at most {} qubits", super::statevec::MAX_QUBITS));
+        warnings.push(format!(
+            "{nq} qubits: the simulator runs at most {} qubits",
+            super::statevec::MAX_QUBITS
+        ));
     }
     let count = ctx.ops.len();
     let mut circ = Circuit::from_ops(nq, nc, ctx.ops);
@@ -705,11 +730,15 @@ fn measure(ctx: &mut Ctx, q: &Arg, cb: &Arg, cond: &Option<Cond>, line: usize) -
     let qs = ctx.qargs(std::slice::from_ref(q), line)?;
     let cs: Vec<usize> = match cb {
         Arg::Reg(n) => {
-            let (off, s) = ctx.creg(n).ok_or_else(|| format!("line {line}: unknown classical register `{n}`"))?;
+            let (off, s) = ctx
+                .creg(n)
+                .ok_or_else(|| format!("line {line}: unknown classical register `{n}`"))?;
             (off..off + s).collect()
         }
         Arg::Bit(n, i) => {
-            let (off, s) = ctx.creg(n).ok_or_else(|| format!("line {line}: unknown classical register `{n}`"))?;
+            let (off, s) = ctx
+                .creg(n)
+                .ok_or_else(|| format!("line {line}: unknown classical register `{n}`"))?;
             if *i >= s {
                 return Err(format!("line {line}: index {i} is out of range for `{n}[{s}]`"));
             }
@@ -741,8 +770,16 @@ pub fn angle(x: f64) -> String {
         if (k - k.round()).abs() < 1e-9 && k.round().abs() <= 4.0 * den as f64 {
             let k = k.round() as i64;
             let sign = if k < 0 { "-" } else { "" };
-            let num = if k.abs() == 1 { "pi".to_string() } else { format!("{}*pi", k.abs()) };
-            return if den == 1 { format!("{sign}{num}") } else { format!("{sign}{num}/{den}") };
+            let num = if k.abs() == 1 {
+                "pi".to_string()
+            } else {
+                format!("{}*pi", k.abs())
+            };
+            return if den == 1 {
+                format!("{sign}{num}")
+            } else {
+                format!("{sign}{num}/{den}")
+            };
         }
     }
     let s = format!("{x:.12}");
@@ -788,7 +825,12 @@ pub fn emit_qasm(circ: &Circuit) -> Result<EmitOut, String> {
                 let reg = offs.iter().find(|(_, o, sz)| cd.bits == (*o..o + sz).collect::<Vec<_>>());
                 match reg {
                     Some((n, _, _)) => line.push_str(&format!("if({n}=={}) ", cd.value)),
-                    None => return Err(format!("column {}: OpenQASM 2.0 can only condition on a whole classical register", ci + 1)),
+                    None => {
+                        return Err(format!(
+                            "column {}: OpenQASM 2.0 can only condition on a whole classical register",
+                            ci + 1
+                        ))
+                    }
                 }
             }
             let q = |i: usize| format!("q[{i}]");
@@ -800,14 +842,19 @@ pub fn emit_qasm(circ: &Circuit) -> Result<EmitOut, String> {
             let nctl = op.controls.len();
             let name: Option<String> = match (op.gate.as_str(), nctl) {
                 ("measure", 0) => {
-                    let b = op.clbit.ok_or_else(|| format!("column {}: measurement without a classical bit", ci + 1))?;
+                    let b = op
+                        .clbit
+                        .ok_or_else(|| format!("column {}: measurement without a classical bit", ci + 1))?;
                     line.push_str(&format!("measure {} -> {};", q(op.targets[0]), cname(b)));
                     s.push_str(&line);
                     s.push('\n');
                     continue;
                 }
                 ("barrier", _) => {
-                    line.push_str(&format!("barrier {};", op.targets.iter().map(|&t| q(t)).collect::<Vec<_>>().join(",")));
+                    line.push_str(&format!(
+                        "barrier {};",
+                        op.targets.iter().map(|&t| q(t)).collect::<Vec<_>>().join(",")
+                    ));
                     s.push_str(&line);
                     s.push('\n');
                     continue;
@@ -845,7 +892,14 @@ pub fn emit_qasm(circ: &Circuit) -> Result<EmitOut, String> {
                     // CCZ = H·CCX·H on the target
                     let t = op.targets[0];
                     let pre = line.clone();
-                    s.push_str(&format!("{pre}h {};\n{pre}ccx {},{},{};\n{pre}h {};\n", q(t), q(op.controls[0]), q(op.controls[1]), q(t), q(t)));
+                    s.push_str(&format!(
+                        "{pre}h {};\n{pre}ccx {},{},{};\n{pre}h {};\n",
+                        q(t),
+                        q(op.controls[0]),
+                        q(op.controls[1]),
+                        q(t),
+                        q(t)
+                    ));
                     continue;
                 }
                 _ => None,
@@ -870,6 +924,251 @@ pub fn emit_qasm(circ: &Circuit) -> Result<EmitOut, String> {
         warnings.push("`csx` is in Qiskit's qelib1.inc but not in the original 2017 file".into());
     }
     Ok(EmitOut { qasm: s, warnings })
+}
+
+// ---------------------------------------------------------------------------
+// OpenQASM 3.0 and Qiskit
+// ---------------------------------------------------------------------------
+
+/// Classical register layout: `(name, first flat bit, size)`.
+fn creg_offsets(c: &Circuit) -> Vec<(String, usize, usize)> {
+    let mut offs = vec![];
+    let mut off = 0;
+    for r in c.registers() {
+        offs.push((r.name.clone(), off, r.size));
+        off += r.size;
+    }
+    offs
+}
+
+/// `(register name, index)` of flat classical bit `b`.
+fn creg_bit(offs: &[(String, usize, usize)], b: usize) -> (String, usize) {
+    for (n, o, sz) in offs {
+        if b >= *o && b < o + sz {
+            return (n.clone(), b - o);
+        }
+    }
+    ("c".into(), b)
+}
+
+/// Whole register matching a condition's bits, if any.
+fn cond_register<'a>(offs: &'a [(String, usize, usize)], cd: &Cond) -> Option<&'a str> {
+    offs.iter()
+        .find(|(_, o, sz)| cd.bits == (*o..o + sz).collect::<Vec<_>>())
+        .map(|(n, _, _)| n.as_str())
+}
+
+/// Write the circuit as an OpenQASM 3.0 program (`stdgates.inc`).
+///
+/// Follows the OpenQASM 3 specification (A. W. Cross, A. Javadi-Abhari,
+/// T. Alexander et al., "OpenQASM 3: A broader and deeper quantum assembly
+/// language", ACM Trans. Quantum Comput. 3 (3), 2022): `qubit[n] q;`,
+/// `bit[m] c;`, `c[0] = measure q[0];`, `if (c == 5) …`, and the `ctrl(k) @`
+/// / `inv @` gate modifiers for controlled gates without a `stdgates.inc`
+/// name. The IBM Quantum Composer and `qiskit.qasm3.loads` (which needs the
+/// `qiskit-qasm3-import` package) read these programs.
+pub fn emit_qasm3(circ: &Circuit) -> Result<EmitOut, String> {
+    let c = circ.validated()?;
+    let mut s = String::from("OPENQASM 3.0;\ninclude \"stdgates.inc\";\n");
+    let warnings = vec![];
+    if c.ops().any(|o| o.gate == "iswap") {
+        s.push_str("gate iswap a, b { s a; s b; h a; cx a, b; cx b, a; h b; }\n");
+    }
+    s.push_str(&format!("qubit[{}] q;\n", c.qubits));
+    let offs = creg_offsets(&c);
+    for (n, _, sz) in &offs {
+        s.push_str(&format!("bit[{sz}] {n};\n"));
+    }
+    let q = |i: usize| format!("q[{i}]");
+    for col in &c.cols {
+        for op in col {
+            let mut pre = String::new();
+            if let Some(cd) = &op.cond {
+                match cond_register(&offs, cd) {
+                    Some(n) => pre = format!("if ({n} == {}) ", cd.value),
+                    None => {
+                        let terms: Vec<String> = cd
+                            .bits
+                            .iter()
+                            .enumerate()
+                            .map(|(k, &b)| {
+                                let (n, i) = creg_bit(&offs, b);
+                                format!("{n}[{i}] == {}", (cd.value >> k) & 1)
+                            })
+                            .collect();
+                        pre = format!("if ({}) ", terms.join(" && "));
+                    }
+                }
+            }
+            let line = match op.gate.as_str() {
+                "measure" => {
+                    let b = op.clbit.ok_or("measurement without a classical bit")?;
+                    let (n, i) = creg_bit(&offs, b);
+                    format!("{n}[{i}] = measure {};", q(op.targets[0]))
+                }
+                "barrier" => format!("barrier {};", op.targets.iter().map(|&t| q(t)).collect::<Vec<_>>().join(", ")),
+                "reset" => format!("reset {};", q(op.targets[0])),
+                "id" if op.controls.is_empty() => continue,
+                g => {
+                    let ps = if op.params.is_empty() {
+                        String::new()
+                    } else {
+                        format!("({})", op.params.iter().map(|x| angle(*x)).collect::<Vec<_>>().join(", "))
+                    };
+                    let nc = op.controls.len();
+                    // names in stdgates.inc, else modifiers
+                    let (name, mods) = match (g, nc) {
+                        ("sxdg", 0) => ("sx".to_string(), "inv @ ".to_string()),
+                        (g, 0) => (g.to_string(), String::new()),
+                        ("x", 1) => ("cx".into(), String::new()),
+                        ("x", 2) => ("ccx".into(), String::new()),
+                        ("y", 1) => ("cy".into(), String::new()),
+                        ("z", 1) => ("cz".into(), String::new()),
+                        ("h", 1) => ("ch".into(), String::new()),
+                        ("p", 1) => ("cp".into(), String::new()),
+                        ("rx", 1) => ("crx".into(), String::new()),
+                        ("ry", 1) => ("cry".into(), String::new()),
+                        ("rz", 1) => ("crz".into(), String::new()),
+                        ("swap", 1) => ("cswap".into(), String::new()),
+                        ("sxdg", k) => (
+                            "sx".into(),
+                            format!("{} @ inv @ ", if k == 1 { "ctrl".into() } else { format!("ctrl({k})") }),
+                        ),
+                        (g, k) => (g.to_string(), if k == 1 { "ctrl @ ".into() } else { format!("ctrl({k}) @ ") }),
+                    };
+                    let qs: Vec<String> = op.controls.iter().chain(&op.targets).map(|&i| q(i)).collect();
+                    format!("{mods}{name}{ps} {};", qs.join(", "))
+                }
+            };
+            s.push_str(&pre);
+            s.push_str(&line);
+            s.push('\n');
+        }
+    }
+    Ok(EmitOut { qasm: s, warnings })
+}
+
+/// Write the circuit as a Qiskit (≥ 1.0) Python script that builds the same
+/// `QuantumCircuit`, draws it and samples it on the Aer simulator.
+///
+/// Classical conditions use `QuantumCircuit.if_test` (the dynamic-circuit
+/// form that replaced `c_if`); gates with more controls than Qiskit has a
+/// method for use `Gate.control(k)`.
+pub fn emit_qiskit(circ: &Circuit) -> Result<EmitOut, String> {
+    let c = circ.validated()?;
+    let offs = creg_offsets(&c);
+    let mut s = String::new();
+    s.push_str(&format!("q = QuantumRegister({}, \"q\")\n", c.qubits));
+    let mut regs = vec!["q".to_string()];
+    for (n, _, sz) in &offs {
+        s.push_str(&format!("{n} = ClassicalRegister({sz}, \"{n}\")\n"));
+        regs.push(n.clone());
+    }
+    s.push_str(&format!("qc = QuantumCircuit({})\n\n", regs.join(", ")));
+    let cls = |g: &str| -> &'static str {
+        match g {
+            "h" => "HGate",
+            "x" => "XGate",
+            "y" => "YGate",
+            "z" => "ZGate",
+            "s" => "SGate",
+            "sdg" => "SdgGate",
+            "t" => "TGate",
+            "tdg" => "TdgGate",
+            "sx" => "SXGate",
+            "sxdg" => "SXdgGate",
+            "rx" => "RXGate",
+            "ry" => "RYGate",
+            "rz" => "RZGate",
+            "p" => "PhaseGate",
+            "u3" => "UGate",
+            "swap" => "SwapGate",
+            _ => "iSwapGate",
+        }
+    };
+    let list = |v: &[usize]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>().join(", ");
+    let mut has_measure = false;
+    let mut used: Vec<&'static str> = vec![];
+    let mut has_pi = false;
+    for col in &c.cols {
+        for op in col {
+            let ps: Vec<String> = op.params.iter().map(|x| angle(*x)).collect();
+            let pj = ps.join(", ");
+            has_pi |= pj.contains("pi");
+            let nc = op.controls.len();
+            let tl = list(&op.targets);
+            let call = match (op.gate.as_str(), nc) {
+                ("measure", _) => {
+                    has_measure = true;
+                    let (n, i) = creg_bit(&offs, op.clbit.ok_or("measurement without a classical bit")?);
+                    format!("qc.measure(q[{}], {n}[{i}])", op.targets[0])
+                }
+                ("barrier", _) => format!("qc.barrier({tl})"),
+                ("reset", _) => format!("qc.reset({tl})"),
+                ("id", 0) => format!("qc.id({tl})"),
+                ("u3", 0) => format!("qc.u({pj}, {tl})"),
+                (g @ ("h" | "x" | "y" | "z" | "s" | "sdg" | "t" | "tdg" | "sx" | "sxdg" | "swap" | "iswap"), 0) => format!("qc.{g}({tl})"),
+                (g @ ("rx" | "ry" | "rz" | "p"), 0) => format!("qc.{g}({pj}, {tl})"),
+                (g @ ("x" | "y" | "z" | "h" | "sx" | "swap"), 1) => {
+                    let m = if g == "swap" { "cswap".to_string() } else { format!("c{g}") };
+                    format!("qc.{m}({}, {tl})", op.controls[0])
+                }
+                (g @ ("rx" | "ry" | "rz" | "p"), 1) => format!("qc.c{g}({pj}, {}, {tl})", op.controls[0]),
+                ("u3", 1) => format!("qc.cu({pj}, 0, {}, {tl})", op.controls[0]),
+                ("x", 2) => format!("qc.ccx({}, {tl})", list(&op.controls)),
+                ("x", _) => format!("qc.mcx([{}], {tl})", list(&op.controls)),
+                (g, k) => {
+                    let args = if ps.is_empty() { String::new() } else { pj.clone() };
+                    if !used.contains(&cls(g)) {
+                        used.push(cls(g));
+                    }
+                    format!("qc.append({}({args}).control({k}), [{}, {tl}])", cls(g), list(&op.controls))
+                }
+            };
+            match &op.cond {
+                None => s.push_str(&call),
+                Some(cd) => {
+                    let mut indent = String::new();
+                    if let Some(n) = cond_register(&offs, cd) {
+                        s.push_str(&format!("with qc.if_test(({n}, {})):\n    ", cd.value));
+                    } else {
+                        for (k, &b) in cd.bits.iter().enumerate() {
+                            let (n, i) = creg_bit(&offs, b);
+                            s.push_str(&format!("{indent}with qc.if_test(({n}[{i}], {})):\n", (cd.value >> k) & 1));
+                            indent.push_str("    ");
+                        }
+                        s.push_str(&indent);
+                    }
+                    s.push_str(&call);
+                }
+            }
+            s.push('\n');
+        }
+    }
+    s.push_str("\nprint(qc.draw())\n");
+    if has_measure {
+        s.push_str(
+            "\nfrom qiskit_aer import AerSimulator\n\nsim = AerSimulator()\ncounts = sim.run(transpile(qc, sim), shots=1024).result().get_counts()\nprint(counts)  # keys read c[n-1] … c[0], like this lab\n",
+        );
+    } else {
+        s.push_str("\nfrom qiskit.quantum_info import Statevector\n\nprint(Statevector.from_instruction(qc).probabilities_dict())\n");
+    }
+    let mut head = String::from("# Generated by the Protoforge Quantum Lab. Needs: pip install qiskit qiskit-aer\n");
+    if has_pi {
+        head.push_str("from math import pi\n\n");
+    }
+    head.push_str(&format!(
+        "from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister{}\n",
+        if has_measure { ", transpile" } else { "" }
+    ));
+    if !used.is_empty() {
+        head.push_str(&format!("from qiskit.circuit.library import {}\n", used.join(", ")));
+    }
+    head.push('\n');
+    Ok(EmitOut {
+        qasm: head + &s,
+        warnings: vec![],
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -938,7 +1237,13 @@ fn quirk_id(op: &Op, customs: &mut Vec<(String, String, String)>) -> String {
         _ => {}
     }
     let m = matrix(&op.gate, &op.params).unwrap_or(matrix("id", &[]).unwrap());
-    let mat = format!("{{{{{},{}}},{{{},{}}}}}", cplx(m[0][0]), cplx(m[0][1]), cplx(m[1][0]), cplx(m[1][1]));
+    let mat = format!(
+        "{{{{{},{}}},{{{},{}}}}}",
+        cplx(m[0][0]),
+        cplx(m[0][1]),
+        cplx(m[1][0]),
+        cplx(m[1][1])
+    );
     let name = match op.gate.as_str() {
         "p" => format!("P({})", angle(op.params[0])),
         "u3" => "U".to_string(),
@@ -1131,6 +1436,74 @@ measure q -> c;
     }
 
     #[test]
+    fn qasm3_and_qiskit_writers() {
+        // teleportation-style feed-forward, a Toffoli, a controlled S, a 3-control X and √X†
+        let mut c = Circuit::new(4, 2);
+        c.cols = vec![
+            vec![Op::new("h", &[0]), Op::new("sxdg", &[3])],
+            vec![Op::ctrl("x", &[0], &[1])],
+            vec![Op::measure(0, 0), Op::measure(1, 1)],
+            vec![Op::new("x", &[2]).when(&[1], 1)],
+            vec![Op::new("z", &[2]).when(&[0, 1], 3)],
+            vec![Op::ctrl("x", &[0, 1], &[2])],
+            vec![Op::ctrl("s", &[0], &[3])],
+            vec![Op::ctrl("x", &[0, 1, 2], &[3])],
+            vec![Op::ctrl("rz", &[1], &[2]).param(&[PI / 4.0])],
+        ];
+        let q3 = emit_qasm3(&c).unwrap().qasm;
+        for want in [
+            "OPENQASM 3.0;",
+            "include \"stdgates.inc\";",
+            "qubit[4] q;",
+            "bit[2] c;",
+            "inv @ sx q[3];",
+            "cx q[0], q[1];",
+            "c[0] = measure q[0];",
+            "if (c[1] == 1) x q[2];",
+            "if (c == 3) z q[2];",
+            "ccx q[0], q[1], q[2];",
+            "ctrl @ s q[0], q[3];",
+            "ctrl(3) @ x q[0], q[1], q[2], q[3];",
+            "crz(pi/4) q[1], q[2];",
+        ] {
+            assert!(q3.contains(want), "missing `{want}` in\n{q3}");
+        }
+        let py = emit_qiskit(&c).unwrap().qasm;
+        for want in [
+            "q = QuantumRegister(4, \"q\")",
+            "c = ClassicalRegister(2, \"c\")",
+            "qc = QuantumCircuit(q, c)",
+            "qc.sxdg(3)",
+            "qc.cx(0, 1)",
+            "qc.measure(q[0], c[0])",
+            "with qc.if_test((c[1], 1)):\n    qc.x(2)",
+            "with qc.if_test((c, 3)):\n    qc.z(2)",
+            "qc.ccx(0, 1, 2)",
+            "qc.append(SGate().control(1), [0, 3])",
+            "qc.mcx([0, 1, 2], 3)",
+            "qc.crz(pi/4, 1, 2)",
+            "AerSimulator",
+            "from math import pi",
+            "from qiskit.circuit.library import SGate\n",
+        ] {
+            assert!(py.contains(want), "missing `{want}` in\n{py}");
+        }
+        // a partial-register condition becomes nested if_tests / a conjunction
+        let mut c2 = Circuit::new(2, 3);
+        c2.cols = vec![vec![Op::new("x", &[1]).when(&[0, 2], 2)]];
+        assert!(emit_qasm3(&c2).unwrap().qasm.contains("if (c[0] == 0 && c[2] == 1) x q[1];"));
+        assert!(emit_qiskit(&c2)
+            .unwrap()
+            .qasm
+            .contains("with qc.if_test((c[0], 0)):\n    with qc.if_test((c[2], 1)):\n        qc.x(1)"));
+        // no measurement: the script prints the exact probabilities instead
+        assert!(emit_qiskit(&Circuit::from_ops(1, 0, vec![Op::new("h", &[0])]))
+            .unwrap()
+            .qasm
+            .contains("Statevector"));
+    }
+
+    #[test]
     fn angles_print_as_pi_fractions() {
         assert_eq!(angle(PI / 4.0), "pi/4");
         assert_eq!(angle(-3.0 * PI / 4.0), "-3*pi/4");
@@ -1163,7 +1536,9 @@ measure q -> c;
             direct.cols = vec![ops];
             let want = final_state(&Circuit::from_ops(2, 0, direct.cols[0].clone()), 1).unwrap();
             // equal up to a global phase
-            let k = (0..4).max_by(|&a, &b| want.amps[a].abs().partial_cmp(&want.amps[b].abs()).unwrap()).unwrap();
+            let k = (0..4)
+                .max_by(|&a, &b| want.amps[a].abs().partial_cmp(&want.amps[b].abs()).unwrap())
+                .unwrap();
             let ph = sv.amps[k] / want.amps[k];
             assert!((ph.abs() - 1.0).abs() < 1e-9);
             for i in 0..4 {

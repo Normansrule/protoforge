@@ -40,6 +40,9 @@ function MiniCircuit({ circuit, maxCols = 60 }: { circuit: Circuit; maxCols?: nu
   );
 }
 
+/** Continuous iteration axis 0 … kmax−1 for the smooth theory curve. */
+const smoothK = (kmax: number) => Array.from({ length: Math.max(2, (kmax - 1) * 16 + 1) }, (_, j) => j / 16);
+
 const bits = (v: number, n: number) => v.toString(2).padStart(n, '0');
 
 function Grover() {
@@ -85,10 +88,10 @@ function Grover() {
           <Card title="Success probability vs iterations">
             <Plot
               series={[
-                { name: 'theory sin²((2k+1)θ)', x: x.iterations.flatMap((i) => [i - 0.5, i, i + 0.5]).filter((v) => v >= 0), y: x.iterations.flatMap((i) => [i - 0.5, i, i + 0.5]).filter((v) => v >= 0).map((v) => Math.sin((2 * v + 1) * theta) ** 2), dash: '4 3' },
+                { name: 'theory sin²((2k+1)θ)', x: smoothK(kmax), y: smoothK(kmax).map((v) => Math.sin((2 * v + 1) * theta) ** 2), dash: '4 3' },
                 { name: 'state-vector simulation', x: x.iterations, y: x.p_marked_sim, scatter: true },
               ]}
-              vLines={[{ value: x.optimal, label: `optimal k = ${x.optimal}` }, { value: k, label: 'now', color: 'var(--accent)' }]}
+              vLines={[{ value: x.optimal, label: `optimal k = ${x.optimal}` }, ...(k !== x.optimal ? [{ value: k, label: 'now', color: 'var(--accent)' }] : [])]}
               yDomain={[0, 1]} xLabel="iterations k" yLabel="P(marked)" height={220} legend
             />
           </Card>
@@ -105,14 +108,14 @@ function GroverCircle({ angle, theta }: { angle: number; theta: number }) {
   const [vx, vy] = pt(angle);
   const [sx, sy] = pt(theta);
   return (
-    <svg viewBox={`0 0 ${S} ${S}`} style={{ width: '100%', maxWidth: 240 }} role="img" aria-label="Grover rotation">
+    <svg viewBox={`-10 0 ${S + 40} ${S}`} style={{ width: '100%', maxWidth: 270 }} role="img" aria-label="Grover rotation">
       <circle cx={c} cy={c} r={R} fill="none" stroke="var(--border-strong)" />
       <line x1={c - R - 8} x2={c + R + 8} y1={c} y2={c} stroke="var(--muted)" />
       <line y1={c - R - 8} y2={c + R + 8} x1={c} x2={c} stroke="var(--muted)" />
       <text x={c + R + 4} y={c - 4} fontSize={10} style={{ fill: 'var(--text-2)' }}>|s′⟩</text>
       <text x={c + 4} y={c - R - 2} fontSize={10} style={{ fill: 'var(--series-3)' }}>|w⟩ marked</text>
       <line x1={c} y1={c} x2={sx} y2={sy} stroke="var(--muted)" strokeDasharray="3 3" />
-      <text x={sx + 4} y={sy} fontSize={9} style={{ fill: 'var(--muted)' }}>|s⟩ start</text>
+      <text x={sx + 4} y={sy - 3} fontSize={9} style={{ fill: 'var(--muted)' }}>|s⟩ start</text>
       <line x1={c} y1={c} x2={vx} y2={vy} stroke="var(--accent)" strokeWidth={3} strokeLinecap="round" />
       <circle cx={vx} cy={vy} r={4} fill="var(--accent)" />
       <line x1={vx} y1={vy} x2={c} y2={vy} stroke="var(--series-3)" strokeDasharray="2 2" />

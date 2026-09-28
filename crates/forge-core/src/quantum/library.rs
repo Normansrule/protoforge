@@ -47,18 +47,73 @@ pub struct Listing {
 pub fn list() -> Vec<Listing> {
     let l = |id, title, group, summary| Listing { id, title, group, summary };
     vec![
-        l("bell", "Bell state |Φ+⟩", "Entanglement", "H then CNOT: two qubits that always agree when measured."),
+        l(
+            "bell",
+            "Bell state |Φ+⟩",
+            "Entanglement",
+            "H then CNOT: two qubits that always agree when measured.",
+        ),
         l("ghz", "GHZ state", "Entanglement", "Three or more qubits in (|0…0⟩ + |1…1⟩)/√2."),
-        l("teleport", "Teleportation (measure + classical control)", "Protocols", "Send a qubit state with one Bell pair and two classical bits."),
-        l("teleport_deferred", "Teleportation (deferred measurement)", "Protocols", "Same protocol with controlled gates instead of if-statements."),
-        l("superdense", "Superdense coding", "Protocols", "Send two classical bits by moving one qubit of a Bell pair."),
-        l("swap_ent", "Entanglement swapping", "Protocols", "Entangle two qubits that never met: the core of a quantum repeater."),
-        l("chsh", "CHSH Bell test (one setting)", "Protocols", "Measure a Bell pair along two angles; S over four settings reaches 2√2."),
-        l("deutsch_jozsa", "Deutsch–Jozsa", "Algorithms", "Constant or balanced? One oracle call instead of 2^(n−1)+1."),
-        l("bernstein_vazirani", "Bernstein–Vazirani", "Algorithms", "Read a secret bit string s from f(x) = s·x in one query."),
-        l("grover", "Grover search", "Algorithms", "Amplitude amplification finds a marked item in ~(π/4)√N steps."),
-        l("qft", "Quantum Fourier transform", "Algorithms", "The DFT on 2ⁿ amplitudes with O(n²) gates."),
-        l("qpe", "Phase estimation", "Algorithms", "Read the eigenphase of a unitary into a register with the inverse QFT."),
+        l(
+            "teleport",
+            "Teleportation (measure + classical control)",
+            "Protocols",
+            "Send a qubit state with one Bell pair and two classical bits.",
+        ),
+        l(
+            "teleport_deferred",
+            "Teleportation (deferred measurement)",
+            "Protocols",
+            "Same protocol with controlled gates instead of if-statements.",
+        ),
+        l(
+            "superdense",
+            "Superdense coding",
+            "Protocols",
+            "Send two classical bits by moving one qubit of a Bell pair.",
+        ),
+        l(
+            "swap_ent",
+            "Entanglement swapping",
+            "Protocols",
+            "Entangle two qubits that never met: the core of a quantum repeater.",
+        ),
+        l(
+            "chsh",
+            "CHSH Bell test (one setting)",
+            "Protocols",
+            "Measure a Bell pair along two angles; S over four settings reaches 2√2.",
+        ),
+        l(
+            "deutsch_jozsa",
+            "Deutsch–Jozsa",
+            "Algorithms",
+            "Constant or balanced? One oracle call instead of 2^(n−1)+1.",
+        ),
+        l(
+            "bernstein_vazirani",
+            "Bernstein–Vazirani",
+            "Algorithms",
+            "Read a secret bit string s from f(x) = s·x in one query.",
+        ),
+        l(
+            "grover",
+            "Grover search",
+            "Algorithms",
+            "Amplitude amplification finds a marked item in ~(π/4)√N steps.",
+        ),
+        l(
+            "qft",
+            "Quantum Fourier transform",
+            "Algorithms",
+            "The DFT on 2ⁿ amplitudes with O(n²) gates.",
+        ),
+        l(
+            "qpe",
+            "Phase estimation",
+            "Algorithms",
+            "Read the eigenphase of a unitary into a register with the inverse QFT.",
+        ),
     ]
 }
 
@@ -176,7 +231,10 @@ fn with_measure(n: usize, clbits: usize, mut ops: Vec<Op>, which: &[usize]) -> C
 
 pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
     let meas = p.measure.unwrap_or(true);
-    let listing = list().into_iter().find(|l| l.id == id).ok_or_else(|| format!("unknown algorithm `{id}`"))?;
+    let listing = list()
+        .into_iter()
+        .find(|l| l.id == id)
+        .ok_or_else(|| format!("unknown algorithm `{id}`"))?;
     let mut entry = Entry {
         id: id.into(),
         title: listing.title.into(),
@@ -190,9 +248,18 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
     match id {
         "bell" => {
             let ops = vec![Op::new("h", &[0]), Op::ctrl("x", &[0], &[1])];
-            entry.circuit = if meas { with_measure(2, 2, ops, &[0, 1]) } else { Circuit::from_ops(2, 0, ops) };
+            entry.circuit = if meas {
+                with_measure(2, 2, ops, &[0, 1])
+            } else {
+                Circuit::from_ops(2, 0, ops)
+            };
             entry.explanation = "H puts q0 in (|0⟩+|1⟩)/√2; the CNOT copies the basis value onto q1, giving (|00⟩+|11⟩)/√2. Each qubit alone is maximally mixed (its Bloch vector shrinks to the centre) but the two outcomes always agree.".into();
-            entry.expected = vec![e("P(00)", "0.5"), e("P(11)", "0.5"), e("Concurrence", "1"), e("Entropy of each qubit", "1 bit")];
+            entry.expected = vec![
+                e("P(00)", "0.5"),
+                e("P(11)", "0.5"),
+                e("Concurrence", "1"),
+                e("Entropy of each qubit", "1 bit"),
+            ];
         }
         "ghz" => {
             let n = p.n.unwrap_or(3).clamp(2, MAX_QUBITS);
@@ -201,9 +268,16 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
                 ops.push(Op::ctrl("x", &[q - 1], &[q]));
             }
             let all: Vec<usize> = (0..n).collect();
-            entry.circuit = if meas { with_measure(n, n, ops, &all) } else { Circuit::from_ops(n, 0, ops) };
+            entry.circuit = if meas {
+                with_measure(n, n, ops, &all)
+            } else {
+                Circuit::from_ops(n, 0, ops)
+            };
             entry.explanation = format!("A chain of CNOTs spreads q0's superposition to all {n} qubits: (|{}⟩ + |{}⟩)/√2. Losing any one qubit destroys the coherence of the rest — GHZ states are fragile, which the Noise tab shows.", "0".repeat(n), "1".repeat(n));
-            entry.expected = vec![e(&format!("P({})", "0".repeat(n)), "0.5"), e(&format!("P({})", "1".repeat(n)), "0.5")];
+            entry.expected = vec![
+                e(&format!("P({})", "0".repeat(n)), "0.5"),
+                e(&format!("P({})", "1".repeat(n)), "0.5"),
+            ];
         }
         "teleport" | "teleport_deferred" => {
             let th = p.theta.unwrap_or(1.1);
@@ -242,7 +316,11 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
         }
         "superdense" => {
             let m = p.message.unwrap_or(2) & 3;
-            let mut ops = vec![Op::new("h", &[0]).labelled("Bell pair"), Op::ctrl("x", &[0], &[1]).labelled("Bell pair"), Op::new("barrier", &[0, 1])];
+            let mut ops = vec![
+                Op::new("h", &[0]).labelled("Bell pair"),
+                Op::ctrl("x", &[0], &[1]).labelled("Bell pair"),
+                Op::new("barrier", &[0, 1]),
+            ];
             if m & 2 == 2 {
                 ops.push(Op::new("x", &[0]).labelled("encode"));
             }
@@ -289,7 +367,11 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
         }
         "deutsch_jozsa" | "bernstein_vazirani" => {
             let n = p.n.unwrap_or(3).clamp(1, MAX_QUBITS - 1);
-            let kind = if id == "bernstein_vazirani" { "balanced".to_string() } else { p.kind.clone().unwrap_or_else(|| "balanced".into()) };
+            let kind = if id == "bernstein_vazirani" {
+                "balanced".to_string()
+            } else {
+                p.kind.clone().unwrap_or_else(|| "balanced".into())
+            };
             let s = p.value.unwrap_or(if id == "bernstein_vazirani" { 0b101 } else { 0b011 }) & ((1u64 << n) - 1);
             let anc = n;
             let mut ops = vec![Op::new("x", &[anc])];
@@ -309,7 +391,11 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
             ops.push(Op::new("barrier", &(0..=n).collect::<Vec<_>>()));
             h_all(&mut ops, 0..n);
             let inputs: Vec<usize> = (0..n).collect();
-            entry.circuit = if meas { with_measure(n + 1, n, ops, &inputs) } else { Circuit::from_ops(n + 1, 0, ops) };
+            entry.circuit = if meas {
+                with_measure(n + 1, n, ops, &inputs)
+            } else {
+                Circuit::from_ops(n + 1, 0, ops)
+            };
             let bits = |v: u64| -> String { (0..n).rev().map(|k| if (v >> k) & 1 == 1 { '1' } else { '0' }).collect() };
             if id == "bernstein_vazirani" {
                 entry.explanation = format!("The oracle computes f(x) = s·x mod 2 with a CNOT from every qubit where s has a 1. Phase kickback from the |−⟩ ancilla writes (−1)^(s·x) into the amplitudes and the final Hadamards turn that phase pattern into |s⟩. Classically you need {n} queries; here one.");
@@ -319,7 +405,11 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
                 entry.explanation = "Phase kickback turns the oracle into (−1)^f(x). After the second layer of Hadamards the amplitude of |0…0⟩ is the average of (−1)^f(x): ±1 for a constant f, 0 for a balanced one. One query decides with certainty; a deterministic classical algorithm needs 2^(n−1) + 1.".into();
                 entry.expected = vec![e(
                     "Outcome",
-                    if constant { format!("{} (constant)", "0".repeat(n)) } else { format!("never {} (balanced) — here {}", "0".repeat(n), bits(s)) },
+                    if constant {
+                        format!("{} (constant)", "0".repeat(n))
+                    } else {
+                        format!("never {} (balanced) — here {}", "0".repeat(n), bits(s))
+                    },
                 )];
             }
         }
@@ -330,7 +420,11 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
             let k = p.iterations.unwrap_or(kopt).min(4 * kopt + 4);
             let ops = grover_ops(n, marked, k);
             let all: Vec<usize> = (0..n).collect();
-            entry.circuit = if meas { with_measure(n, n, ops, &all) } else { Circuit::from_ops(n, 0, ops) };
+            entry.circuit = if meas {
+                with_measure(n, n, ops, &all)
+            } else {
+                Circuit::from_ops(n, 0, ops)
+            };
             let big_n = (1u64 << n) as f64;
             let th = (1.0 / big_n.sqrt()).asin();
             // simulate each iteration count to get the full distribution and the theory curve
@@ -361,7 +455,10 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
             );
             entry.expected = vec![
                 e("Optimal iterations", kopt.to_string()),
-                e(&format!("P(marked) after {k}"), format!("{:.4}", ((2 * k + 1) as f64 * th).sin().powi(2))),
+                e(
+                    &format!("P(marked) after {k}"),
+                    format!("{:.4}", ((2 * k + 1) as f64 * th).sin().powi(2)),
+                ),
                 e("Classical average queries", format!("{:.1}", (big_n + 1.0) / 2.0)),
             ];
             entry.extra = Some(serde_json::json!({
@@ -388,7 +485,13 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
             ops.extend(qft_ops(&qs));
             entry.circuit = Circuit::from_ops(n, 0, ops);
             entry.explanation = format!("QFT|x⟩ = 2^(−n/2) Σ_y e^(2πi·x·y/2^n)|y⟩. Every output amplitude has magnitude 1/√{} and the phase winds x = {x} times around the colour wheel as y goes from 0 to {}. The circuit uses n Hadamards and n(n−1)/2 controlled-phase gates, then swaps to fix the bit order.", 1u64 << n, (1u64 << n) - 1);
-            entry.expected = vec![e("Every |amplitude|", format!("1/√{} = {:.4}", 1u64 << n, 1.0 / ((1u64 << n) as f64).sqrt())), e("Phase of |y⟩", format!("2π·{x}·y/{}", 1u64 << n))];
+            entry.expected = vec![
+                e(
+                    "Every |amplitude|",
+                    format!("1/√{} = {:.4}", 1u64 << n, 1.0 / ((1u64 << n) as f64).sqrt()),
+                ),
+                e("Phase of |y⟩", format!("2π·{x}·y/{}", 1u64 << n)),
+            ];
         }
         "qpe" => {
             let t = p.n.unwrap_or(4).clamp(1, MAX_QUBITS - 1);
@@ -398,11 +501,19 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
             h_all(&mut ops, 0..t);
             for k in 0..t {
                 let ang = 2.0 * PI * phase * (1u64 << k) as f64;
-                ops.push(Op::ctrl("p", &[k], &[target]).param(&[ang.rem_euclid(2.0 * PI)]).labelled(&format!("U^{}", 1u64 << k)));
+                ops.push(
+                    Op::ctrl("p", &[k], &[target])
+                        .param(&[ang.rem_euclid(2.0 * PI)])
+                        .labelled(&format!("U^{}", 1u64 << k)),
+                );
             }
             let qs: Vec<usize> = (0..t).collect();
             ops.extend(inverse(&qft_ops(&qs)).into_iter().map(|o| o.labelled("QFT†")));
-            entry.circuit = if meas { with_measure(t + 1, t, ops, &qs) } else { Circuit::from_ops(t + 1, 0, ops) };
+            entry.circuit = if meas {
+                with_measure(t + 1, t, ops, &qs)
+            } else {
+                Circuit::from_ops(t + 1, 0, ops)
+            };
             let best = (phase * (1u64 << t) as f64).round() as u64 % (1u64 << t);
             // exact distribution: |(1/2^t) Σ_x e^{2πi x (φ − y/2^t)}|²
             let nn = (1u64 << t) as f64;
@@ -416,7 +527,14 @@ pub fn build(id: &str, p: &Params) -> Result<Entry, String> {
             };
             entry.explanation = format!("U = P(2πφ) has eigenvector |1⟩ with eigenvalue e^(2πiφ). Controlled-U^(2^k) kicks the phase 2πφ·2^k back onto counting qubit k, building the Fourier state of φ·2^t; the inverse QFT turns it into the integer closest to φ·2^t = {:.3}. With t = {t} counting qubits the phase is read to 1/2^t.", phase * nn);
             entry.expected = vec![
-                e("Most likely readout", format!("{} = {best} → φ ≈ {:.5}", super::circuit::bitstring(best as usize, t), best as f64 / nn)),
+                e(
+                    "Most likely readout",
+                    format!(
+                        "{} = {best} → φ ≈ {:.5}",
+                        super::circuit::bitstring(best as usize, t),
+                        best as f64 / nn
+                    ),
+                ),
                 e("Its probability", format!("{pbest:.4}")),
             ];
         }
@@ -490,7 +608,12 @@ pub fn correlation(a: f64, b: f64, v: f64) -> f64 {
     let c = Circuit::from_ops(
         2,
         0,
-        vec![Op::new("h", &[0]), Op::ctrl("x", &[0], &[1]), Op::new("ry", &[0]).param(&[-a]), Op::new("ry", &[1]).param(&[-b])],
+        vec![
+            Op::new("h", &[0]),
+            Op::ctrl("x", &[0], &[1]),
+            Op::new("ry", &[0]).param(&[-a]),
+            Op::new("ry", &[1]).param(&[-b]),
+        ],
     );
     let sv = super::statevec::final_state(&c, 1).expect("valid");
     let p = sv.probs();

@@ -18,10 +18,12 @@ export const REFS = {
   plob: { label: 'S. Pirandola, R. Laurenza, C. Ottaviani & L. Banchi, "Fundamental limits of repeaterless quantum communications", Nat. Commun. 8, 15043 (2017)' },
   gisin: { label: 'N. Gisin, G. Ribordy, W. Tittel & H. Zbinden, "Quantum cryptography", Rev. Mod. Phys. 74, 145 (2002)' },
   qrng: { label: 'M. Herrero-Collantes & J. C. Garcia-Escartin, "Quantum random number generators", Rev. Mod. Phys. 89, 015004 (2017)' },
-  sp80022: { label: 'NIST SP 800-22 Rev. 1a, A Statistical Test Suite for Random and Pseudorandom Number Generators (2010)' },
+  scarani: { label: 'V. Scarani, H. Bechmann-Pasquinucci, N. J. Cerf, M. Dušek, N. Lütkenhaus & M. Peev, "The security of practical quantum key distribution", Rev. Mod. Phys. 81, 1301 (2009)' },
+  sp80022: { label: 'A. Rukhin et al., NIST SP 800-22 Rev. 1a, A Statistical Test Suite for Random and Pseudorandom Number Generators for Cryptographic Applications (2010)' },
   sp80090b: { label: 'NIST SP 800-90B, Recommendation for the Entropy Sources Used for Random Bit Generation (2018)' },
   wootters: { label: 'W. K. Wootters, "Entanglement of formation of an arbitrary state of two qubits", PRL 80, 2245 (1998)' },
   qasm: { label: 'A. W. Cross, L. S. Bishop, J. A. Smolin & J. M. Gambetta, "Open Quantum Assembly Language", arXiv:1707.03429 (2017)', href: 'https://arxiv.org/abs/1707.03429' },
+  qasm3: { label: 'A. W. Cross, A. Javadi-Abhari, T. Alexander et al., "OpenQASM 3: A broader and deeper quantum assembly language", ACM Trans. Quantum Comput. 3, 12 (2022)', href: 'https://arxiv.org/abs/2104.14722' },
   quirk: { label: 'C. Gidney, Quirk — in-browser quantum circuit simulator', href: 'https://algassert.com/quirk' },
   qiskit: { label: 'Qiskit', href: 'https://github.com/Qiskit/qiskit' },
   cirq: { label: 'Cirq', href: 'https://github.com/quantumlib/Cirq' },
@@ -59,9 +61,9 @@ export default function Learn() {
         <Explainer title="Why BB84 is secure" refs={[REFS.bb84, REFS.sp, REFS.gisin]}>
           Alice sends each bit in one of two conjugate bases chosen at random. Eve does not know the basis; measuring in the wrong one randomises the result, so an intercept-resend attack on every photon causes a 25 % error rate on the sifted key. More generally, information gained by Eve is bounded by the observed error rate: after error correction (leaking f·h(Q) bits) and privacy amplification (removing h(Q) bits), the remaining fraction
           <Formula>{'r = 1 − f·h(Q) − h(Q),    h(p) = −p log₂ p − (1−p) log₂(1−p)'}</Formula>
-          is secret. With f = 1 it hits zero at Q ≈ 11.0 % (Shor & Preskill 2000). Security rests on the protocol's model of the devices — real attacks (e.g. detector blinding) target implementation gaps, which the Qlink template lists in its FMEA.
+          is secret. With f = 1 it hits zero at Q ≈ 11.0 % (Shor & Preskill 2000). Security rests on the protocol's model of the devices — real attacks (e.g. detector blinding) target implementation gaps, which the Q-Link template lists in its FMEA.
         </Explainer>
-        <Explainer title="Key-rate formulas for a fiber link" refs={[REFS.lmc, REFS.gllp, REFS.plob]}>
+        <Explainer title="Key-rate formulas for a fiber link" refs={[REFS.lmc, REFS.gllp, REFS.scarani, REFS.plob]}>
           Weak laser pulses contain Poisson-distributed photon numbers with mean μ. Decoy intensities reveal the single-photon yield, giving the Lo–Ma–Chen rate
           <Formula>{'R = q { −Q_μ f h(E_μ) + Q₁ [1 − h(e₁)] }   with   Q_μ ≈ 1 − e^(−ημ),  Q₁ ≈ η μ e^(−μ)'}</Formula>
           so R ∝ η = η_det·10^(−αL/10) at short range and collapses where dark counts make E_μ approach 11 %. The PLOB bound −log₂(1 − η) ≈ 1.44 η shows every repeaterless link decays exponentially with distance.
@@ -69,8 +71,8 @@ export default function Learn() {
         <Explainer title="Entropy and randomness" refs={[REFS.qrng, REFS.sp80090b, REFS.sp80022]}>
           Shannon entropy averages surprise; cryptography needs the worst case — min-entropy H∞ = −log₂ maxₓ P(x), the number of nearly uniform bits an extractor can distil. A quantum source (a photon at a beam splitter, shot and avalanche noise) is unpredictable in principle; classical noise and drift mixed into it must not be credited. SP 800-90B estimates H∞ from data (the most-common-value estimator here); SP 800-22 tests the output for statistical defects.
         </Explainer>
-        <Explainer title="Simulating it" refs={[REFS.qasm, REFS.quirk]}>
-          The state-vector simulator stores 2ⁿ amplitudes (≤ 14 qubits); the density-matrix simulator stores 4ⁿ entries (≤ 6 qubits) and applies Kraus maps. Everything is Rust compiled to WebAssembly, runs in your browser, is seeded and deterministic, and is unit-tested against textbook identities (HXH = Z, CNOT truth table, QFT = DFT, Grover's sin²((2k+1)θ), CHSH = 2√2, NIST SP 800-22 worked examples).
+        <Explainer title="Simulating it" refs={[REFS.qasm, REFS.qasm3, REFS.quirk]}>
+          The composer exports OpenQASM 2.0 and 3.0 and a Qiskit script, and opens the circuit in Quirk, so every result here can be re-run in the tools professionals use. The state-vector simulator stores 2ⁿ amplitudes (≤ 14 qubits); the density-matrix simulator stores 4ⁿ entries (≤ 6 qubits) and applies Kraus maps. Everything is Rust compiled to WebAssembly, runs in your browser, is seeded and deterministic, and is unit-tested against textbook identities (HXH = Z, CNOT truth table, QFT = DFT, Grover's sin²((2k+1)θ), CHSH = 2√2, NIST SP 800-22 worked examples).
         </Explainer>
       </div>
 
@@ -90,9 +92,11 @@ export default function Learn() {
             <li><b>Qiskit Textbook / IBM Quantum Learning</b> — free interactive chapters from qubits to Grover, QFT and QKD, with runnable Qiskit code.</li>
             <li><b>Nielsen & Chuang</b> — the standard textbook every chapter here cites; chapters 1–2 are a complete introduction.</li>
             <li>Michael Nielsen's <b>“Quantum computing for the determined”</b> — a free English video series on the basics.</li>
+            <li><a href="https://ocw.mit.edu" target="_blank" rel="noreferrer">MIT OpenCourseWare</a> — search for <b>18.435J Quantum Computation</b> (lecture notes) and <b>8.04 Quantum Physics I</b> (English video lectures) for the physics underneath.</li>
+            <li><b>Scarani et al. (2009)</b> — the review to read before building a real QKD link: every practical attack and every assumption behind the key-rate formulas used here.</li>
           </ul>
           <div className="callout small" style={{ marginTop: 10 }}>
-            <b>Iris and the quantum lab.</b> The smart glasses need no quantum hardware, so Iris has no quantum requirements. The <Link to="/systems">Systems Studio</Link>'s <b>Qlink</b> template is the quantum product: a two-node fiber QKD link with a diode-noise QRNG whose 12 requirements are verified live by the QKD and QRNG tabs.
+            <b>Iris and the quantum lab.</b> The smart glasses need no quantum hardware, so Iris has no quantum requirements. The <Link to="/systems">Systems Studio</Link>'s <b>Q-Link</b> template is the quantum product: a two-node fiber QKD link with a diode-noise QRNG whose 12 requirements are verified live by the QKD and QRNG tabs.
           </div>
         </Card>
       </div>

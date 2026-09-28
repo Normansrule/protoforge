@@ -246,7 +246,11 @@ fn stage(id: &str, name: &str, bits: &[u8], raw_len: usize, raw_rate: f64) -> St
         id: id.into(),
         name: name.into(),
         bits: bits.len(),
-        ones_fraction: if bits.is_empty() { 0.0 } else { bits.iter().map(|&b| b as f64).sum::<f64>() / bits.len() as f64 },
+        ones_fraction: if bits.is_empty() {
+            0.0
+        } else {
+            bits.iter().map(|&b| b as f64).sum::<f64>() / bits.len() as f64
+        },
         efficiency: eff,
         rate_bps: raw_rate * eff,
         min_entropy_per_bit: nist::mcv_min_entropy(&syms).0,
@@ -295,7 +299,10 @@ pub fn simulate(i: &QrngIn) -> QrngOut {
         raw_rate = sample_rate;
         h_theory = -(p1.max(1.0 - p1)).log2();
         hist_x = vec![0.0, 1.0];
-        hist_counts = vec![raw.iter().filter(|&&b| b == 0).count() as u64, raw.iter().filter(|&&b| b == 1).count() as u64];
+        hist_counts = vec![
+            raw.iter().filter(|&&b| b == 0).count() as u64,
+            raw.iter().filter(|&&b| b == 1).count() as u64,
+        ];
         hist_expected = vec![(1.0 - p1) * n as f64, p1 * n as f64];
     } else {
         let fs = i.sample_rate_hz.max(1.0);
@@ -303,7 +310,11 @@ pub fn simulate(i: &QrngIn) -> QrngOut {
         let levels = 1u64 << bits;
         lsb = i.adc_vpp_mv.max(1e-9) / levels as f64;
         // band-limited white noise: AR(1) with a = exp(−2π f_c / f_s), scaled to keep the RMS
-        let a = if i.bandwidth_hz > 0.0 { (-2.0 * PI * i.bandwidth_hz / fs).exp() } else { 0.0 };
+        let a = if i.bandwidth_hz > 0.0 {
+            (-2.0 * PI * i.bandwidth_hz / fs).exp()
+        } else {
+            0.0
+        };
         let gain = (1.0 - a * a).sqrt();
         let mut w_state = 0.0;
         // 1/f: 16 octave-spaced AR(1) processes, unit variance each
@@ -395,7 +406,11 @@ pub fn simulate(i: &QrngIn) -> QrngOut {
         raw_rate = fs * bps as f64;
     }
     let (h_sample, _) = nist::mcv_min_entropy(&symbols);
-    let raw_bias = if raw.is_empty() { 0.0 } else { raw.iter().map(|&b| b as f64).sum::<f64>() / raw.len() as f64 - 0.5 };
+    let raw_bias = if raw.is_empty() {
+        0.0
+    } else {
+        raw.iter().map(|&b| b as f64).sum::<f64>() / raw.len() as f64 - 0.5
+    };
     let raw_len = raw.len();
     let mut stages = vec![stage("raw", "Raw bits", &raw, raw_len, raw_rate)];
     let mut cur = raw.clone();
@@ -498,11 +513,20 @@ mod tests {
     fn diode_pipeline_passes_nist_after_extraction() {
         let o = simulate(&QrngIn::default());
         let last = o.stages.last().unwrap();
-        assert_eq!(last.passed, last.applicable, "{:?}", last.tests.iter().map(|t| (&t.name, t.p_value)).collect::<Vec<_>>());
+        assert_eq!(
+            last.passed,
+            last.applicable,
+            "{:?}",
+            last.tests.iter().map(|t| (&t.name, t.p_value)).collect::<Vec<_>>()
+        );
         assert!(o.min_entropy_per_sample > 3.0 && o.min_entropy_per_sample <= 4.0);
         assert!(o.clipped_fraction < 0.001);
         // 8-bit ADC, 400 mV → LSB 1.5625 mV; σ ≈ 40.2 mV → H∞ ≈ log2(σ√2π / LSB) ≈ 6.7 bits
-        assert!((o.min_entropy_theory - (40.2f64 * (2.0 * PI).sqrt() / 1.5625).log2()).abs() < 0.05, "{}", o.min_entropy_theory);
+        assert!(
+            (o.min_entropy_theory - (40.2f64 * (2.0 * PI).sqrt() / 1.5625).log2()).abs() < 0.05,
+            "{}",
+            o.min_entropy_theory
+        );
     }
 
     #[test]

@@ -381,7 +381,7 @@ export function Gauge({ value, max, threshold, label, unit = '%', marks = [] }: 
   const over = threshold !== undefined && value > threshold;
   const [nx, ny] = pt(value, r - 8);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="qx-gauge" role="img" aria-label={`${label}: ${value.toFixed(1)} ${unit}`}>
+    <svg viewBox={`-24 -4 ${W + 48} ${H + 4}`} className="qx-gauge" role="img" aria-label={`${label}: ${value.toFixed(1)} ${unit}`}>
       <path d={arc(0, threshold ?? max)} stroke="var(--good)" strokeWidth={12} fill="none" opacity={0.35} />
       {threshold !== undefined && <path d={arc(threshold, max)} stroke="var(--bad)" strokeWidth={12} fill="none" opacity={0.35} />}
       {marks.map((m) => {
@@ -391,7 +391,7 @@ export function Gauge({ value, max, threshold, label, unit = '%', marks = [] }: 
         return (
           <g key={m.t}>
             <line x1={x0} y1={y0} x2={x1} y2={y1} stroke="var(--text-2)" strokeWidth={1.2} />
-            <text x={tx} y={ty} fontSize={8.5} textAnchor="middle" fill="var(--text-2)">{m.t}</text>
+            <text x={tx} y={ty} fontSize={8.5} textAnchor={tx > cx + 30 ? 'start' : tx < cx - 30 ? 'end' : 'middle'} fill="var(--text-2)">{m.t}</text>
           </g>
         );
       })}

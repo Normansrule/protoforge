@@ -96,7 +96,11 @@ impl StateVec {
         match &op.cond {
             None => true,
             Some(c) => {
-                let v = c.bits.iter().enumerate().fold(0u64, |acc, (k, &b)| acc | ((self.clbits.get(b).copied().unwrap_or(0) as u64) << k));
+                let v = c
+                    .bits
+                    .iter()
+                    .enumerate()
+                    .fold(0u64, |acc, (k, &b)| acc | ((self.clbits.get(b).copied().unwrap_or(0) as u64) << k));
                 v == c.value
             }
         }
@@ -138,7 +142,12 @@ impl StateVec {
 
     pub fn prob_one(&self, q: usize) -> f64 {
         let bit = 1 << q;
-        self.amps.iter().enumerate().filter(|(i, _)| i & bit != 0).map(|(_, a)| a.norm_sqr()).sum()
+        self.amps
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| i & bit != 0)
+            .map(|(_, a)| a.norm_sqr())
+            .sum()
     }
 
     pub fn measure(&mut self, q: usize, clbit: Option<usize>) -> MeasureEvent {
@@ -262,7 +271,12 @@ pub fn snapshot(s: &StateVec, column: usize, events: Vec<MeasureEvent>, pairs: b
         (0..dim).collect()
     } else {
         let mut idx: Vec<usize> = (0..dim).collect();
-        idx.sort_by(|&a, &b| s.amps[b].norm_sqr().partial_cmp(&s.amps[a].norm_sqr()).unwrap_or(std::cmp::Ordering::Equal));
+        idx.sort_by(|&a, &b| {
+            s.amps[b]
+                .norm_sqr()
+                .partial_cmp(&s.amps[a].norm_sqr())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         let mut top: Vec<usize> = idx.into_iter().take(64).collect();
         top.sort();
         top
@@ -332,7 +346,10 @@ pub struct RunOut {
 pub fn run(circ: &Circuit, shots: usize, seed: u64, steps: bool) -> Result<RunOut, String> {
     let c = circ.validated()?;
     if c.qubits > MAX_QUBITS {
-        return Err(format!("{} qubits is above the state-vector limit of {MAX_QUBITS} (2^{MAX_QUBITS} amplitudes)", c.qubits));
+        return Err(format!(
+            "{} qubits is above the state-vector limit of {MAX_QUBITS} (2^{MAX_QUBITS} amplitudes)",
+            c.qubits
+        ));
     }
     let mut warnings = vec![];
     let pairs = c.qubits <= 6;
@@ -401,7 +418,14 @@ pub fn run(circ: &Circuit, shots: usize, seed: u64, steps: bool) -> Result<RunOu
                 *ex.entry(key_of(i)).or_default() += p;
             }
         }
-        exact = ex.iter().map(|(k, &p)| HistEntry { bits: k.clone(), count: 0, prob: p }).collect();
+        exact = ex
+            .iter()
+            .map(|(k, &p)| HistEntry {
+                bits: k.clone(),
+                count: 0,
+                prob: p,
+            })
+            .collect();
         // cumulative sampling
         let mut cdf = Vec::with_capacity(probs.len());
         let mut acc = 0.0;
@@ -423,7 +447,9 @@ pub fn run(circ: &Circuit, shots: usize, seed: u64, steps: bool) -> Result<RunOu
         let budget = 40_000_000usize;
         used_shots = shots.min((budget / cost).max(16));
         if used_shots < shots {
-            warnings.push(format!("mid-circuit measurement: re-simulated {used_shots} of {shots} shots to keep the page responsive"));
+            warnings.push(format!(
+                "mid-circuit measurement: re-simulated {used_shots} of {shots} shots to keep the page responsive"
+            ));
         }
         for s in 0..used_shots {
             let mut st = StateVec::new(c.qubits, c.clbits, seed.wrapping_add(1 + s as u64 * 7919));
@@ -466,7 +492,11 @@ pub fn run(circ: &Circuit, shots: usize, seed: u64, steps: bool) -> Result<RunOu
         state,
         steps: snaps,
         histogram,
-        histogram_over: if over_clbits { "classical bits c[m-1]…c[0]".into() } else { "qubits q[n-1]…q[0]".into() },
+        histogram_over: if over_clbits {
+            "classical bits c[m-1]…c[0]".into()
+        } else {
+            "qubits q[n-1]…q[0]".into()
+        },
         shots: used_shots,
         exact,
         sampling,
@@ -547,7 +577,11 @@ mod tests {
 
     #[test]
     fn bell_state_probabilities_and_entanglement() {
-        let c = Circuit::from_ops(2, 2, vec![Op::new("h", &[0]), Op::ctrl("x", &[0], &[1]), Op::measure(0, 0), Op::measure(1, 1)]);
+        let c = Circuit::from_ops(
+            2,
+            2,
+            vec![Op::new("h", &[0]), Op::ctrl("x", &[0], &[1]), Op::measure(0, 0), Op::measure(1, 1)],
+        );
         let out = run(&c, 4000, 3, true).unwrap();
         let p = &out.steps[2].prob;
         assert!((p[0] - 0.5).abs() < 1e-12 && (p[3] - 0.5).abs() < 1e-12 && p[1] == 0.0 && p[2] == 0.0);

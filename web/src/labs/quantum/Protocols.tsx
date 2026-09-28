@@ -52,9 +52,9 @@ function StoryStage({ lanes, scenes, p }: { lanes: { x: number; name: string; ro
         </g>
       ))}
       <line x1={40} x2={W - 40} y1={QY} y2={QY} stroke="var(--series-1)" strokeWidth={2} opacity={0.35} />
-      <text x={W - 44} y={QY - 6} fontSize={9.5} textAnchor="end" style={{ fill: 'var(--series-1)' }}>quantum channel (fiber)</text>
+      <text x={480} y={QY + 16} fontSize={9.5} textAnchor="middle" style={{ fill: 'var(--series-1)' }}>quantum channel (fiber)</text>
       <line x1={40} x2={W - 40} y1={CY} y2={CY} stroke="var(--series-4)" strokeWidth={1.5} strokeDasharray="6 5" opacity={0.6} />
-      <text x={W - 44} y={CY + 16} fontSize={9.5} textAnchor="end" style={{ fill: 'var(--series-4)' }}>classical channel (≤ speed of light)</text>
+      <text x={W / 2} y={CY + 16} fontSize={9.5} textAnchor="middle" style={{ fill: 'var(--series-4)' }}>classical channel (≤ speed of light)</text>
       {links.map(([u, v]) => {
         const A = pos[u], B = pos[v];
         if (!A || !B) return null;

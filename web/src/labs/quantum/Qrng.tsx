@@ -178,7 +178,8 @@ export default function Qrng() {
                 <PlayBar p={scope} label={() => `samples ${off}–${off + win}`} />
                 <Plot
                   series={[{ name: 'v (mV)', x: Array.from({ length: win }, (_, k) => off + k), y: o.analog_mv.slice(off, off + win), step: true, width: 1.2 }]}
-                  hLines={[{ value: o.lsb_mv * 2 ** (cfg.adc_bits - 1), label: '+full scale', color: 'var(--bad)' }, { value: -o.lsb_mv * 2 ** (cfg.adc_bits - 1), label: '−full scale', color: 'var(--bad)' }, { value: 0, label: 'mid-scale' }]}
+                  hLines={[{ value: o.lsb_mv * 2 ** (cfg.adc_bits - 1), label: '+full scale', color: 'var(--bad)' }, { value: -o.lsb_mv * 2 ** (cfg.adc_bits - 1), label: '−full scale', color: 'var(--bad)' }, { value: 0, label: '' }]}
+                  yDomain={[-o.lsb_mv * 2 ** (cfg.adc_bits - 1) * 1.25, o.lsb_mv * 2 ** (cfg.adc_bits - 1) * 1.25]}
                   xLabel="sample" yLabel="mV" height={200} legend={false}
                 />
               </Card>
@@ -213,8 +214,8 @@ export default function Qrng() {
             >
               <Pipeline o={o} sel={stage?.id ?? ''} onSel={setSel} />
               {stage && (
-                <div className="grid grid-2" style={{ marginTop: 12 }}>
-                  <div>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="grid grid-2">
                     <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
                       <div>
                         <div className="small muted">{stage.name}: first {Math.min(4096, stage.bits)} bits</div>
@@ -236,7 +237,7 @@ export default function Qrng() {
                         ...(stage.id !== 'raw' ? [{ name: stage.name, x: stage.autocorr.map((_, k) => k + 1), y: stage.autocorr, scatter: true }] : []),
                       ]}
                       hLines={[{ value: 3 / Math.sqrt(Math.max(1, stage.bits)), label: '±3/√n', color: 'var(--muted)' }, { value: -3 / Math.sqrt(Math.max(1, stage.bits)), label: '', color: 'var(--muted)' }]}
-                      xLabel="lag (bits)" yLabel="autocorrelation" height={170} legend
+                      xLabel="lag (bits)" yLabel="autocorrelation" height={190} legend
                     />
                   </div>
                   <NistTable tests={stage.tests} />

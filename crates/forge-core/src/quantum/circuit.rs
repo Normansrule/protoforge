@@ -156,24 +156,150 @@ pub fn catalog() -> Vec<GateInfo> {
         description,
     };
     vec![
-        g("h", "H", "Hadamard", 1, vec![], "Clifford", "h", "Maps |0⟩ → |+⟩ and |1⟩ → |−⟩: a 180° turn about the X+Z axis. Creates superposition."),
-        g("x", "X", "Pauli-X (NOT)", 1, vec![], "Pauli", "x", "Bit flip: 180° about X. With a control dot it is the CNOT; with two, the Toffoli."),
+        g(
+            "h",
+            "H",
+            "Hadamard",
+            1,
+            vec![],
+            "Clifford",
+            "h",
+            "Maps |0⟩ → |+⟩ and |1⟩ → |−⟩: a 180° turn about the X+Z axis. Creates superposition.",
+        ),
+        g(
+            "x",
+            "X",
+            "Pauli-X (NOT)",
+            1,
+            vec![],
+            "Pauli",
+            "x",
+            "Bit flip: 180° about X. With a control dot it is the CNOT; with two, the Toffoli.",
+        ),
         g("y", "Y", "Pauli-Y", 1, vec![], "Pauli", "y", "Bit and phase flip: 180° about Y."),
-        g("z", "Z", "Pauli-Z", 1, vec![], "Pauli", "z", "Phase flip: |1⟩ → −|1⟩, 180° about Z. With a control it is CZ (symmetric)."),
+        g(
+            "z",
+            "Z",
+            "Pauli-Z",
+            1,
+            vec![],
+            "Pauli",
+            "z",
+            "Phase flip: |1⟩ → −|1⟩, 180° about Z. With a control it is CZ (symmetric).",
+        ),
         g("s", "S", "S (√Z)", 1, vec![], "Clifford", "s", "Quarter turn about Z: |1⟩ → i|1⟩."),
         g("sdg", "S†", "S-dagger", 1, vec![], "Clifford", "sdg", "Inverse of S: |1⟩ → −i|1⟩."),
-        g("t", "T", "T (√S)", 1, vec![], "Phase", "t", "Eighth turn about Z: |1⟩ → e^{iπ/4}|1⟩. With H it makes a universal gate set."),
+        g(
+            "t",
+            "T",
+            "T (√S)",
+            1,
+            vec![],
+            "Phase",
+            "t",
+            "Eighth turn about Z: |1⟩ → e^{iπ/4}|1⟩. With H it makes a universal gate set.",
+        ),
         g("tdg", "T†", "T-dagger", 1, vec![], "Phase", "tdg", "Inverse of T."),
-        g("sx", "√X", "Square root of X", 1, vec![], "Clifford", "sx", "Quarter turn about X; two in a row equal X. Native on IBM hardware."),
-        g("rx", "RX", "X rotation", 1, vec!["θ"], "Rotation", "rx", "RX(θ) = exp(−iθX/2): rotate the Bloch vector by θ about X."),
-        g("ry", "RY", "Y rotation", 1, vec!["θ"], "Rotation", "ry", "RY(θ) = exp(−iθY/2): real amplitudes cos θ/2, sin θ/2."),
-        g("rz", "RZ", "Z rotation", 1, vec!["θ"], "Rotation", "rz", "RZ(θ) = exp(−iθZ/2): rotate about Z (a phase, up to global phase)."),
-        g("p", "P", "Phase", 1, vec!["λ"], "Rotation", "u1", "P(λ) = diag(1, e^{iλ}). With a control it is the controlled-phase of the QFT."),
-        g("u3", "U", "General unitary U(θ,φ,λ)", 1, vec!["θ", "φ", "λ"], "Rotation", "u3", "Any single-qubit gate: U = RZ(φ)·RY(θ)·RZ(λ) up to global phase."),
-        g("swap", "×", "SWAP", 2, vec![], "Two-qubit", "swap", "Exchanges two qubits. With a control it is the Fredkin gate."),
-        g("iswap", "iSW", "iSWAP", 2, vec![], "Two-qubit", "iswap", "Swaps |01⟩ ↔ |10⟩ with a phase i: native to many superconducting couplers."),
-        g("measure", "M", "Measure", 1, vec![], "Non-unitary", "measure", "Projects onto |0⟩/|1⟩ with the Born-rule probabilities and writes a classical bit."),
-        g("reset", "|0⟩", "Reset", 1, vec![], "Non-unitary", "reset", "Measures and flips to |0⟩: re-initialises a qubit mid-circuit."),
+        g(
+            "sx",
+            "√X",
+            "Square root of X",
+            1,
+            vec![],
+            "Clifford",
+            "sx",
+            "Quarter turn about X; two in a row equal X. Native on IBM hardware.",
+        ),
+        g(
+            "rx",
+            "RX",
+            "X rotation",
+            1,
+            vec!["θ"],
+            "Rotation",
+            "rx",
+            "RX(θ) = exp(−iθX/2): rotate the Bloch vector by θ about X.",
+        ),
+        g(
+            "ry",
+            "RY",
+            "Y rotation",
+            1,
+            vec!["θ"],
+            "Rotation",
+            "ry",
+            "RY(θ) = exp(−iθY/2): real amplitudes cos θ/2, sin θ/2.",
+        ),
+        g(
+            "rz",
+            "RZ",
+            "Z rotation",
+            1,
+            vec!["θ"],
+            "Rotation",
+            "rz",
+            "RZ(θ) = exp(−iθZ/2): rotate about Z (a phase, up to global phase).",
+        ),
+        g(
+            "p",
+            "P",
+            "Phase",
+            1,
+            vec!["λ"],
+            "Rotation",
+            "u1",
+            "P(λ) = diag(1, e^{iλ}). With a control it is the controlled-phase of the QFT.",
+        ),
+        g(
+            "u3",
+            "U",
+            "General unitary U(θ,φ,λ)",
+            1,
+            vec!["θ", "φ", "λ"],
+            "Rotation",
+            "u3",
+            "Any single-qubit gate: U = RZ(φ)·RY(θ)·RZ(λ) up to global phase.",
+        ),
+        g(
+            "swap",
+            "×",
+            "SWAP",
+            2,
+            vec![],
+            "Two-qubit",
+            "swap",
+            "Exchanges two qubits. With a control it is the Fredkin gate.",
+        ),
+        g(
+            "iswap",
+            "iSW",
+            "iSWAP",
+            2,
+            vec![],
+            "Two-qubit",
+            "iswap",
+            "Swaps |01⟩ ↔ |10⟩ with a phase i: native to many superconducting couplers.",
+        ),
+        g(
+            "measure",
+            "M",
+            "Measure",
+            1,
+            vec![],
+            "Non-unitary",
+            "measure",
+            "Projects onto |0⟩/|1⟩ with the Born-rule probabilities and writes a classical bit.",
+        ),
+        g(
+            "reset",
+            "|0⟩",
+            "Reset",
+            1,
+            vec![],
+            "Non-unitary",
+            "reset",
+            "Measures and flips to |0⟩: re-initialises a qubit mid-circuit.",
+        ),
     ]
 }
 
@@ -206,7 +332,10 @@ impl Op {
         }
     }
     pub fn when(mut self, bits: &[usize], value: u64) -> Op {
-        self.cond = Some(Cond { bits: bits.to_vec(), value });
+        self.cond = Some(Cond {
+            bits: bits.to_vec(),
+            value,
+        });
         self
     }
     pub fn labelled(mut self, l: &str) -> Op {
@@ -254,7 +383,11 @@ pub fn normalize(op: &Op) -> Result<Op, String> {
         "sdag" => ("sdg", 0),
         "tdag" => ("tdg", 0),
         "u2" => {
-            o.params = vec![PI / 2.0, o.params.first().copied().unwrap_or(0.0), o.params.get(1).copied().unwrap_or(0.0)];
+            o.params = vec![
+                PI / 2.0,
+                o.params.first().copied().unwrap_or(0.0),
+                o.params.get(1).copied().unwrap_or(0.0),
+            ];
             ("u3", 0)
         }
         g => (g, 0),
@@ -347,7 +480,11 @@ impl Circuit {
                 }
                 if let Some(b) = op.clbit {
                     if b >= self.clbits {
-                        return Err(format!("column {}: classical bit {b} does not exist ({} bits)", ci + 1, self.clbits));
+                        return Err(format!(
+                            "column {}: classical bit {b} does not exist ({} bits)",
+                            ci + 1,
+                            self.clbits
+                        ));
                     }
                 }
                 if op.gate == "measure" && op.clbit.is_none() {
@@ -414,7 +551,13 @@ impl Circuit {
     }
 
     pub fn with_cregs(mut self, cregs: &[(&str, usize)]) -> Circuit {
-        self.cregs = cregs.iter().map(|(n, s)| Creg { name: (*n).into(), size: *s }).collect();
+        self.cregs = cregs
+            .iter()
+            .map(|(n, s)| Creg {
+                name: (*n).into(),
+                size: *s,
+            })
+            .collect();
         self
     }
 

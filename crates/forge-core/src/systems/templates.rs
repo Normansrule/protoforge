@@ -342,7 +342,7 @@ pub fn pip() -> Project {
     }))
 }
 
-/// Qlink: two-node fiber quantum key distribution (QKD) link.
+/// Q-Link: two-node fiber quantum key distribution (QKD) testbed.
 ///
 /// A decoy-state BB84 link between two buildings over dark fiber, with a
 /// diode-noise quantum random number generator (QRNG) feeding the
@@ -356,7 +356,7 @@ pub fn qlink() -> Project {
     let p = |mw: f64| [mw, mw, 1.0];
     from_json(json!({
         "meta": {
-            "id": "qlink", "name": "Qlink Fiber QKD Link", "codename": "QLINK", "version": "0.1.0",
+            "id": "qlink", "name": "Q-Link Fiber QKD Testbed", "codename": "Q-LINK", "version": "0.1.0",
             "tagline": "Two nodes, one dark fiber, keys whose secrecy rests on physics",
             "description": "A two-node fiber-optic quantum key distribution link: an Alice transmitter (pulsed laser, decoy intensity modulator, phase encoder, diode-noise QRNG) and a Bob receiver (gated InGaAs single-photon detectors, time tagger) joined by 25 km of standard single-mode fiber, with classical post-processing and key management on each side. Requirements are verified by the Quantum Lab's decoy-state key-rate model and QRNG simulation.",
             "author": ""
@@ -521,8 +521,8 @@ pub fn templates() -> Vec<Template> {
         },
         Template {
             id: "qlink".into(),
-            name: "Qlink fiber QKD link".into(),
-            description: "A two-node fiber quantum key distribution link with a diode-noise QRNG: decoy-state BB84 over 25 km, verified by the Quantum Lab's key-rate model and randomness tests.".into(),
+            name: "Q-Link — two-node fiber QKD testbed".into(),
+            description: "A two-node fiber quantum key distribution (QKD) testbed with a diode-noise quantum random number generator (QRNG): decoy-state BB84 over 25 km, verified by the Quantum Lab's key-rate model and randomness tests.".into(),
             icon: "quantum".into(),
             tags: vec!["quantum".into(), "communication".into(), "security".into()],
             project: qlink(),
@@ -600,7 +600,12 @@ mod tests {
         let p = qlink();
         let ev = evaluate(&p);
         let m = |k: &str| ev.metrics.iter().find(|x| x.key == k).map(|x| x.value);
-        for k in ["quantum.qkd_key_rate_bps", "quantum.qkd_qber_pct", "quantum.qkd_max_distance_km", "quantum.qrng_supply_ratio"] {
+        for k in [
+            "quantum.qkd_key_rate_bps",
+            "quantum.qkd_qber_pct",
+            "quantum.qkd_max_distance_km",
+            "quantum.qrng_supply_ratio",
+        ] {
             assert!(m(k).is_some(), "{k} missing");
         }
         for r in &p.requirements {

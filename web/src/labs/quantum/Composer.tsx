@@ -8,7 +8,7 @@ import { tryCall } from '../../engine/engine';
 import { useCompute } from '../../engine/hooks';
 import { circuitToGrid, cellTitle, emptyGrid, fmtAngle, gridToCircuit, LABEL, PARAMS, withQubits, type Cell, type Grid } from './grid';
 import type { Entry, ExportOut, GateInfo, Listing, ParseOut, RunOut, Snapshot } from './types';
-import { AmplitudeBars, BlochSphere, csv, Histogram, PhaseWheel, PlayBar, usePlayer } from './viz';
+import { AmplitudeBars, BlochSphere, csv, Histogram, PhaseWheel, PlayBar, Seg, usePlayer } from './viz';
 
 const STORE = 'protoforge.quantum.grid.v1';
 
@@ -39,9 +39,35 @@ function loadGrid(): Grid {
 const PALETTE: { group: string; ids: string[] }[] = [
   { group: 'Single qubit', ids: ['h', 'x', 'y', 'z', 's', 'sdg', 't', 'tdg', 'sx'] },
   { group: 'Rotations', ids: ['rx', 'ry', 'rz', 'p', 'u3'] },
-  { group: 'Multi-qubit', ids: ['ctrl', 'swap', 'iswap'] },
+  { group: 'Multi-qubit', ids: ['cnot', 'cz', 'ccx', 'swap2', 'ctrl', 'swap', 'iswap'] },
   { group: 'Other', ids: ['measure', 'reset', 'barrier'] },
 ];
+
+/** Multi-cell tiles: cells placed on consecutive qubits starting at the tapped wire. */
+const PATTERNS: Record<string, { name: string; cells: Cell[]; tip: string }> = {
+  cnot: { name: 'CNOT', cells: [{ g: 'ctrl' }, { g: 'x' }], tip: 'CNOT (controlled-X): flips the lower qubit when the upper is |1⟩ — the entangling gate' },
+  cz: { name: 'CZ', cells: [{ g: 'ctrl' }, { g: 'z' }], tip: 'CZ (controlled-Z): phase −1 on |11⟩, symmetric in its two qubits' },
+  ccx: { name: 'Toffoli', cells: [{ g: 'ctrl' }, { g: 'ctrl' }, { g: 'x' }], tip: 'Toffoli (CCX): flips the third qubit when both controls are |1⟩ — a reversible AND' },
+  swap2: { name: 'SWAP', cells: [{ g: 'swap' }, { g: 'swap' }], tip: 'SWAP: exchanges the states of two neighbouring qubits' },
+};
+
+function PatternGlyph({ id }: { id: string }) {
+  const pat = PATTERNS[id];
+  const n = pat.cells.length;
+  const H = 30, dy = H / n;
+  return (
+    <svg width={30} height={H} viewBox={`0 0 30 ${H}`} aria-label={pat.name}>
+      <line x1={15} x2={15} y1={dy / 2} y2={H - dy / 2} stroke="currentColor" strokeWidth={1.5} />
+      {pat.cells.map((c, k) => {
+        const y = dy / 2 + k * dy;
+        if (c.g === 'ctrl') return <circle key={k} cx={15} cy={y} r={3.2} fill="currentColor" />;
+        if (c.g === 'swap') return <text key={k} x={15} y={y + 4} fontSize={12} textAnchor="middle" fill="currentColor" fontWeight={700}>×</text>;
+        if (c.g === 'x') return <g key={k}><circle cx={15} cy={y} r={5.5} fill="var(--surface-1)" stroke="currentColor" strokeWidth={1.4} /><line x1={9.5} x2={20.5} y1={y} y2={y} stroke="currentColor" strokeWidth={1.4} /><line x1={15} x2={15} y1={y - 5.5} y2={y + 5.5} stroke="currentColor" strokeWidth={1.4} /></g>;
+        return <g key={k}><rect x={9} y={y - 6} width={12} height={12} rx={2} fill="var(--surface-1)" stroke="currentColor" strokeWidth={1.2} /><text x={15} y={y + 3.5} fontSize={9} textAnchor="middle" fill="currentColor" fontWeight={700}>Z</text></g>;
+      })}
+    </svg>
+  );
+}
 
 const DEFAULT_P: Record<string, number[]> = { rx: [Math.PI / 2], ry: [Math.PI / 2], rz: [Math.PI / 4], p: [Math.PI / 4], u3: [Math.PI / 2, 0, Math.PI] };
 
@@ -102,6 +128,7 @@ export default function Composer() {
   const [qasmIn, setQasmIn] = useState('');
   const [importErr, setImportErr] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [fmt, setFmt] = useState<'qasm2' | 'qasm3' | 'qiskit'>('qasm2');
 
   useEffect(() => {
     try {
@@ -140,6 +167,25 @@ export default function Composer() {
     return n;
   });
   const place = (gid: string, col: number, q: number) => {
+    const pat = PATTERNS[gid];
+    if (pat) {
+      if (grid.qubits < pat.cells.length) {
+        setNotice(`${pat.name} needs ${pat.cells.length} qubits — add a qubit first.`);
+        return;
+      }
+      const q0 = Math.min(q, grid.qubits - pat.cells.length);
+      edit((g) => {
+        while (g.cols.length <= col) g.cols.push({ cells: Array(g.qubits).fill(null) });
+        const c = g.cols[col];
+        c.barrier = false;
+        // a column holds one controlled operation: clear it before placing a multi-qubit pattern
+        if (c.cells.some((x) => x)) c.cells = Array(g.qubits).fill(null);
+        pat.cells.forEach((cell, k) => { c.cells[q0 + k] = { ...cell }; });
+        return g;
+      });
+      setSel({ col, q: q0 + pat.cells.length - 1 });
+      return;
+    }
     edit((g) => {
       while (g.cols.length <= col) g.cols.push({ cells: Array(g.qubits).fill(null) });
       const c = g.cols[col];
@@ -288,17 +334,17 @@ export default function Composer() {
                     draggable
                     onDragStart={(e) => { e.dataTransfer.setData('text/gate', id); e.dataTransfer.effectAllowed = 'copy'; }}
                     onClick={() => setArmed((a) => (a === id ? null : id))}
-                    title={id === 'ctrl' ? 'Control dot: the gates in this column act only when this qubit is |1⟩' : id === 'barrier' ? 'Barrier: a visual separator (no effect on the state)' : `${info(id)?.name ?? id} — ${info(id)?.description ?? ''}`}
+                    title={PATTERNS[id] ? PATTERNS[id].tip : id === 'ctrl' ? 'Control dot: the gates in this column act only when this qubit is |1⟩' : id === 'barrier' ? 'Barrier: a visual separator (no effect on the state)' : `${info(id)?.name ?? id} — ${info(id)?.description ?? ''}`}
                     aria-pressed={armed === id}
                   >
-                    {id === 'barrier' ? <span className="qx-barrier-tile">┆</span> : <GateGlyph cell={{ g: id, p: DEFAULT_P[id] }} small />}
+                    {PATTERNS[id] ? <PatternGlyph id={id} /> : id === 'barrier' ? <span className="qx-barrier-tile">┆</span> : <GateGlyph cell={{ g: id, p: DEFAULT_P[id] }} small />}
                   </button>
                 ))}
               </div>
             </div>
           ))}
         </div>
-        {armed && <div className="small" style={{ margin: '6px 0' }}><Chip tone="info">placing {armed === 'ctrl' ? 'control •' : LABEL[armed] ?? armed}</Chip> <span className="muted">tap cells to place · tap the tile again or press Esc to stop</span></div>}
+        {armed && <div className="small" style={{ margin: '6px 0' }}><Chip tone="info">placing {PATTERNS[armed] ? PATTERNS[armed].name : armed === 'ctrl' ? 'control •' : LABEL[armed] ?? armed}</Chip> <span className="muted">tap cells to place · tap the tile again or press Esc to stop</span></div>}
 
         <div className="qx-gridwrap">
           <div className="qx-grid" style={{ ['--cell' as string]: `${CELL}px` }}>
@@ -464,19 +510,31 @@ export default function Composer() {
           <div className="small muted">Bars: sampled frequencies. Ticks: exact Born-rule probabilities (when all measurements are at the end). The spread between them shrinks as 1/√shots.</div>
           {res?.warnings.map((w) => <div key={w} className="small" style={{ color: 'var(--warn)' }}>! {w}</div>)}
         </Card>
-        <Card title="Export and open elsewhere" subtitle="The same circuit in real tools: OpenQASM 2.0 for Qiskit and the IBM Quantum Composer, or a live Quirk link.">
+        <Card title="Export and open elsewhere" subtitle="The same circuit in real tools: Open Quantum Assembly Language (OpenQASM) 2.0 or 3.0, a Qiskit script, a live Quirk link, or the IBM Quantum Composer.">
           {exp.data?.quirk_url && (
             <div className="row" style={{ marginBottom: 10 }}>
               <a className="btn primary" href={exp.data.quirk_url} target="_blank" rel="noreferrer">Open in Quirk ↗</a>
+              <button className="btn small" onClick={() => navigator.clipboard?.writeText(exp.data!.quirk_url ?? '')}>Copy link</button>
               <button className="btn small" onClick={() => navigator.clipboard?.writeText(exp.data!.quirk_json ?? '')}>Copy Quirk JSON</button>
             </div>
           )}
-          {exp.data?.qasm && <Code code={exp.data.qasm} filename="circuit.qasm" maxHeight={220} />}
-          {exp.data?.qasm_error && <ErrorBox error={`OpenQASM: ${exp.data.qasm_error}`} />}
+          <Seg value={fmt} onChange={setFmt} options={[{ value: 'qasm2', label: 'OpenQASM 2.0' }, { value: 'qasm3', label: 'OpenQASM 3.0' }, { value: 'qiskit', label: 'Qiskit (Python)' }]} />
+          {fmt === 'qasm2' && exp.data?.qasm && <Code code={exp.data.qasm} filename="circuit.qasm" maxHeight={220} />}
+          {fmt === 'qasm2' && exp.data?.qasm_error && <ErrorBox error={`OpenQASM 2.0: ${exp.data.qasm_error} — the 3.0 and Qiskit exports handle it.`} />}
+          {fmt === 'qasm3' && exp.data?.qasm3 && <Code code={exp.data.qasm3} filename="circuit.qasm3" maxHeight={220} />}
+          {fmt === 'qasm3' && exp.data?.qasm3_error && <ErrorBox error={`OpenQASM 3.0: ${exp.data.qasm3_error}`} />}
+          {fmt === 'qiskit' && exp.data?.qiskit && <Code code={exp.data.qiskit} filename="circuit.py" maxHeight={220} />}
           {exp.data?.warnings.map((w) => <div key={w} className="small" style={{ color: 'var(--warn)' }}>! {w}</div>)}
-          <div className="small muted" style={{ marginTop: 8 }}>
-            IBM Quantum Composer: open the Composer, switch the code panel to OpenQASM 2.0 and paste this program. In Qiskit: <code>QuantumCircuit.from_qasm_str(text)</code>.
-          </div>
+          <details style={{ marginTop: 10 }} open={fmt !== 'qiskit'}>
+            <summary className="small" style={{ cursor: 'pointer', fontWeight: 600 }}>Run it in the IBM Quantum Composer</summary>
+            <ol className="small qx-howto">
+              <li>Sign in at IBM Quantum (a free account) and open the <b>Composer</b>; start a new, empty circuit.</li>
+              <li>Open the code panel (the <b>OpenQASM</b> view beside the circuit) and choose OpenQASM 2.0 or 3.0 to match the program you copy here.</li>
+              <li>Replace the code with this program. The grid redraws with the same gates; the Composer's probability and Q-sphere views should match the bars and histogram on this page.</li>
+              <li>To run on hardware, <b>Set up and run</b> with a real backend: expect the noisy counts that the <b>Noise</b> tab predicts rather than the ideal ones.</li>
+            </ol>
+            <div className="small muted">Menu names change between releases — check IBM's Composer documentation if a step moved. Qiskit: <code>QuantumCircuit.from_qasm_str(text)</code> for 2.0, <code>qiskit.qasm3.loads(text)</code> (with the <code>qiskit-qasm3-import</code> package) for 3.0, or run <code>circuit.py</code> directly.</div>
+          </details>
           <details style={{ marginTop: 10 }}>
             <summary className="small" style={{ cursor: 'pointer' }}>Import OpenQASM 2.0</summary>
             <textarea rows={7} value={qasmIn} onChange={(e) => setQasmIn(e.target.value)} placeholder={'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[2];\ncreg c[2];\nh q[0];\ncx q[0],q[1];\nmeasure q -> c;'} aria-label="OpenQASM input" />

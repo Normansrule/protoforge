@@ -160,7 +160,11 @@ pub fn bb84(i: &Bb84In) -> Bb84Out {
         let mut bob_bit = None;
         if det {
             detected += 1;
-            let mut v = if bob_basis == ph_basis { ph_bit } else { (rng.next_u64() & 1) as u8 };
+            let mut v = if bob_basis == ph_basis {
+                ph_bit
+            } else {
+                (rng.next_u64() & 1) as u8
+            };
             if rng.uniform() < noise {
                 v ^= 1;
             }
@@ -353,6 +357,11 @@ fn effective_rate(p: &LinkParams, gain: f64) -> f64 {
     }
 }
 
+/// Overall gain Q_μ (detection probability per pulse, dark counts included).
+fn gain(p: &LinkParams, l: f64, mu: f64) -> f64 {
+    2.0 * p.dark_count_prob + 1.0 - (-eta_total(p, l) * mu).exp()
+}
+
 /// GLLP without decoys (every multi-photon pulse assumed attacked).
 pub fn gllp_point(p: &LinkParams, l: f64, mu: f64) -> f64 {
     let eta = eta_total(p, l);
@@ -446,6 +455,78 @@ pub struct LinkOut {
     /// Fraction of the PLOB bound reached at the design distance.
     pub plob_ratio: f64,
     pub loss_db: f64,
+    /// Photon and bit budget at the design distance, source to secret key.
+    pub budget: Vec<BudgetStage>,
+}
+
+/// One stage of the photon/bit budget (per second).
+#[derive(Clone, Debug, Serialize)]
+pub struct BudgetStage {
+    pub label: String,
+    pub rate: f64,
+    pub note: String,
+}
+
+/// Rates per second from the laser to the final key at the design point.
+pub fn budget(p: &LinkParams, d: &LinkPoint) -> Vec<BudgetStage> {
+    let r = p.source_rate_hz;
+    let ch = 10f64.powf(-(p.fiber_loss_db_km * d.distance_km + p.extra_loss_db) / 10.0);
+    let det_raw = r * d.gain;
+    let det = if p.dead_time_s > 0.0 {
+        det_raw / (1.0 + det_raw * p.dead_time_s)
+    } else {
+        det_raw
+    };
+    let sifted = det * p.sifting;
+    let leak = sifted * p.ec_efficiency * h2(d.qber);
+    let st = |label: &str, rate: f64, note: String| BudgetStage {
+        label: label.into(),
+        rate,
+        note,
+    };
+    vec![
+        st("Laser pulses", r, format!("{:.3e} pulses/s", r)),
+        st("Photons launched", r * d.mu, format!("μ = {:.3} photons per pulse (Poisson)", d.mu)),
+        st(
+            "Photons at Bob's detectors",
+            r * d.mu * ch,
+            format!(
+                "× 10^(−{:.1} dB/10): fiber {:.1} dB + fixed {:.1} dB",
+                -10.0 * ch.log10(),
+                p.fiber_loss_db_km * d.distance_km,
+                p.extra_loss_db
+            ),
+        ),
+        st(
+            "Detections",
+            det,
+            format!(
+                "Q_μ = {:.2e} per pulse incl. dark counts, η_det = {:.0} %{}",
+                d.gain,
+                p.detector_efficiency * 100.0,
+                if p.dead_time_s > 0.0 {
+                    format!(", dead-time cap ×{:.3}", det / det_raw.max(1e-300))
+                } else {
+                    String::new()
+                }
+            ),
+        ),
+        st("Sifted bits", sifted, format!("× q = {} (bases agree)", p.sifting)),
+        st(
+            "After error-correction leakage",
+            (sifted - leak).max(0.0),
+            format!(
+                "− f·h(E_μ) = {:.3} of the sifted bits; E_μ = {:.2} %",
+                p.ec_efficiency * h2(d.qber),
+                d.qber * 100.0
+            ),
+        ),
+        st(
+            "Secret key",
+            d.key_rate_bps,
+            "privacy amplification keeps only the single-photon part: Q₁[1 − h(e₁)]".into(),
+        ),
+    ]
 }
 
 pub fn link(p: &LinkParams, max_km: f64, points: usize) -> LinkOut {
@@ -462,7 +543,8 @@ pub fn link(p: &LinkParams, max_km: f64, points: usize) -> LinkOut {
         decoy.push(d.key_rate_bps);
         mu.push(d.mu);
         qber.push(d.qber * 100.0);
-        gllp.push(best_gllp(p, l).0 * p.source_rate_hz);
+        let (g, gmu) = best_gllp(p, l);
+        gllp.push(g * effective_rate(p, gain(p, l, gmu)));
         pl.push(plob(p, l) * p.source_rate_hz);
     }
     let dmax = max_distance(|l| best_decoy(p, l).rate_per_pulse, 600.0);
@@ -479,7 +561,11 @@ pub fn link(p: &LinkParams, max_km: f64, points: usize) -> LinkOut {
         qber_pct: qber,
         max_distance_km: dmax,
         max_distance_gllp_km: gmax,
-        design_gllp_bps: best_gllp(p, p.distance_km).0 * p.source_rate_hz,
+        design_gllp_bps: {
+            let (g, gmu) = best_gllp(p, p.distance_km);
+            g * effective_rate(p, gain(p, p.distance_km, gmu))
+        },
+        budget: budget(p, &design),
         plob_ratio: if dp > 0.0 { design.key_rate_bps / dp } else { 0.0 },
         design_plob_bps: dp,
         loss_db: p.fiber_loss_db_km * p.distance_km + p.extra_loss_db,
@@ -686,6 +772,28 @@ mod tests {
         let e1 = (0.5 * y0 + 0.015 * eta) / (y0 + eta);
         let r = 0.5 * (-qmu * 1.16 * h2(emu) + q1 * (1.0 - h2(e1)));
         assert!((pt.rate_per_pulse - r).abs() < 1e-15);
+    }
+
+    #[test]
+    fn photon_budget_is_consistent() {
+        let p = LinkParams {
+            dead_time_s: 1e-6,
+            source_rate_hz: 1e7,
+            ..Default::default()
+        };
+        let o = link(&p, 100.0, 21);
+        let b = &o.budget;
+        assert_eq!(b.len(), 7);
+        // each stage no larger than the one before
+        assert!(b.windows(2).all(|w| w[1].rate <= w[0].rate * (1.0 + 1e-12)), "{b:?}");
+        // photons at Bob = pulses × μ × 10^(−loss/10) with 25 km × 0.2 + 3 dB = 8 dB
+        let want = 1e7 * o.design.mu * 10f64.powf(-0.8);
+        assert!((b[2].rate - want).abs() < 1e-9 * want);
+        // dead-time cap D/(1 + Dτ), then sifting ½
+        let d = 1e7 * o.design.gain;
+        assert!((b[3].rate - d / (1.0 + d * 1e-6)).abs() < 1e-9 * d);
+        assert!((b[4].rate - b[3].rate * 0.5).abs() < 1e-9);
+        assert_eq!(b[6].rate, o.design.key_rate_bps);
     }
 
     #[test]

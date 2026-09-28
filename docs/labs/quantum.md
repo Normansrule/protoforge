@@ -2,13 +2,13 @@
 
 A quantum-information workbench that runs entirely in the browser: a
 14-qubit state-vector simulator and a 6-qubit density-matrix simulator with
-noise, Open Quantum Assembly Language (OpenQASM) 2.0 import/export and Quirk
-links, a library of protocols and algorithms, a quantum key distribution (QKD)
+noise, Open Quantum Assembly Language (OpenQASM) 2.0 import/export,
+OpenQASM 3.0 and Qiskit Python export and Quirk links, a library of protocols and algorithms, a quantum key distribution (QKD)
 link designer and a quantum random number generator (QRNG) design bench with
 National Institute of Standards and Technology (NIST) statistical tests. It
 is written for a two-node fiber-optic quantum link and a diode-noise QRNG
 board read by an analog-to-digital converter (ADC) into a field-programmable
-gate array (FPGA), and it ships the **Qlink** systems template, a full
+gate array (FPGA), and it ships the **Q-Link** systems template, a full
 Protoforge project whose requirements are verified by this lab.
 
 | Piece | Location |
@@ -21,20 +21,25 @@ Protoforge project whose requirements are verified by this lab.
 
 * **Circuit composer.** Drag gates from the palette onto the wires (or tap a
   gate, then tap cells — works on phones). Palette: H, X, Y, Z, S, S†, T, T†,
-  √X, RX/RY/RZ(θ), P(λ), U(θ, φ, λ), control dot, SWAP, iSWAP, measure,
-  reset, barrier. As in Quirk, control dots control every gate in their
-  column, so CNOT, CZ, CY, controlled rotations, Toffoli (two dots + X) and
-  Fredkin (dot + two SWAPs) need no special tiles. Selecting a gate edits its
+  √X, RX/RY/RZ(θ), P(λ), U(θ, φ, λ), the two- and three-qubit tiles CNOT,
+  CZ, Toffoli and SWAP (dropped on the tapped wire and the ones below it),
+  control dot, SWAP half, iSWAP, measure, reset, barrier. As in Quirk,
+  control dots control every gate in their column, so CY, controlled
+  rotations, multi-controlled gates and Fredkin (dot + two SWAPs) are built
+  from dots. Selecting a gate edits its
   angles (with π-fraction shortcuts), the classical bit a measurement writes
   and an optional classical condition ("only if c[k] = 1"). Presets load any
   library circuit. The state is shown after every column with a play / step /
   scrub bar: amplitude bars coloured by phase (colour wheel), one Bloch sphere
   per qubit (drag to rotate; vectors interpolate between steps), qubit
   entropies and a pairwise concurrence matrix. Shots produce a histogram with
-  the exact Born-rule probabilities as ticks. Exports: OpenQASM 2.0 (copy,
-  download, paste into the IBM Quantum Composer or `QuantumCircuit.from_qasm_str`
-  in Qiskit), an **Open in Quirk** link, amplitude and count CSVs. OpenQASM
-  can be imported back. The circuit is remembered in the browser.
+  the exact Born-rule probabilities as ticks. Exports: OpenQASM 2.0
+  (`QuantumCircuit.from_qasm_str` in Qiskit), OpenQASM 3.0 (`stdgates.inc`
+  with `ctrl @` / `inv @` modifiers, `if (c == v)` feed-forward;
+  `qiskit.qasm3.loads`), a runnable Qiskit script (`if_test` for classical
+  conditions, Aer sampling), step-by-step instructions for pasting into the
+  IBM Quantum Composer, an **Open in Quirk** link, amplitude and count CSVs.
+  OpenQASM 2.0 can be imported back. The circuit is remembered in the browser.
 * **Protocols.** Teleportation, superdense coding, entanglement swapping and
   the CHSH Bell test, each an animated story on Alice / Source-or-Charlie /
   Bob lanes: qubits fly down the quantum channel, classical bits travel as
@@ -62,7 +67,11 @@ Protoforge project whose requirements are verified by this lab.
   key. (b) Fiber link: decoy-state BB84 key rate vs distance, the
   no-decoy Gottesman–Lo–Lütkenhaus–Preskill (GLLP) rate and the
   Pirandola–Laurenza–Ottaviani–Banchi (PLOB) repeaterless bound on a log axis,
-  QBER and optimal intensity vs distance, and presets (gated indium gallium
+  QBER and optimal intensity vs distance, a photon and bit budget at the
+  design distance (laser pulses → photons launched → photons at Bob →
+  detections after the dead-time cap → sifted → after error-correction
+  leakage → secret key, with the dB lost at each step; CSV download), a
+  card listing every modelling assumption, and presets (gated indium gallium
   arsenide (InGaAs) avalanche photodiodes (APDs), superconducting nanowire
   single-photon detectors (SNSPDs), and the Gobby–Yuan–Shields (GYS)
   parameters of Lo, Ma & Chen). When the project has `design.extra.qkd` the
@@ -90,11 +99,12 @@ Protoforge project whose requirements are verified by this lab.
 | `quantum.gates` | → palette catalog (id, label, name, targets, parameter names, OpenQASM name, description) |
 | `quantum.run` | `{circuit, shots, seed, steps}` → final snapshot, snapshots after every column (amplitudes, probabilities, per-qubit Bloch vector / purity / entropy, concurrence matrix for ≤ 6 qubits, classical bits, measurement events), shot histogram, exact probabilities, sampling mode, warnings |
 | `quantum.qasm_parse` | `{qasm}` → circuit, registers, warnings (errors carry line numbers) |
-| `quantum.qasm_emit` / `quantum.quirk` / `quantum.export` | `{circuit}` → OpenQASM text / Quirk URL + JSON / both |
+| `quantum.qasm_emit` / `quantum.qasm3_emit` / `quantum.qiskit` / `quantum.quirk` | `{circuit}` → OpenQASM 2.0 / OpenQASM 3.0 / Qiskit Python text (+ warnings) / Quirk URL + JSON |
+| `quantum.export` | `{circuit}` → all of the above at once (per-format errors instead of failing) |
 | `quantum.library` / `quantum.algorithm` | → list; `{id, params}` → circuit, explanation, expected results (+ Grover per-iteration distributions) |
 | `quantum.chsh` | `{a0, a1, b0, b1, visibility, shots, seed}` → E per setting (exact, sampled), S, its standard error, S vs angle |
 | `quantum.noise` / `quantum.noise_sweep` / `quantum.channel` | density-matrix run with a noise model; fidelity vs strength; one-qubit channel as an affine Bloch map + trajectory |
-| `quantum.bb84` / `quantum.qkd_link` / `quantum.e91` | BB84 Monte Carlo; decoy/GLLP/PLOB curves and design point (`preset: "gys"` available); E91 Monte Carlo |
+| `quantum.bb84` / `quantum.qkd_link` / `quantum.e91` | BB84 Monte Carlo; decoy/GLLP/PLOB curves, design point and photon/bit budget (`preset: "gys"` available); E91 Monte Carlo |
 | `quantum.qrng` / `quantum.nist` | source → digitise → condition pipeline with NIST results per stage; NIST tests on a user bitstream (`0101…` or `hex:…`) |
 | `quantum.design` | `{project}` → the project's QKD/QRNG parameters and metrics |
 
@@ -149,7 +159,7 @@ R   = q { −Q_μ f h(E_μ) + Q₁ [1 − h(e₁)] }   bits per pulse, × pulse 
 μ is optimised per distance (golden-section search) unless fixed. Without
 decoys (GLLP): Δ = (1 − (1+μ)e^(−μ))/Q_μ,
 R = q{−Q_μ f h(E_μ) + Q_μ(1 − Δ)[1 − h(E_μ/(1 − Δ))]}. Detector dead time τ
-caps the detection rate at a non-paralysable D/(1 + Dτ). PLOB:
+caps the detection rate at a non-paralysable D/(1 + Dτ) (applied to the decoy and GLLP curves alike). PLOB:
 R ≤ −log₂(1 − η_fiber) bits per channel use. The maximum distance is a
 bisection on R > 0.
 
@@ -171,7 +181,8 @@ block, h = the MCV min-entropy per input bit.
 **NIST SP 800-22 subset** (α = 0.01): frequency (monobit) §2.1, frequency
 within a block §2.2, runs §2.3 (fails when the frequency prerequisite fails),
 longest run of ones §2.4 (block sizes 8 / 128 / 10⁴ by length), serial §2.11
-(two p-values) and approximate entropy §2.12, with block sizes chosen from the
+(two p-values), approximate entropy §2.12 and cumulative sums §2.13
+(forward and backward p-values, both must pass), with block sizes chosen from the
 document's recommendations. Special functions: Lanczos ln Γ, the regularised
 upper incomplete gamma by series / continued fraction, erfc(x) = Q(½, x²).
 **SP 800-90B** most-common-value estimate: p_u = min(1, p̂ + 2.576
@@ -191,20 +202,22 @@ Bernstein–Vazirani; CHSH S = 2√2 and no violation at V = 0.6; Hermitian squa
 roots, pure-state fidelity and Werner-state concurrence (3p − 1)/2;
 depolarising / amplitude-damping / phase-flip Bloch maps and readout-error
 mixing; OpenQASM round trip, gate definitions, expressions and line-numbered
-errors; Quirk ids; BB84 intercept-resend QBER ≈ 25 %, sifting ≈ ½, the 11.0 %
+errors; OpenQASM 3.0 and Qiskit output for feed-forward, Toffoli,
+`ctrl(k) @` and partial-register conditions; Quirk ids; BB84 intercept-resend QBER ≈ 25 %, sifting ≈ ½, the 11.0 %
 Shor–Preskill threshold; the decoy-state rate against a hand calculation at
 0 km, monotonic decrease, zero beyond the cutoff, decoy ≥ GLLP and ≤ PLOB;
 the GYS parameter set reaching ≈ 140 km as Lo, Ma & Chen report; the PLOB
 formula at 50 km and its 1.44η limit; E91 with and without Eve; the NIST
 SP 800-22 worked examples (monobit 0.527089 and 0.109599, block frequency
 0.801252 and 0.706438, runs 0.147232 and 0.500798, longest run 0.180598,
-serial 0.808792 / 0.670320, approximate entropy 0.261961); MCV on biased bits;
+serial 0.808792 / 0.670320, approximate entropy 0.261961, cumulative sums
+0.4116588 and, on the π bits, 0.219194 forward / 0.114866 backward); MCV on biased bits;
 von Neumann output unbiased with yield 2p(1 − p); the XOR piling-up lemma; the
 Toeplitz extractor's linearity and a brute-force row check; and the default
 diode pipeline passing all tests after extraction with the Gaussian
 min-entropy the theory predicts.
 
-## Metrics and the Qlink template
+## Metrics and the Q-Link template
 
 Metrics appear only when a project describes a quantum link or a QRNG, so the
 Iris smart glasses produce none.
@@ -221,7 +234,7 @@ Iris smart glasses produce none.
 | `quantum.qrng_nist_failures` | count | failed SP 800-22 tests on the conditioned stream |
 | `quantum.qrng_supply_ratio` | × | QRNG output ÷ (random bits per pulse × pulse rate), when both exist |
 
-**Qlink** (`systems.templates`, id `qlink`) is a two-node fiber QKD link:
+**Q-Link — two-node fiber QKD testbed** (`systems.templates`, id `qlink`):
 photon source, encoder, QRNG, 25 km fiber channel, gated InGaAs detectors,
 timing and synchronisation, classical post-processing and key management;
 10 interfaces, 17 components with power, three trade studies (detector
@@ -246,7 +259,8 @@ ranges to replace with datasheet values.
   (density matrix) are the practical limits in a browser tab.
 * Noise is a per-gate Kraus model, not a pulse-level or crosstalk model;
   there is no leakage, no correlated noise and no gate-duration scheduling.
-* OpenQASM 3, `opaque` gates, relative-phase Toffolis (`rccx`, `rc3x`) and
+* OpenQASM 3.0 and Qiskit are export-only (import reads OpenQASM 2.0);
+  `opaque` gates, relative-phase Toffolis (`rccx`, `rc3x`) and
   conditional resets are not supported. Quirk export has no reset and maps
   only single-bit classical conditions onto measured wires.
 * The key-rate model is asymptotic (no finite-key effects) with infinitely
@@ -264,7 +278,10 @@ Qiskit (and the IBM Quantum Composer), Cirq, QuTiP for open-system physics,
 Quirk for quick visual experiments, and NetSquid or SeQUeNCe for repeater
 chains and network protocols. Free English resources: John Preskill's Ph219
 notes (http://theory.caltech.edu/~preskill/ph219/), the Qiskit Textbook /
-IBM Quantum Learning, and Nielsen & Chuang.
+IBM Quantum Learning, MIT OpenCourseWare (https://ocw.mit.edu: 18.435J
+Quantum Computation, 8.04 Quantum Physics I video lectures), Michael
+Nielsen's "Quantum computing for the determined" videos, and Nielsen &
+Chuang. Before building real link hardware, read Scarani et al. (2009).
 
 ## References
 
@@ -292,6 +309,8 @@ IBM Quantum Learning, and Nielsen & Chuang.
 * A. Rukhin et al., NIST SP 800-22 Rev. 1a, *A Statistical Test Suite for Random and Pseudorandom Number Generators for Cryptographic Applications*, 2010.
 * M. S. Turan et al., NIST SP 800-90B, *Recommendation for the Entropy Sources Used for Random Bit Generation*, 2018.
 * A. W. Cross, L. S. Bishop, J. A. Smolin & J. M. Gambetta, "Open Quantum Assembly Language", arXiv:1707.03429, 2017.
+* A. W. Cross, A. Javadi-Abhari, T. Alexander, N. de Beaudrap, L. S. Bishop, S. Heidel, C. A. Ryan, P. Sivarajah, J. Smolin, J. M. Gambetta & B. R. Johnson, "OpenQASM 3: A broader and deeper quantum assembly language", ACM Trans. Quantum Comput. 3, 12, 2022 (arXiv:2104.14722).
+* V. Scarani, H. Bechmann-Pasquinucci, N. J. Cerf, M. Dušek, N. Lütkenhaus & M. Peev, "The security of practical quantum key distribution", Rev. Mod. Phys. 81, 1301, 2009.
 * C. Gidney, Quirk, https://algassert.com/quirk (source: github.com/Strilanc/Quirk).
 * Qiskit, https://github.com/Qiskit/qiskit · Cirq, https://github.com/quantumlib/Cirq · QuTiP, https://qutip.org
 * W. H. Press, S. A. Teukolsky, W. T. Vetterling & B. P. Flannery, *Numerical Recipes*, 3rd ed., Cambridge, 2007 (incomplete gamma function).

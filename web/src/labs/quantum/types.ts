@@ -38,7 +38,7 @@ export interface RunOut {
   histogram: HistEntry[]; histogram_over: string; shots: number; exact: HistEntry[];
   sampling: string; warnings: string[];
 }
-export interface ExportOut { qasm: string | null; qasm_error: string | null; quirk_url: string | null; quirk_json: string | null; warnings: string[] }
+export interface ExportOut { qasm: string | null; qasm_error: string | null; qasm3: string | null; qasm3_error: string | null; qiskit: string | null; quirk_url: string | null; quirk_json: string | null; warnings: string[] }
 export interface ParseOut { circuit: Circuit; qregs: Creg[]; warnings: string[]; ops: number }
 
 export interface Listing { id: string; title: string; group: string; summary: string }
@@ -87,6 +87,7 @@ export interface LinkPoint { distance_km: number; eta: number; mu: number; gain:
 export interface LinkOut {
   params: LinkParams; distance_km: number[]; decoy_bps: number[]; gllp_bps: number[]; plob_bps: number[]; mu_opt: number[]; qber_pct: number[];
   max_distance_km: number; max_distance_gllp_km: number; design: LinkPoint; design_plob_bps: number; design_gllp_bps: number; plob_ratio: number; loss_db: number;
+  budget: { label: string; rate: number; note: string }[];
 }
 export interface E91Pair { a: number; b: number; x: number; y: number; key: boolean; eve: boolean }
 export interface E91Out {
