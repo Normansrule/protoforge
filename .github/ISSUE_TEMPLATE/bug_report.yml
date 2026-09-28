@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in a lab, the engine, the command-line interface (CLI) or the server is wrong.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping make Protoforge better. Numbers that disagree with a textbook or a
+        professional tool (ngspice, KiCad, a slicer …) are bugs too — please include both values.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it happen?
+      options:
+        - Overview / Guide pages
+        - Systems Studio
+        - Circuit Lab
+        - Power & Thermal
+        - PCB Studio
+        - DSP Lab
+        - Chip Lab
+        - Control Lab
+        - Robotics Lab
+        - RL Lab
+        - Optics Lab
+        - CAD Studio
+        - Print Lab
+        - Molding Lab
+        - Manufacturing Hub
+        - Engine (forge-core)
+        - CLI (protoforge)
+        - REST server (forge-server)
+        - Build / CI / GitHub Pages
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      placeholder: "The rail droop reads 7.5 mV but ngspice gives 12 mV for the same deck …"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the project JSON (Save button in the top bar) or the engine call if you can.
+      placeholder: |
+        1. Open #/circuit
+        2. Select "Display turn-on"
+        3. …
+  - type: input
+    id: env
+    attributes:
+      label: Browser / OS / version
+      placeholder: "Chrome 140 on Ubuntu 24.04 (WSL2), Protoforge commit abc1234"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output or error text
+      render: text

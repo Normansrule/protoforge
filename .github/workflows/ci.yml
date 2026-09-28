@@ -1,0 +1,100 @@
+# Continuous integration: Rust checks, the WebAssembly + web build, and an
+# end-to-end verification of the Iris reference product that publishes its
+# fabrication package as a downloadable artifact.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  WASM_BINDGEN_VERSION: 0.2.129
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+
+  web:
+    name: WebAssembly + web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wasm
+      - name: Install wasm-bindgen-cli ${{ env.WASM_BINDGEN_VERSION }}
+        uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@${{ env.WASM_BINDGEN_VERSION }}
+      - name: Build engine to WebAssembly
+        run: ./scripts/build-wasm.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+      - name: Type-check and build
+        working-directory: web
+        run: npm run build
+      - name: Upload built site
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: web/dist
+          retention-days: 7
+
+  verify:
+    name: Verify Iris + fabrication package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release
+      - name: Verify every requirement (fails on any FAIL)
+        run: cargo run --release -p forge-cli -- evaluate
+      - name: Structural lint
+        run: cargo run --release -p forge-cli -- lint
+      - name: Verification report
+        run: |
+          cargo run --release -p forge-cli -- report > verification-report.md
+          cat verification-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Build fabrication package
+        run: |
+          cargo run --release -p forge-cli -- package --out out/iris
+          cp verification-report.md out/iris/
+      - name: Upload fabrication package
+        uses: actions/upload-artifact@v4
+        with:
+          name: iris-fab-package
+          path: out/iris
+          if-no-files-found: error

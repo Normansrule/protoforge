@@ -4,11 +4,26 @@ description = "Local REST server exposing the forge-core engine (plus optional n
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "forge-server"
+path = "src/main.rs"
 
 [dependencies]
 forge-core = { path = "../forge-core" }
 serde.workspace = true
 serde_json.workspace = true
 axum = "0.8"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "fs"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "fs", "net", "signal", "time"] }
 tower-http = { version = "0.6", features = ["cors", "fs"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+base64 = "0.22"
+tempfile = "3"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
