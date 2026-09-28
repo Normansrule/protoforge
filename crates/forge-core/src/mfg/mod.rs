@@ -152,6 +152,7 @@ pub struct CostCurve {
 }
 
 /// Inputs derived once from the project (geometry, board, molding).
+#[derive(Clone)]
 pub struct CostInputs {
     pub frame_volume_cm3: f64,
     pub frame_density: f64,
@@ -162,8 +163,20 @@ pub struct CostInputs {
     pub molded: Vec<crate::molding::PartProcess>,
 }
 
+thread_local! {
+    static INPUTS_CACHE: crate::memo::Slot<CostInputs> = const { std::cell::RefCell::new(None) };
+}
+
 impl CostInputs {
+    /// Derived inputs (frame volume, joint counts, molding process per part), memoised
+    /// because the molding analysis ray-casts wall thickness.
     pub fn from_project(p: &Project) -> CostInputs {
+        let d = &p.design;
+        let key = crate::memo::key(&(&p.components, &d.frame, &d.optics, &d.pcb, &d.manufacturing, &d.extra));
+        crate::memo::memo(&INPUTS_CACHE, key, || Self::from_project_uncached(p))
+    }
+
+    fn from_project_uncached(p: &Project) -> CostInputs {
         let parts = crate::cad::frame_parts(p);
         let vol: f64 = parts.iter().map(|x| crate::molding::volume(&x.mesh).abs() / 1000.0).sum();
         let pcb = &p.design.pcb;
@@ -499,6 +512,8 @@ pub const PRODUCERS: &[(&str, Producer)] = &[
     ("molding", produce_molding),
     ("cost", produce_cost),
     ("guides", produce_guides),
+    ("cad", produce_cad),
+    ("print", produce_print),
     ("verification", produce_verification),
     ("project", produce_project),
 ];
@@ -537,6 +552,35 @@ pub fn molding_report(p: &Project) -> String {
     }
     s += "\n## Design rules applied\n\n* Draft ≥ 1° on side walls (more on textured faces).\n* Uniform walls; thick sections cored out (sink marks, long cooling).\n* Ribs ≤ 60 % of the wall they stand on; generous radii at corners.\n* Gate at the thickest section so material flows thick → thin.\n";
     s
+}
+
+/// Binary STL of every frame part in print/mold orientation, plus an OBJ of the assembly.
+fn produce_cad(p: &Project) -> Vec<PackageFile> {
+    let print = crate::cad::frame_parts_print(p);
+    let mut out: Vec<PackageFile> = print
+        .iter()
+        .map(|part| PackageFile {
+            path: format!("cad/{}.stl", part.name),
+            content: crate::cad::export::base64(&crate::cad::export::stl_binary(&part.mesh, &part.name)),
+            encoding: "base64".into(),
+        })
+        .collect();
+    let asm = crate::cad::frame_parts(p);
+    let refs: Vec<(&str, &crate::cad::Mesh)> = asm.iter().map(|x| (x.name.as_str(), &x.mesh)).collect();
+    out.push(utf8("cad/assembly.obj", crate::cad::export::obj(&refs)));
+    out
+}
+
+/// G-code for every frame part (generic Marlin flavour; use your printer's own slicer for production).
+fn produce_print(p: &Project) -> Vec<PackageFile> {
+    let st = crate::print::slicer::SliceSettings::default();
+    crate::cad::frame_parts_print(p)
+        .iter()
+        .map(|part| {
+            let r = crate::print::slice_mesh(&part.mesh, &p.design.print, &st, p.design.frame.density_g_cm3, &part.name);
+            utf8(format!("print/{}.gcode", part.name), r.gcode)
+        })
+        .collect()
 }
 
 fn produce_molding(p: &Project) -> Vec<PackageFile> {
@@ -636,8 +680,19 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
     }
 }
 
-/// Metrics this module contributes to requirement verification.
+thread_local! {
+    static METRICS_CACHE: crate::memo::Slot<Vec<Metric>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Metrics this module contributes to requirement verification (memoised on
+/// the inputs it reads, because verification re-runs on every project edit).
 pub fn metrics(p: &Project) -> Vec<Metric> {
+    let d = &p.design;
+    let key = crate::memo::key(&(&p.components, &d.frame, &d.optics, &d.pcb, &d.manufacturing, &d.print, &d.extra, &p.milestones));
+    crate::memo::memo(&METRICS_CACHE, key, || metrics_uncached(p))
+}
+
+fn metrics_uncached(p: &Project) -> Vec<Metric> {
     let c = cost_curve(p, &Assumptions::default());
     let fq = c.quantities.iter().position(|q| (*q - c.target_qty).abs() < 0.5).map(|i| c.frame_choice[i].clone()).unwrap_or_default();
     let mut v = vec![

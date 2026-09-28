@@ -2,7 +2,7 @@
 // Engine meshes arrive as flat arrays: positions [x,y,z,...] (mm) and
 // triangle indices [a,b,c,...]; optional per-vertex colours [r,g,b,...] 0..1.
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, Environment } from '@react-three/drei';
+import { OrbitControls, Grid } from '@react-three/drei';
 import { useMemo, type ReactNode } from 'react';
 import * as THREE from 'three';
 
@@ -27,7 +27,7 @@ export function Scene3D(props: {
         <ambientLight intensity={0.55} />
         <directionalLight position={[120, 200, 100]} intensity={1.3} castShadow />
         <directionalLight position={[-150, 80, -120]} intensity={0.45} />
-        <Environment preset="city" environmentIntensity={0.35} />
+        <hemisphereLight args={['#dfe8ff', '#1a1a1f', 0.6]} />
         {grid && (
           <Grid
             position={[0, -0.01, 0]}

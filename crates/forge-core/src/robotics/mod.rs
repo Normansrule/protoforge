@@ -210,8 +210,18 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
     }
 }
 
-/// Metrics this module contributes to requirement verification.
+thread_local! {
+    static METRICS_CACHE: crate::memo::Slot<Vec<Metric>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Metrics this module contributes to requirement verification (memoised on
+/// the inputs it reads, because verification re-runs on every project edit).
 pub fn metrics(p: &Project) -> Vec<Metric> {
+    let key = crate::memo::key(&(&p.components, &p.design.pcb, &p.design.audio, p.design.extra.get("pnp")));
+    crate::memo::memo(&METRICS_CACHE, key, || metrics_uncached(p))
+}
+
+fn metrics_uncached(p: &Project) -> Vec<Metric> {
     if !p.components.iter().any(|c| c.on_pcb) {
         return vec![];
     }

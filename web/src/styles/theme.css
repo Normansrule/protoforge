@@ -137,6 +137,11 @@ button { font-family: inherit; }
 .btn.menu-btn { display: none; }
 .content { padding: 26px 28px 60px; max-width: 1440px; width: 100%; }
 
+@media (max-width: 640px) {
+  .hide-sm { display: none !important; }
+  .topbar { gap: 8px; }
+  .topbar .btn.small { padding: 4px 7px; }
+}
 @media (max-width: 960px) {
   .sidebar { position: fixed; z-index: 40; left: 0; transform: translateX(-105%); transition: transform 0.2s; }
   .sidebar.open { transform: none; box-shadow: var(--shadow); }
@@ -225,7 +230,7 @@ table.table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .callout h4 { color: var(--text); font-size: 13.5px; margin-bottom: 4px; }
 .formula {
   font-family: var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
-  padding: 8px 12px; margin: 8px 0; color: var(--text); overflow-x: auto; white-space: pre; font-size: 12.5px;
+  padding: 8px 12px; margin: 8px 0; color: var(--text); overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px;
 }
 pre.code {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;

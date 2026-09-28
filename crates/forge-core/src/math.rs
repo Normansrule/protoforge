@@ -78,6 +78,7 @@ impl Mul for C64 {
         C64 { re: self.re * o.re - self.im * o.im, im: self.re * o.im + self.im * o.re }
     }
 }
+#[allow(clippy::suspicious_arithmetic_impl)]
 impl Div for C64 {
     type Output = C64;
     fn div(self, o: C64) -> C64 {
@@ -129,6 +130,7 @@ impl Field for C64 {
 
 /// Solve `A x = b` in place with Gaussian elimination + partial pivoting.
 /// `a` is row-major `n×n`. Returns `None` if the matrix is singular.
+#[allow(clippy::needless_range_loop)]
 pub fn solve<T: Field>(mut a: Vec<Vec<T>>, mut b: Vec<T>) -> Option<Vec<T>> {
     let n = b.len();
     for k in 0..n {

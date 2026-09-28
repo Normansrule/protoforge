@@ -485,7 +485,23 @@ impl Recorder<'_> {
     }
 }
 
+/// Plan the board. With `optimize` on, the optimised sequence is compared
+/// against the plain BOM order and the faster one is returned (ordering
+/// heuristics are not guaranteed to win on every placement).
 pub fn plan(p: &Project, cfg: &PnpConfig, record: bool) -> PnpPlan {
+    if !cfg.optimize {
+        return plan_inner(p, cfg, record);
+    }
+    let mut naive_cfg = cfg.clone();
+    naive_cfg.optimize = false;
+    let naive = plan_inner(p, &naive_cfg, false);
+    let opt = plan_inner(p, cfg, false);
+    let mut best = if opt.cycle_s <= naive.cycle_s { plan_inner(p, cfg, record) } else { plan_inner(p, &naive_cfg, record) };
+    best.naive_cycle_s = naive.cycle_s;
+    best
+}
+
+fn plan_inner(p: &Project, cfg: &PnpConfig, record: bool) -> PnpPlan {
     let arm = Arm2 { l1: cfg.l1_mm, l2: cfg.l2_mm, q1_min: -180.0, q1_max: 180.0, q2_min: -180.0, q2_max: 180.0 };
     let m = Machine { arm, cfg: cfg.clone() };
     let home = cfg.camera_xy_mm;

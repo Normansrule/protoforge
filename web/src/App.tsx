@@ -96,10 +96,10 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
       <button className="btn ghost menu-btn" onClick={onMenu} aria-label="Menu"><Icon name="menu" /></button>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{project.meta.name}</div>
-        <div className="muted small">v{project.meta.version} · {ready ? 'Rust engine loaded (WebAssembly)' : 'loading engine…'}</div>
+        <div className="muted small hide-sm">v{project.meta.version} · {ready ? 'Rust engine loaded (WebAssembly)' : 'loading engine…'}</div>
       </div>
       {ev.data && (
-        <div className="row" style={{ marginLeft: 8 }}>
+        <div className="row hide-sm" style={{ marginLeft: 8 }}>
           <span className="chip pass">✓ {ev.data.pass}</span>
           {ev.data.fail > 0 && <span className="chip fail">✕ {ev.data.fail}</span>}
           {ev.data.unverified > 0 && <span className="chip">○ {ev.data.unverified}</span>}
@@ -122,8 +122,8 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
           e.target.value = '';
         }}
       />
-      <button className="btn small" onClick={() => fileRef.current?.click()} title="Open a project.json"><Icon name="upload" size={15} /> Open</button>
-      <button className="btn small" onClick={() => downloadText(`${project.meta.id || 'project'}.json`, JSON.stringify(project, null, 2), 'application/json')} title="Save project.json"><Icon name="download" size={15} /> Save</button>
+      <button className="btn small" onClick={() => fileRef.current?.click()} title="Open a project.json"><Icon name="upload" size={15} /> <span className="hide-sm">Open</span></button>
+      <button className="btn small" onClick={() => downloadText(`${project.meta.id || 'project'}.json`, JSON.stringify(project, null, 2), 'application/json')} title="Save project.json"><Icon name="download" size={15} /> <span className="hide-sm">Save</span></button>
       <button className="btn small" onClick={() => confirm('Reset to the Iris reference project? Unsaved edits are lost.') && reset()} title="Reset to Iris"><Icon name="reset" size={15} /></button>
       <button className="btn small" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} aria-label="Toggle theme"><Icon name={theme === 'dark' ? 'sun' : 'moon'} size={15} /></button>
     </header>

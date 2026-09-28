@@ -923,7 +923,7 @@ impl Default for materials::Steel {
 
 /// Analyse every frame part of the project.
 pub fn analyze(p: &Project, o: &ProcessOptions, samples: usize) -> Analysis {
-    let parts = crate::cad::frame_parts(p);
+    let parts = crate::cad::frame_parts_print(p);
     let pp: Vec<PartProcess> = parts.iter().filter(|x| x.mesh.triangle_count() > 0).map(|x| process_part(x, o, samples)).collect();
     let mut a = Analysis { material: material(&o.material).clone(), steel: steel(&o.steel).clone(), options: o.clone(), ..Default::default() };
     a.clamp_tonnes = pp.iter().map(|x| x.clamp_tonnes).fold(0.0, f64::max);
@@ -997,7 +997,7 @@ struct CoolIn {
 }
 
 fn pick_part(p: &Project, name: &str) -> Result<Part, String> {
-    let parts = crate::cad::frame_parts(p);
+    let parts = crate::cad::frame_parts_print(p);
     if parts.is_empty() {
         return Err("the project has no frame parts".into());
     }
@@ -1009,7 +1009,7 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
     match method {
         "molding.materials" => Some(crate::api::to_value(serde_json::json!({ "materials": MATERIALS, "steels": STEELS }))),
         "molding.parts" => handle(input, |p: Project| {
-            Ok(crate::cad::frame_parts(&p)
+            Ok(crate::cad::frame_parts_print(&p)
                 .into_iter()
                 .map(|x| {
                     let (lo, hi) = bbox(&x.mesh);
@@ -1040,8 +1040,18 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
     }
 }
 
-/// Metrics this module contributes to requirement verification.
+thread_local! {
+    static METRICS_CACHE: crate::memo::Slot<Vec<Metric>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Metrics this module contributes to requirement verification (memoised on
+/// the inputs it reads, because verification re-runs on every project edit).
 pub fn metrics(p: &Project) -> Vec<Metric> {
+    let key = crate::memo::key(&(&p.design.frame, &p.design.optics, &p.design.pcb, &p.design.manufacturing, &p.design.extra));
+    crate::memo::memo(&METRICS_CACHE, key, || metrics_uncached(p))
+}
+
+fn metrics_uncached(p: &Project) -> Vec<Metric> {
     let o = ProcessOptions::from_project(p);
     let a = analyze(p, &o, 400);
     if a.parts.is_empty() {

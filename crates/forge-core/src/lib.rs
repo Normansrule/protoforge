@@ -25,6 +25,7 @@
 
 pub mod api;
 pub mod math;
+pub mod memo;
 pub mod project;
 
 pub mod cad;

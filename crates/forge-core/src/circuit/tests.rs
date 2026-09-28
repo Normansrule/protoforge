@@ -210,8 +210,8 @@ fn iris_metrics_are_sane_and_pass() {
     // ΔI ≈ 0.21 A: ΔI/(8fC) ≈ 1.3 mV, ΔI·ESR ≈ 1 mV
     assert!(ripple > 0.8 && ripple < 6.0, "ripple {ripple}");
     assert!(ripple <= 30.0);
-    // 4.2 V / 2.2 MΩ = 1.909 µA
-    assert!((ua - 4.2 / 2.2e6 * 1e6).abs() < 1e-3, "divider {ua}");
+    // 4.2 V / (1.5 MΩ + 1 MΩ) = 1.68 µA
+    assert!((ua - 4.2 / 2.5e6 * 1e6).abs() < 1e-3, "divider {ua}");
     assert!(ua <= 2.0);
 }
 
@@ -252,13 +252,15 @@ fn buck_waveforms_are_physical() {
 }
 
 #[test]
-fn vbat_divider_flags_adc_overrange() {
+fn vbat_divider_keeps_adc_in_range() {
     let r = presets::run("vbat_divider", &BTreeMap::new(), None, Some(&crate::project::Project::iris())).unwrap();
     let pk = r.measurements.iter().find(|m| m.key == "adc_peak_v").unwrap();
-    assert!((pk.value - 4.2 * 1.2 / 2.2).abs() < 1e-9);
-    assert_eq!(pk.pass, Some(false));
+    // v0.4 of Iris re-ratioed the divider (1.5 MΩ / 1 MΩ) after this check
+    // caught 2.29 V on a 1.8 V ADC pin in v0.3.
+    assert!((pk.value - 4.2 * 1.0 / 2.5).abs() < 1e-9);
+    assert_eq!(pk.pass, Some(true));
     let tau = r.measurements.iter().find(|m| m.key == "tau_ms").unwrap().value;
-    assert!((tau - 54.545).abs() < 0.01);
+    assert!((tau - 60.0).abs() < 0.01, "tau {tau}");
     let kick = r.measurements.iter().find(|m| m.key == "kickback_uv").unwrap().value;
     assert!(kick > 50.0 && kick < 200.0, "kick-back {kick} µV");
 }

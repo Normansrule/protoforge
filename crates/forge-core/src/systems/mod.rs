@@ -368,7 +368,7 @@ pub fn fmea(p: &Project) -> Vec<RiskResult> {
             RiskResult { id: r.id.clone(), rpn, level: level.into() }
         })
         .collect();
-    v.sort_by(|a, b| b.rpn.cmp(&a.rpn));
+    v.sort_by_key(|r| std::cmp::Reverse(r.rpn));
     v
 }
 

@@ -105,8 +105,8 @@ export function Select<T extends string>(props: { label?: string; value: T; opti
 
 export function Toggle(props: { label: string; value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="row small" style={{ cursor: 'pointer', marginBottom: 10 }}>
-      <input type="checkbox" checked={props.value} onChange={(e) => props.onChange(e.target.checked)} style={{ accentColor: 'var(--accent)' }} />
+    <label className="small" style={{ cursor: 'pointer', marginBottom: 10, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      <input type="checkbox" checked={props.value} onChange={(e) => props.onChange(e.target.checked)} style={{ accentColor: 'var(--accent)', marginTop: 3, flex: '0 0 auto' }} />
       <span className="field-label">{props.label}</span>
     </label>
   );
