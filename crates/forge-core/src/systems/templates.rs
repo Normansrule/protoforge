@@ -342,6 +342,148 @@ pub fn pip() -> Project {
     }))
 }
 
+/// Q-Link: two-node fiber quantum key distribution (QKD) testbed.
+///
+/// A decoy-state BB84 link between two buildings over dark fiber, with a
+/// diode-noise quantum random number generator (QRNG) feeding the
+/// transmitter's bit, basis and decoy choices. Its requirements are bound to
+/// the Quantum Lab's link model (`quantum.qkd_*`, parameters in
+/// `design.extra.qkd`) and QRNG simulation (`quantum.qrng_*`, parameters in
+/// `design.extra.qrng`). Device numbers are typical published ranges for
+/// gated InGaAs avalanche photodiodes and are starting points to replace with
+/// datasheet values; prices are round planning placeholders, not quotes.
+pub fn qlink() -> Project {
+    let p = |mw: f64| [mw, mw, 1.0];
+    from_json(json!({
+        "meta": {
+            "id": "qlink", "name": "Q-Link Fiber QKD Testbed", "codename": "Q-LINK", "version": "0.1.0",
+            "tagline": "Two nodes, one dark fiber, keys whose secrecy rests on physics",
+            "description": "A two-node fiber-optic quantum key distribution link: an Alice transmitter (pulsed laser, decoy intensity modulator, phase encoder, diode-noise QRNG) and a Bob receiver (gated InGaAs single-photon detectors, time tagger) joined by 25 km of standard single-mode fiber, with classical post-processing and key management on each side. Requirements are verified by the Quantum Lab's decoy-state key-rate model and QRNG simulation.",
+            "author": ""
+        },
+        "concept": {
+            "problem": "Classical key exchange rests on assumptions about what an attacker can compute; data recorded today may be decrypted later. Two sites that already share fiber want keys whose secrecy can be argued from physics and whose eavesdropping is detectable.",
+            "vision": "A lab-scale, well-documented two-node link that produces a steady stream of secret keys over metro fiber, shows its security margin live (QBER against the 11 % limit), and scales toward repeaters and satellite links.",
+            "users": ["Network operators securing inter-site links", "Researchers and students building quantum-network testbeds", "Security teams refreshing symmetric keys (e.g. AES-256)"],
+            "use_cases": [
+                { "id": "UC-1", "title": "Key refresh between two sites", "narrative": "The link delivers fresh 256-bit keys to encryptors at both ends through a key-management interface; the encryptors rekey every few seconds." },
+                { "id": "UC-2", "title": "Eavesdropping alarm", "narrative": "A tap on the fiber raises the QBER; the post-processing aborts the session and alerts the operator." },
+                { "id": "UC-3", "title": "Testbed for repeaters", "narrative": "The same nodes run entanglement-based experiments (Bell tests, entanglement swapping) as a first step toward a quantum repeater chain." }
+            ],
+            "constraints": ["Standard single-mode fiber at 1550 nm", "Both nodes fit in one 19-inch rack each and run from lab mains", "Detectors cooled thermoelectrically — no cryogenics in the first prototype", "Laser safety: the unattenuated laser stays inside the enclosed transmitter"]
+        },
+        "needs": [
+            { "id": "N-1", "text": "Share secret keys between two sites over existing fiber", "stakeholder": "Operator", "priority": 1 },
+            { "id": "N-2", "text": "Detect any eavesdropper and never output a key that may be compromised", "stakeholder": "Security", "priority": 1 },
+            { "id": "N-3", "text": "Produce keys fast enough to rekey a link encryptor every second", "stakeholder": "Operator", "priority": 1 },
+            { "id": "N-4", "text": "Reach metro distances with margin for fiber aging and repairs", "stakeholder": "Operator", "priority": 2 },
+            { "id": "N-5", "text": "Draw every random choice from a physical entropy source", "stakeholder": "Security", "priority": 1 },
+            { "id": "N-6", "text": "Buildable and maintainable by a university lab", "stakeholder": "Researcher", "priority": 2 }
+        ],
+        "requirements": [
+            req("R-001", "performance", "The secret key rate at the 25 km design distance shall be at least 10 kbit/s.", "Rekeying AES-256 every second needs 256 bit/s; 10 kbit/s leaves margin for finite-key effects, authentication and many parallel encryptors.", &["N-1", "N-3"], &["SYS-SRC", "SYS-DET", "SYS-POST", "SYS-TIM"], Some("quantum.qkd_key_rate_bps"), "ge", 10000.0, "bit/s"),
+            req("R-002", "performance", "The quantum bit error rate at the design distance shall be at most 5 %.", "Keeps a wide margin below the 11 % BB84 security threshold (Shor & Preskill 2000), so drift or detector aging does not stop key production.", &["N-2"], &["SYS-ENC", "SYS-DET", "SYS-SRC"], Some("quantum.qkd_qber_pct"), "le", 5.0, "%"),
+            req("R-003", "performance", "The maximum distance with a positive key rate shall be at least 50 km.", "Twice the design distance: covers extra splices, repairs and fiber aging.", &["N-4"], &["SYS-CH", "SYS-DET", "SYS-SRC"], Some("quantum.qkd_max_distance_km"), "ge", 50.0, "km"),
+            req("R-004", "interface", "Total optical loss of the quantum channel shall be at most 10 dB.", "The loss budget: 25 km × 0.2 dB/km plus connectors, splices and the receiver's optics.", &["N-1", "N-4"], &["SYS-CH"], Some("quantum.qkd_link_loss_db"), "le", 10.0, "dB"),
+            req("R-005", "goal", "The key rate shall reach at least 1 % of the PLOB repeaterless bound at the design distance.", "A figure of merit for how close the protocol and hardware come to the fundamental limit (Pirandola et al. 2017). Open: gated InGaAs detectors reach about 0.5 %; the superconducting-nanowire option of trade T-1 (efficiency ≈ 0.8) meets it — the decision for the next design review.", &["N-3"], &["SYS-POST", "SYS-DET"], Some("quantum.qkd_plob_fraction_pct"), "ge", 1.0, "%"),
+            req("R-006", "performance", "The QRNG shall deliver at least 3 bits of min-entropy per digitised sample (4-bit symbols).", "The Toeplitz extractor's output length is set by the min-entropy; the most-common-value estimate of NIST SP 800-90B is conservative.", &["N-5"], &["SYS-QRNG"], Some("quantum.qrng_min_entropy_bits"), "ge", 3.0, "bit"),
+            req("R-007", "performance", "The conditioned QRNG stream shall pass every NIST SP 800-22 test run by the lab at α = 0.01.", "Statistical tests cannot prove randomness but catch broken sources and wiring faults.", &["N-5", "N-2"], &["SYS-QRNG"], Some("quantum.qrng_nist_failures"), "le", 0.0, "count"),
+            req("R-008", "performance", "The QRNG output shall be at least 1.5 times the random bits the transmitter consumes.", "Each pulse needs a bit value, a basis and a decoy-intensity choice (about 3 bits); margin covers health-test discards.", &["N-5", "N-3"], &["SYS-QRNG", "SYS-SRC"], Some("quantum.qrng_supply_ratio"), "ge", 1.5, "×"),
+            req("R-009", "environmental", "Total electrical power of both nodes shall be at most 150 W.", "Fits one standard lab circuit per rack with headroom; the detector coolers and computers dominate.", &["N-6"], &["SYS-DET", "SYS-TIM", "SYS-POST"], Some("budget.avg_power_mw"), "le", 150000.0, "mW"),
+            req("R-010", "functional", "Timing jitter between the transmitter clock and the detector gates shall be at most 100 ps RMS.", "Jitter spreads detections outside the gate and raises the error rate; verified with a time-interval analyser.", &["N-1"], &["SYS-TIM"], None, "le", 100.0, "ps"),
+            req("R-011", "interface", "Keys shall be delivered to applications through a REST key-delivery interface following ETSI GS QKD 014.", "A standard interface lets commercial encryptors consume the keys; check the current version of the specification.", &["N-1", "N-3"], &["SYS-KMS"], None, "eq", 1.0, "pass"),
+            req("R-012", "safety", "The post-processing shall abort and discard the session whenever the estimated QBER exceeds 11 %.", "Guarantees N-2: no key is output above the security threshold. Verified by an intercept-resend test that raises the QBER to about 25 %.", &["N-2"], &["SYS-POST"], None, "le", 11.0, "%")
+        ],
+        "subsystems": [
+            { "id": "SYS-SRC", "name": "Photon source", "domain": "optical", "description": "Gain-switched 1550 nm laser, intensity modulator for signal/decoy levels, attenuator to the single-photon level (μ ≈ 0.5).", "functions": ["Emit weak coherent pulses", "Choose signal or decoy intensity per pulse"], "lab": "quantum" },
+            { "id": "SYS-ENC", "name": "Encoder", "domain": "optical", "description": "Time-bin / phase encoding with an unbalanced interferometer and a phase modulator driven by QRNG bits.", "functions": ["Encode bit and basis", "Keep interferometers phase-stable"], "lab": "quantum" },
+            { "id": "SYS-QRNG", "name": "Quantum random number generator", "domain": "electrical", "description": "Reverse-biased diode avalanche noise, amplifier, ADC and FPGA conditioning (Toeplitz extractor) with health tests.", "functions": ["Generate raw entropy", "Condition and health-test", "Feed bit, basis and decoy choices"], "lab": "quantum" },
+            { "id": "SYS-CH", "name": "Fiber channel", "domain": "optical", "description": "25 km of standard single-mode fiber (dark fiber between sites), connectors and splices; a second fiber carries the classical and clock channels.", "functions": ["Carry single photons", "Carry sync and classical traffic"], "lab": "quantum" },
+            { "id": "SYS-DET", "name": "Single-photon detectors", "domain": "optical", "description": "Two gated InGaAs/InP avalanche photodiodes with thermoelectric cooling, a passive basis choice and a matched decoding interferometer.", "functions": ["Detect single photons", "Decode the basis"], "lab": "quantum" },
+            { "id": "SYS-TIM", "name": "Timing & synchronisation", "domain": "silicon", "description": "FPGA time taggers on both nodes, clock recovery from a sync laser, gate generation for the detectors.", "functions": ["Distribute the clock", "Time-tag detections", "Generate detector gates"], "lab": "chip" },
+            { "id": "SYS-POST", "name": "Classical post-processing", "domain": "software", "description": "Sifting, QBER estimation, error correction (LDPC or Cascade), privacy amplification (Toeplitz hashing) and message authentication.", "functions": ["Sift and estimate QBER", "Correct errors", "Amplify privacy", "Authenticate the classical channel"], "lab": "quantum" },
+            { "id": "SYS-KMS", "name": "Key management", "domain": "software", "description": "Key store and key-delivery interface to applications on both sites.", "functions": ["Store keys", "Deliver keys to encryptors", "Track key consumption"], "lab": "quantum" }
+        ],
+        "interfaces": [
+            { "id": "IF-01", "from": "SYS-SRC", "to": "SYS-ENC", "kind": "OPTICAL", "description": "Attenuated pulses into the encoding interferometer (polarisation-maintaining fiber)." },
+            { "id": "IF-02", "from": "SYS-QRNG", "to": "SYS-ENC", "kind": "LVDS", "description": "Random bit and basis choices to the phase-modulator driver, one per pulse." },
+            { "id": "IF-03", "from": "SYS-QRNG", "to": "SYS-SRC", "kind": "LVDS", "description": "Decoy-intensity choice per pulse." },
+            { "id": "IF-04", "from": "SYS-ENC", "to": "SYS-CH", "kind": "OPTICAL", "description": "Quantum channel launch, FC/APC connector." },
+            { "id": "IF-05", "from": "SYS-CH", "to": "SYS-DET", "kind": "OPTICAL", "description": "Quantum channel into the decoding interferometer and detectors." },
+            { "id": "IF-06", "from": "SYS-DET", "to": "SYS-TIM", "kind": "GPIO", "description": "Detection pulses to the time tagger; gate triggers back to the detectors." },
+            { "id": "IF-07", "from": "SYS-TIM", "to": "SYS-SRC", "kind": "CLOCK", "description": "Pulse clock at Alice; recovered over the sync fiber at Bob." },
+            { "id": "IF-08", "from": "SYS-TIM", "to": "SYS-POST", "kind": "USB", "description": "Time tags and basis records to the post-processing computer." },
+            { "id": "IF-09", "from": "SYS-POST", "to": "SYS-KMS", "kind": "REST", "description": "Final keys with identifiers into the key store." },
+            { "id": "IF-10", "from": "SYS-QRNG", "to": "SYS-POST", "kind": "USB", "description": "Seeds for the privacy-amplification hash and random sampling." }
+        ],
+        "components": [
+            comp("LD1", "Pulsed 1550 nm DFB laser + driver", "Gain-switched distributed-feedback laser diode with pulse driver", "SYS-SRC", 1500.0, 250.0, p(2500.0), "", false),
+            comp("TEC1", "Laser temperature controller", "Thermoelectric controller for the laser", "SYS-SRC", 300.0, 150.0, p(1500.0), "", false),
+            comp("IM1", "Intensity modulator + driver (decoy levels)", "LiNbO3 Mach–Zehnder intensity modulator with RF driver", "SYS-SRC", 2500.0, 300.0, p(3000.0), "", false),
+            comp("VOA1", "Variable optical attenuator", "Electronically controlled attenuator, 0–60 dB", "SYS-SRC", 600.0, 120.0, p(100.0), "", false),
+            comp("PM1", "Alice phase modulator + driver", "LiNbO3 phase modulator with RF driver", "SYS-ENC", 2000.0, 300.0, p(3000.0), "", false),
+            comp("INT1", "Alice unbalanced interferometer", "Fiber Mach–Zehnder with delay line, temperature-stabilised", "SYS-ENC", 800.0, 400.0, p(1000.0), "", false),
+            comp("QRNG1", "Diode-noise QRNG board", "Reverse-biased diode + amplifier + 8-bit ADC, hand-solderable", "SYS-QRNG", 60.0, 40.0, p(600.0), "", false),
+            comp("FIB1", "Fiber link 25 km", "G.652 single-mode fiber (spool for the lab, dark fiber in the field)", "SYS-CH", 1200.0, 3000.0, Z, "", false),
+            comp("SPD1", "Gated InGaAs single-photon detector", "InGaAs/InP SPAD module with TEC cooling, gated", "SYS-DET", 12000.0, 1500.0, p(12000.0), "", false),
+            comp("SPD2", "Gated InGaAs single-photon detector", "InGaAs/InP SPAD module with TEC cooling, gated", "SYS-DET", 12000.0, 1500.0, p(12000.0), "", false),
+            comp("INT2", "Bob decoding interferometer", "Matched fiber Mach–Zehnder with phase tracking", "SYS-DET", 800.0, 400.0, p(1000.0), "", false),
+            comp("FPGA1", "Alice FPGA timing board", "FPGA board with high-speed serial outputs", "SYS-TIM", 400.0, 200.0, p(5000.0), "", false),
+            comp("FPGA2", "Bob FPGA time tagger", "FPGA time-to-digital converter board", "SYS-TIM", 400.0, 200.0, p(5000.0), "", false),
+            comp("SYNC1", "Clock sync transceivers (pair)", "1310 nm optical transceivers for the clock channel", "SYS-TIM", 200.0, 50.0, p(1500.0), "", false),
+            comp("PC1", "Alice post-processing computer", "Small-form-factor PC", "SYS-POST", 700.0, 1200.0, p(25000.0), "", false),
+            comp("PC2", "Bob post-processing computer", "Small-form-factor PC", "SYS-POST", 700.0, 1200.0, p(25000.0), "", false),
+            comp("KMS1", "Key-management service (software)", "Key store + REST key-delivery API on the post-processing computers", "SYS-KMS", 0.0, 0.0, Z, "", false)
+        ],
+        "trades": [
+            { "id": "T-1", "title": "Single-photon detector technology", "decision": "Gated InGaAs APD",
+              "criteria": [ { "name": "Detection efficiency", "weight": 0.25 }, { "name": "Dark counts and afterpulsing", "weight": 0.2 }, { "name": "Cost", "weight": 0.25 }, { "name": "Power, size and operating effort", "weight": 0.3 } ],
+              "options": [
+                { "name": "Gated InGaAs APD", "scores": [5, 5, 8, 8], "notes": "Typical 10–30 % efficiency and 10⁻⁶–10⁻⁵ dark counts per gate; thermoelectric cooling; afterpulsing needs dead time." },
+                { "name": "Superconducting nanowire (SNSPD)", "scores": [10, 10, 2, 2], "notes": "Typical > 80 % efficiency and very low dark counts, but needs a ~2–3 K cryostat: the path to longer reach later." },
+                { "name": "Free-running InGaAs APD", "scores": [4, 4, 7, 7], "notes": "No gating electronics, but higher dark counts and longer dead time." } ] },
+            { "id": "T-2", "title": "Encoding", "decision": "Time-bin / phase",
+              "criteria": [ { "name": "Stability in buried fiber", "weight": 0.45 }, { "name": "Optical complexity", "weight": 0.25 }, { "name": "Reuse for free-space / satellite links", "weight": 0.3 } ],
+              "options": [
+                { "name": "Time-bin / phase", "scores": [9, 5, 4], "notes": "Immune to fiber birefringence drift; needs matched, stabilised interferometers." },
+                { "name": "Polarisation", "scores": [4, 8, 9], "notes": "Simple optics and the natural choice for free space, but fiber birefringence drifts and needs active compensation." } ] },
+            { "id": "T-3", "title": "Photon source and protocol", "decision": "Weak coherent pulses + decoy states (BB84)",
+              "criteria": [ { "name": "Key rate", "weight": 0.35 }, { "name": "Maturity", "weight": 0.35 }, { "name": "Fewer trusted-device assumptions", "weight": 0.3 } ],
+              "options": [
+                { "name": "Weak coherent pulses + decoy states (BB84)", "scores": [8, 9, 5], "notes": "The standard for fiber links; decoys close the photon-number-splitting attack." },
+                { "name": "Entangled pairs (BBM92 / E91)", "scores": [5, 6, 7], "notes": "Source in the middle, CHSH monitoring; lower rates from pair-generation statistics." },
+                { "name": "Measurement-device-independent QKD", "scores": [4, 4, 10], "notes": "Removes all detector side channels; needs two-photon interference between independent lasers." } ] }
+        ],
+        "risks": [
+            { "id": "F-1", "item": "Single-photon detectors", "failure_mode": "Afterpulsing and dark counts raise the QBER", "effect": "Lower key rate, possible abort", "cause": "Too short dead time or too warm operating point", "severity": 6, "occurrence": 5, "detection": 3, "mitigation": "Characterise afterpulsing, set dead time, monitor dark counts every session." },
+            { "id": "F-2", "item": "Interferometers", "failure_mode": "Phase drift between Alice and Bob", "effect": "Misalignment error rises above the design value", "cause": "Temperature changes in the unbalanced interferometers", "severity": 6, "occurrence": 6, "detection": 3, "mitigation": "Temperature stabilisation plus active phase tracking with reference pulses." },
+            { "id": "F-3", "item": "Detectors (security)", "failure_mode": "Detector-blinding attack", "effect": "Eavesdropper controls detections without raising the QBER", "cause": "Bright light drives APDs into linear mode", "severity": 10, "occurrence": 3, "detection": 6, "mitigation": "Monitor photocurrent and random gate-efficiency checks; plan an upgrade to MDI-QKD." },
+            { "id": "F-4", "item": "QRNG", "failure_mode": "Entropy source degrades or fails silently", "effect": "Predictable basis choices break security", "cause": "Diode aging, amplifier saturation, ADC clipping, power-supply pickup", "severity": 9, "occurrence": 3, "detection": 4, "mitigation": "Continuous health tests (repetition count and adaptive proportion, NIST SP 800-90B §4.4) and a stop on failure." },
+            { "id": "F-5", "item": "Timing", "failure_mode": "Loss of clock synchronisation", "effect": "Detections fall outside gates; key rate drops to zero", "cause": "Sync channel fault or clock-recovery unlock", "severity": 5, "occurrence": 3, "detection": 2, "mitigation": "Lock-detect alarm, automatic resynchronisation with a known pattern." },
+            { "id": "F-6", "item": "Transmitter laser", "failure_mode": "Unattenuated light leaves the enclosure", "effect": "Eye hazard during service; security broken (μ ≫ 1)", "cause": "Attenuator fault or wrong fiber connection", "severity": 8, "occurrence": 2, "detection": 4, "mitigation": "Interlocked enclosure, output power monitor that disables the laser above threshold." },
+            { "id": "F-7", "item": "Classical channel", "failure_mode": "Authentication key exhausted", "effect": "Man-in-the-middle possible", "cause": "Pre-shared authentication key not replenished from QKD output", "severity": 9, "occurrence": 2, "detection": 3, "mitigation": "Reserve part of each key for authentication (Wegman–Carter) and alarm on low reserve." }
+        ],
+        "milestones": standard_milestones(),
+        "design": {
+            "power_rails": { "core_v": 3.3, "buck_efficiency": 0.9, "display_rail_v": 3.3, "quiescent_ua": 0 },
+            "extra": {
+                "template": "qlink",
+                "qkd": {
+                    "distance_km": 25.0, "fiber_loss_db_km": 0.2, "extra_loss_db": 3.0, "detector_efficiency": 0.2,
+                    "dark_count_prob": 1e-6, "misalignment": 0.015, "ec_efficiency": 1.16, "source_rate_hz": 1e7,
+                    "mu": -1.0, "sifting": 0.5, "dead_time_s": 1e-6, "random_bits_per_pulse": 3.0
+                },
+                "qrng": {
+                    "source": "diode", "samples": 20000, "seed": 42,
+                    "noise_rms_mv": 40.0, "flicker_rms_mv": 4.0, "offset_mv": 3.0, "hum_mv": 1.0, "hum_hz": 60.0, "bandwidth_hz": 0.0,
+                    "sample_rate_hz": 2e7, "adc_bits": 8, "adc_vpp_mv": 400.0, "digitize": "lsb", "lsb_bits": 4,
+                    "von_neumann": false, "xor_fold": 1, "toeplitz": true, "toeplitz_block": 1024, "security_bits": 64.0
+                }
+            }
+        }
+    }))
+}
+
 /// Every starter template.
 pub fn templates() -> Vec<Template> {
     vec![
@@ -376,6 +518,14 @@ pub fn templates() -> Vec<Template> {
             icon: "robotics".into(),
             tags: vec!["robot".into(), "control".into(), "education".into()],
             project: pip(),
+        },
+        Template {
+            id: "qlink".into(),
+            name: "Q-Link — two-node fiber QKD testbed".into(),
+            description: "A two-node fiber quantum key distribution (QKD) testbed with a diode-noise quantum random number generator (QRNG): decoy-state BB84 over 25 km, verified by the Quantum Lab's key-rate model and randomness tests.".into(),
+            icon: "quantum".into(),
+            tags: vec!["quantum".into(), "communication".into(), "security".into()],
+            project: qlink(),
         },
     ]
 }
@@ -443,5 +593,39 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn qlink_requirements_verify_from_the_quantum_lab() {
+        let p = qlink();
+        let ev = evaluate(&p);
+        let m = |k: &str| ev.metrics.iter().find(|x| x.key == k).map(|x| x.value);
+        for k in [
+            "quantum.qkd_key_rate_bps",
+            "quantum.qkd_qber_pct",
+            "quantum.qkd_max_distance_km",
+            "quantum.qrng_supply_ratio",
+        ] {
+            assert!(m(k).is_some(), "{k} missing");
+        }
+        for r in &p.requirements {
+            let res = ev.results.iter().find(|x| x.id == r.id).unwrap();
+            if r.id == "R-005" {
+                // the PLOB-fraction goal is deliberately open with InGaAs detectors (≈ 0.5 % < 1 %) …
+                assert_eq!(res.status, Status::Fail, "{:?}", res.value);
+                // … and met with SNSPD-class efficiency, as trade T-1 says
+                let mut q = p.clone();
+                q.design.extra.get_mut("qkd").unwrap()["detector_efficiency"] = serde_json::json!(0.8);
+                let ev2 = evaluate(&q);
+                let r2 = ev2.results.iter().find(|x| x.id == "R-005").unwrap();
+                assert_eq!(r2.status, Status::Pass, "{:?}", r2.value);
+            } else if r.verification.metric.is_some() {
+                assert_eq!(res.status, Status::Pass, "{} = {:?} ({})", r.id, res.value, res.criterion);
+            } else {
+                assert_eq!(res.status, Status::Unverified);
+            }
+        }
+        // Iris does not describe a quantum link, so it gets no quantum metrics
+        assert!(crate::quantum::metrics(&Project::iris()).is_empty());
     }
 }
