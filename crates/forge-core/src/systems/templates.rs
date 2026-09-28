@@ -417,7 +417,8 @@ mod tests {
         assert!((crate::systems::budgets::load_power_mw(&p) - load).abs() < 1e-12);
         let m = crate::systems::all_metrics(&p);
         let life = m.iter().find(|x| x.key == "budget.battery_life_h").unwrap().value;
-        let expect = 220.0 * 3.0 * 0.85 / (load / 0.9);
+        // plus the always-on quiescent drain: 0.5 µA × 3.0 V
+        let expect = 220.0 * 3.0 * 0.85 / (load / 0.9 + 0.5e-3 * 3.0);
         assert!((life - expect).abs() < 1e-6, "{life} vs {expect}");
         assert!(life > 8760.0, "one year: {life}");
         let mass = m.iter().find(|x| x.key == "mass.components_g").unwrap().value;

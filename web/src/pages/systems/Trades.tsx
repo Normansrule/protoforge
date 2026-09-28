@@ -58,7 +58,19 @@ function StudyEditor({ index, study }: { index: number; study: TradeStudy }) {
   const dirty = useRef(false);
   const timer = useRef<number | null>(null);
   useEffect(() => { if (!dirty.current) { draftRef.current = study; setDraft(study); } }, [study]);
-  useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
+  // on unmount (e.g. switching study) flush a pending edit instead of dropping it
+  useEffect(
+    () => () => {
+      if (timer.current) window.clearTimeout(timer.current);
+      if (dirty.current) {
+        dirty.current = false;
+        const t = draftRef.current;
+        update((d) => { d.trades[index] = t; });
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   const edit = (fn: (t: TradeStudy) => void, immediate = false) => {
     const n = structuredClone(draftRef.current);
     fn(n);
@@ -70,8 +82,12 @@ function StudyEditor({ index, study }: { index: number; study: TradeStudy }) {
     if (immediate) commit(); else timer.current = window.setTimeout(commit, 450);
   };
   const det = useCompute<TradeDetail>('systems.trade_detail', draft);
-  const d = det.data;
-  const winner = d ? draft.options[d.result.winner] : null;
+  // the engine result is computed from a deferred copy of the draft: ignore it
+  // for the one render where options/criteria were just added or removed
+  const d =
+    det.data && det.data.result.scores.length === draft.options.length && det.data.weights.length === draft.criteria.length ? det.data : null;
+  const allZero = draft.criteria.every((c) => c.weight <= 0);
+  const winner = d && !allZero ? draft.options[d.result.winner] : null;
   const decisionIdx = draft.options.findIndex((o) => o.name.trim() === draft.decision.trim());
 
   return (
@@ -115,7 +131,7 @@ function StudyEditor({ index, study }: { index: number; study: TradeStudy }) {
             <tbody>
               {draft.options.map((o, k) => {
                 const rank = d ? d.ranking.indexOf(k) + 1 : 0;
-                const win = d?.result.winner === k;
+                const win = !allZero && d?.result.winner === k;
                 return (
                   <tr key={k} className={win ? 'win' : ''}>
                     <td>

@@ -291,9 +291,9 @@ flowchart LR
 ```
 
 - **One JSON method API.** Every capability is `module.method` with JSON in and out — 120 methods across 15 modules. The browser calls it through WebAssembly (`call("dsp.fft", {...})`), the server over HTTP (`POST /api/dsp.fft`), the CLI directly. The method catalog is generated from the source at build time (`api.catalog`).
-- **Metrics bind to requirements.** Each module exposes `metrics(project)`; `systems.evaluate` collects 50+ metrics and checks every requirement's criterion. Expensive analyses are memoised on exactly the inputs they read, and the browser runs verification in a Web Worker, so dragging a slider never blocks the page.
+- **Metrics bind to requirements.** Each module exposes `metrics(project)`; `systems.evaluate` collects 50+ metrics and checks every requirement's criterion. Expensive analyses are memoised on exactly the inputs they read, and the browser runs the full verification in a Web Worker, so re-verifying all 25 requirements never blocks the page (each lab's own interactive analysis runs directly and takes milliseconds).
 - **Dependency-free engine.** `forge-core` depends only on `serde`/`serde_json` — its own linear algebra, polynomial roots, FFT, mesh kernel, slicer, router and simulator — so it compiles to a single ~4 MB WebAssembly module.
-- **Deterministic.** All randomness is seeded; the same project gives the same numbers in the browser, the CLI and CI.
+- **Deterministic.** All randomness is seeded, so a project gives the same results every run. Native builds (CLI, CI) and WebAssembly use different floating-point math libraries, so a few geometry-derived numbers can differ in the last digits between the browser and the CLI; no requirement verdict changes.
 
 Details: [docs/architecture.md](docs/architecture.md). Adding a lab: [docs/CONTRIBUTING-LABS.md](docs/CONTRIBUTING-LABS.md).
 

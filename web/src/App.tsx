@@ -3,7 +3,9 @@ import { HashRouter, NavLink, Route, Routes, useLocation } from 'react-router-do
 import { GROUPS, LABS } from './labs/registry';
 import { Icon } from './components/Icon';
 import { useEngineReady } from './engine/hooks';
-import { useEvaluation, useProject } from './state/project';
+import { looksLikeProject, useEvaluation, useProject } from './state/project';
+import { call } from './engine/engine';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { downloadText } from './components/ui';
 import Home from './pages/Home';
 import Systems from './pages/Systems';
@@ -46,7 +48,12 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
   const ev = useEvaluation();
   const project = useProject((s) => s.project);
   const dot = (s: string | null) =>
-    s ? <span className="nav-status" title={s} style={{ background: s === 'pass' ? 'var(--good)' : s === 'fail' ? 'var(--bad)' : 'var(--warn)' }} /> : null;
+    s ? (
+      <span className="nav-status" title={s === 'pass' ? 'all requirements pass' : s === 'fail' ? 'a requirement fails' : 'some requirements unverified'} style={{ color: s === 'pass' ? 'var(--good)' : s === 'fail' ? 'var(--bad)' : 'var(--warn)' }}>
+        {s === 'pass' ? '✓' : s === 'fail' ? '✕' : '!'}
+        <span className="sr-only">{s === 'pass' ? 'all requirements pass' : s === 'fail' ? 'a requirement fails' : 'some requirements unverified'}</span>
+      </span>
+    ) : null;
   return (
     <nav className={`sidebar ${open ? 'open' : ''}`} aria-label="Main">
       <NavLink to="/" className="brand" onClick={onNavigate}>
@@ -115,9 +122,14 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
           const f = e.target.files?.[0];
           if (!f) return;
           try {
-            setProject(JSON.parse(await f.text()) as Project);
+            const parsed = JSON.parse(await f.text()) as Project;
+            // the Rust engine deserialises the whole product model: any missing
+            // or mistyped field is reported instead of breaking the app
+            call('systems.lint', parsed);
+            if (!looksLikeProject(parsed)) throw new Error('missing meta, concept, design, needs, requirements, subsystems or components');
+            setProject(parsed);
           } catch (err) {
-            alert(`Could not read project: ${err}`);
+            alert(`Could not open this file as a Protoforge project:\n${err instanceof Error ? err.message : err}`);
           }
           e.target.value = '';
         }}
@@ -134,6 +146,12 @@ function ScrollTop() {
   const { pathname } = useLocation();
   useEffect(() => window.scrollTo(0, 0), [pathname]);
   return null;
+}
+
+/** Error boundary that resets when you navigate to another page. */
+function RouteBoundary({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  return <ErrorBoundary key={pathname}>{children}</ErrorBoundary>;
 }
 
 function Loading() {
@@ -154,6 +172,7 @@ export default function App() {
             {!ready ? (
               <Loading />
             ) : (
+              <RouteBoundary>
               <Suspense fallback={<Loading />}>
                 <Routes>
                   <Route path="/" element={<Home />} />
@@ -164,6 +183,7 @@ export default function App() {
                   ))}
                 </Routes>
               </Suspense>
+              </RouteBoundary>
             )}
           </main>
         </div>

@@ -106,7 +106,7 @@ export function Overview() {
                 {lines.map((l, i) => <div key={i} className={l.tone} style={{ whiteSpace: 'pre', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.text}</div>)}
               </div>
               <div className="muted small">
-                {ev.metrics.length} metrics from {rows.filter((r) => r.metrics > 0).length} labs · failing: {' '}
+                {ev.metrics.length} metrics from {rows.filter((r) => r.metrics > 0 && r.id !== 'systems').length} labs + system roll-ups · failing: {' '}
                 {all.filter((r) => r.status === 'fail').map((r, i) => (
                   <span key={r.id}>{i > 0 && ', '}<button className="ss-link" onClick={() => openReq(r.id)}>{r.id}</button></span>
                 ))}

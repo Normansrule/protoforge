@@ -13,10 +13,19 @@ const STORAGE_KEY = 'protoforge.project.v1';
 function loadSaved(): Project | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Project) : null;
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Project;
+    return looksLikeProject(p) ? p : null;
   } catch {
     return null;
   }
+}
+
+/** Cheap structural check (the engine does the full check when a file is opened). */
+export function looksLikeProject(p: unknown): p is Project {
+  const o = p as Partial<Project> | null;
+  return !!o && typeof o === 'object' && !!o.meta && !!o.concept && !!o.design && typeof o.design === 'object' &&
+    Array.isArray(o.requirements) && Array.isArray(o.needs) && Array.isArray(o.subsystems) && Array.isArray(o.components);
 }
 
 function save(p: Project) {

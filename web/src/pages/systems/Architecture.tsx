@@ -99,7 +99,7 @@ export function ArchitectureTab() {
       >
         {project.subsystems.length === 0 ? <div className="ss-empty">No subsystems yet — add one below.</div> : view === 'diagram' ? <BlockDiagram sel={sel} setSel={setSel} /> : studio && <N2View n2={studio.n2} />}
       </Card>
-      <div className="grid grid-sidebar" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
+      <div className="grid grid-2">
         <SubsystemPanel sel={sel} setSel={setSel} />
         <InterfaceEditor sel={sel} />
       </div>

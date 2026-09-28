@@ -107,7 +107,7 @@ export function TapeoutTab() {
               <div key={f.name} className={`file-item ${file?.name === f.name ? 'on' : ''}`} onClick={() => setSel(f.name)} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setSel(f.name)}>
                 <span className="mono">{f.name}</span>
                 <span className="muted small" style={{ marginLeft: 'auto' }}>{f.content.split('\n').length} lines</span>
-                <DownloadButton small filename={f.name} label="" content={f.content} />
+                <DownloadButton small filename={f.name} label="download" content={f.content} />
               </div>
             ))}
           </div>

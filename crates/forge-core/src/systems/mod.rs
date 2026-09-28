@@ -79,7 +79,9 @@ fn system_metrics(p: &Project, m: &[Metric]) -> Vec<Metric> {
     let load = budgets::load_power_mw(p);
     if load > 0.0 {
         let eff = budgets::regulator_efficiency(p);
-        let avg = load / eff;
+        // same definition as the Power lab: loads through the regulator plus the always-on quiescent drain
+        let quiescent_mw = p.design.power_rails.quiescent_ua * 1e-3 * p.design.battery.nominal_v;
+        let avg = load / eff + quiescent_mw;
         out.push(
             Metric::new(
                 "budget.avg_power_mw",
@@ -89,7 +91,7 @@ fn system_metrics(p: &Project, m: &[Metric]) -> Vec<Metric> {
                 "systems",
             )
             .with_note(&format!(
-                "{load:.2} mW of loads (active × duty + sleep × (1 − duty)) ÷ {eff:.2} regulator efficiency"
+                "{load:.2} mW of loads (active × duty + sleep × (1 − duty)) ÷ {eff:.2} regulator efficiency + {quiescent_mw:.3} mW quiescent"
             )),
         );
         let b = &p.design.battery;

@@ -69,7 +69,7 @@ export function FilesTab({ layout }: { layout: Layout }) {
           </Card>
         </div>
       )}
-      {cur && <Card title="Source"><Code code={cur.content.length > 60000 ? cur.content.slice(0, 60000) + '\n… (truncated in the viewer; the download is complete)' : cur.content} filename={cur.path.split('/').pop()} maxHeight={320} /></Card>}
+      {cur && <Card title="Source"><Code code={cur.content.length > 60000 ? cur.content.slice(0, 60000) + '\n… (truncated in the viewer; the download and copy buttons use the complete file)' : cur.content} fullCode={cur.content} filename={cur.path.split('/').pop()} maxHeight={320} /></Card>}
       <div className="grid grid-2">
         {byKind('BOM') && <Card title="BOM (JLCPCB columns)" subtitle="LCSC Part # left blank on purpose — choose real parts yourself"><Code code={byKind('BOM')!.content} maxHeight={260} /></Card>}
         {byKind('CPL') && <Card title="Pick-and-place (CPL)" subtitle="Check rotations in the vendor's preview"><Code code={byKind('CPL')!.content} maxHeight={260} /></Card>}

@@ -153,7 +153,8 @@ export function Formula({ children }: { children: ReactNode }) {
   return <div className="formula">{children}</div>;
 }
 
-export function Code(props: { code: string; filename?: string; maxHeight?: number }) {
+export function Code(props: { code: string; filename?: string; maxHeight?: number; /** Complete text for copy/download when `code` is a truncated preview. */ fullCode?: string }) {
+  const full = props.fullCode ?? props.code;
   const [copied, setCopied] = useState(false);
   return (
     <div style={{ position: 'relative' }}>
@@ -163,7 +164,7 @@ export function Code(props: { code: string; filename?: string; maxHeight?: numbe
           <button
             className="btn small"
             onClick={() => {
-              navigator.clipboard?.writeText(props.code).then(() => {
+              navigator.clipboard?.writeText(full).then(() => {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 1200);
               });
@@ -171,7 +172,7 @@ export function Code(props: { code: string; filename?: string; maxHeight?: numbe
           >
             {copied ? 'Copied' : 'Copy'}
           </button>
-          {props.filename && <DownloadButton filename={props.filename} content={props.code} small />}
+          {props.filename && <DownloadButton filename={props.filename} content={full} small />}
         </div>
       </div>
       <pre className="code" style={{ maxHeight: props.maxHeight }}>{props.code}</pre>

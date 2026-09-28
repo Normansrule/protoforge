@@ -1,6 +1,6 @@
 // Add / edit a requirement: text, rationale, kind, trace links, verification
 // method, metric (from everything the engine currently produces) and criterion.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Cmp, Metric, Requirement } from '../../engine/types';
 import { CMPS, KINDS, METHODS, MultiPick, cap, fmtNum, labForMetric, nextId, signedPct, useStudio } from './shared';
 
@@ -106,11 +106,11 @@ export function ReqForm(props: { initial: Requirement; isNew: boolean; onSave: (
             </select>
           </label>
           <label className="f">{v.cmp === 'between' ? 'Low' : 'Target'}
-            <input type="number" step="any" value={v.target} onChange={(e) => setV({ target: Number(e.target.value) })} />
+            <NumText value={v.target} onChange={(n) => setV({ target: n })} />
           </label>
           {(v.cmp === 'between' || v.cmp === 'eq') ? (
             <label className="f">{v.cmp === 'between' ? 'High' : '± tolerance'}
-              <input type="number" step="any" value={v.target_hi ?? 0} onChange={(e) => setV({ target_hi: Number(e.target.value) })} />
+              <NumText value={v.target_hi ?? 0} onChange={(n) => setV({ target_hi: n })} />
             </label>
           ) : (
             <label className="f">Unit<input type="text" value={v.unit} onChange={(e) => setV({ unit: e.target.value })} /></label>
@@ -135,5 +135,26 @@ export function ReqForm(props: { initial: Requirement; isNew: boolean; onSave: (
         </div>
       </div>
     </form>
+  );
+}
+
+/** Number input that keeps what you type ("-", "", "47.") and only reports valid numbers. */
+function NumText({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const [text, setText] = useState(String(value));
+  useEffect(() => {
+    if (Number(text) !== value) setText(String(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        const n = Number(e.target.value);
+        if (e.target.value.trim() !== '' && Number.isFinite(n)) onChange(n);
+      }}
+    />
   );
 }

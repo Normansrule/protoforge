@@ -58,7 +58,7 @@ export function PickPlace() {
     })()) : '');
   const eventsCsv = () => (d ? toCSV(['t0_s', 't1_s', 'kind', 'label', 'refdes'], [d.events.map((e) => e.t0), d.events.map((e) => e.t1), d.events.map((e) => e.kind), d.events.map((e) => e.label), d.events.map((e) => e.refdes ?? '')]) : '');
 
-  const total = d?.cycle_s ?? 1;
+  const total = Math.max(1e-6, d?.cycle_s ?? 1);
   const bdRows = useMemo(() => (d ? KINDS.map((k) => ({ ...k, v: d.breakdown[k.id] })) : []), [d]);
 
   return (
@@ -104,7 +104,7 @@ export function PickPlace() {
                 <circle r={d.reach_mm[1]} fill="var(--accent-soft)" stroke="var(--border-strong)" strokeWidth={0.8} />
                 <circle r={d.reach_mm[0]} fill="var(--surface-1)" stroke="var(--border-strong)" strokeWidth={0.8} />
                 {/* feeder rail */}
-                <rect x={d.feeders[0]?.xy[0] - 10} y={cfg.feeder_y_mm - 16} width={(d.feeders.length - 1) * cfg.feeder_pitch_mm + 20} height={22} rx={3} fill="var(--surface-3)" stroke="var(--border-strong)" strokeWidth={0.6} />
+                {d.feeders.length > 0 && <rect x={d.feeders[0].xy[0] - 10} y={cfg.feeder_y_mm - 16} width={(d.feeders.length - 1) * cfg.feeder_pitch_mm + 20} height={22} rx={3} fill="var(--surface-3)" stroke="var(--border-strong)" strokeWidth={0.6} />}
                 {d.feeders.map((f) => {
                   const active = holding >= 0 && d.placements[holding]?.feeder === f.slot;
                   return (

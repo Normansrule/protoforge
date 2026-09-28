@@ -142,7 +142,7 @@ export function CadCanvas(props: {
             infiniteGrid
           />
         )}
-        {shadows && <ContactShadows position={[0, floorY, 0]} scale={size * 2.2} blur={2.4} opacity={theme === 'light' ? 0.35 : 0.55} far={size} resolution={512} frames={Infinity} />}
+        {shadows && <ContactShadows key={`${bounds.min.map((v) => v.toFixed(1)).join()}|${bounds.max.map((v) => v.toFixed(1)).join()}`} position={[0, floorY, 0]} scale={size * 2.2} blur={2.4} opacity={theme === 'light' ? 0.35 : 0.55} far={size} resolution={512} frames={1} />}
         <group rotation={[-Math.PI / 2, 0, 0]}>{props.children}</group>
         <OrbitControls makeDefault enableDamping autoRotate={props.autoRotate} autoRotateSpeed={0.7} />
         <CameraRig bounds={bounds} preset={props.preset ?? 'iso'} nonce={props.nonce ?? 0} fit={props.fit ?? 1.05} />
