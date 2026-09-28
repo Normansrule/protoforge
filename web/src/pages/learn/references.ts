@@ -33,6 +33,27 @@ export const REFERENCES: RefGroup[] = [
     ],
   },
   {
+    discipline: 'Power, batteries & thermal',
+    refs: [
+      { text: 'D. Linden, T. B. Reddy, *Handbook of Batteries*, 4th ed., McGraw-Hill, 2011.', labs: ['power'] },
+      { text: 'G. L. Plett, *Battery Management Systems, Vol. 1: Battery Modeling*, Artech House, 2015.', labs: ['power'] },
+      { text: 'W. Peukert, *Elektrotechnische Zeitschrift* 18, 1897.', labs: ['power'] },
+      { text: 'L. Benini, A. Bogliolo, G. De Micheli, “A survey of design techniques for system-level dynamic power management”, *IEEE Transactions on VLSI Systems* 8(3), 2000.', labs: ['power', 'rl'] },
+      { text: 'F. P. Incropera, D. P. DeWitt, T. L. Bergman, A. S. Lavine, *Fundamentals of Heat and Mass Transfer*, 7th ed., Wiley, 2011.', labs: ['power'] },
+      { text: 'IEC 60601-1, applied-part surface temperature limits (commonly cited as 43 °C for prolonged skin contact).', labs: ['power'] },
+    ],
+  },
+  {
+    discipline: 'Optics & displays',
+    refs: [
+      { text: 'E. Hecht, *Optics*, 5th ed., Pearson, 2017.', labs: ['optics'] },
+      { text: 'W. J. Smith, *Modern Optical Engineering*, 4th ed., McGraw-Hill, 2008.', labs: ['optics'] },
+      { text: 'B. C. Kress, *Optical Architectures for Augmented-, Virtual-, and Mixed-Reality Headsets*, SPIE Press, 2020.', labs: ['optics'] },
+      { text: 'J. P. Rolland, H. Hua, “Head-mounted display systems”, *Encyclopedia of Optical Engineering*, 2005.', labs: ['optics'] },
+      { text: 'ANSI/HFES 100-2007, *Human Factors Engineering of Computer Workstations*.', labs: ['optics'] },
+    ],
+  },
+  {
     discipline: 'Printed circuit boards',
     refs: [
       { text: 'IPC-2221, *Generic Standard on Printed Board Design*.', labs: ['pcb'] },

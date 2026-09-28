@@ -205,9 +205,10 @@ mod tests {
         let ppd = get("optics.ppd");
         assert!(ppd > 26.0 && ppd < 28.0, "{ppd}");
         let vi = get("optics.virtual_image_m");
-        assert!(vi > 1.0 && vi < 3.0 && (vi - 1.339).abs() < 0.01, "{vi}");
+        assert!(vi > 1.0 && vi < 3.0 && (vi - 1.342).abs() < 0.01, "{vi}");
         let eb = get("optics.eyebox_mm");
-        assert!(eb > 6.5 && eb < 7.5, "{eb}");
+        assert!(eb > 5.5 && eb < 6.5, "{eb}");
+        assert!(get("optics.combiner_clearance_mm") > 0.0);
         assert!((get("optics.see_through_pct") - 70.0).abs() < 1e-9);
         assert!(get("optics.dfov_deg") > hfov);
     }

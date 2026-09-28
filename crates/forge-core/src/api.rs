@@ -37,10 +37,29 @@ pub const DISPATCHERS: &[(&str, Dispatcher)] = &[
     ("mfg", crate::mfg::dispatch),
 ];
 
+include!(concat!(env!("OUT_DIR"), "/catalog.rs"));
+
+/// Module name → method names, from the generated [`METHODS`] list.
+pub fn catalog() -> serde_json::Map<String, Value> {
+    let mut map = serde_json::Map::new();
+    for (name, _) in DISPATCHERS {
+        let ms: Vec<Value> = METHODS
+            .iter()
+            .filter(|m| m.split('.').next() == Some(name))
+            .map(|m| json!(m))
+            .collect();
+        map.insert((*name).to_string(), Value::Array(ms));
+    }
+    map
+}
+
 /// Call an engine method with a JSON value and get a JSON value back.
 pub fn call_value(method: &str, input: &Value) -> ApiResult {
     if method == "api.methods" {
         return Ok(json!(list_modules()));
+    }
+    if method == "api.catalog" {
+        return Ok(Value::Object(catalog()));
     }
     let module = method.split('.').next().unwrap_or("");
     for (name, dispatcher) in DISPATCHERS {
@@ -103,6 +122,20 @@ mod tests {
     fn unknown_module_is_an_error() {
         let out = call("nope.method", "{}");
         assert!(out.contains("error"));
+    }
+
+    #[test]
+    fn catalog_lists_real_methods() {
+        let c = catalog();
+        assert!(c["systems"].as_array().unwrap().iter().any(|m| m == "systems.evaluate"));
+        assert!(c["circuit"].as_array().unwrap().len() >= 3);
+        // every catalogued method is actually recognised by its dispatcher
+        for m in METHODS {
+            let r = call_value(m, &Value::Null);
+            if let Err(e) = r {
+                assert!(!e.starts_with("unknown method"), "{m}: {e}");
+            }
+        }
     }
 
     #[test]

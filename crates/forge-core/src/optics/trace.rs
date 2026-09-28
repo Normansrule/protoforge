@@ -348,7 +348,7 @@ mod tests {
     #[test]
     fn folded_trace_matches_unfolded_mapping() {
         let t = trace(&iris(), &TraceConfig::default());
-        let lc = 8.0;
+        let lc = iris().lens_to_combiner_mm;
         for r in &t.rays {
             // eye-plane point: folded x = L_c − unfolded y
             let ye = r.unfolded[2][1];

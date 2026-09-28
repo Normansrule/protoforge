@@ -415,20 +415,20 @@ mod tests {
         let a = analyze(&params(), &Extras::default());
         assert_eq!(a.image_kind, "virtual");
         assert!(
-            (a.virtual_image_m - (1313.33 + 26.0) / 1000.0).abs() < 1e-3,
+            (a.virtual_image_m - (1313.33 + 29.0) / 1000.0).abs() < 1e-3,
             "{}",
             a.virtual_image_m
         );
         assert!(a.hfov_deg > 23.0 && a.hfov_deg < 24.0, "{}", a.hfov_deg);
         assert!(a.ppd > 26.5 && a.ppd < 28.0, "{}", a.ppd);
-        assert!(a.eyebox_mm > 6.5 && a.eyebox_mm < 7.5, "{}", a.eyebox_mm);
+        assert!(a.eyebox_mm > 5.5 && a.eyebox_mm < 6.5, "{}", a.eyebox_mm);
         // exact eyebox is slightly larger than the collimated approximation by (s+L)/s
         assert!(a.eyebox_mm > a.eyebox_approx_mm);
         assert!((a.see_through_pct - 70.0).abs() < 1e-9);
         assert!((a.image_nits - 3000.0 * 0.92 * 0.3).abs() < 1e-9);
         // FOV from the virtual image geometry
         let hw = a.image_width_mm / 2.0;
-        let fov = 2.0 * (hw / (a.image_behind_lens_mm + 26.0)).atan().to_degrees();
+        let fov = 2.0 * (hw / (a.image_behind_lens_mm + 29.0)).atan().to_degrees();
         assert!((fov - a.hfov_deg).abs() < 1e-9);
         // diagonal > horizontal > vertical
         assert!(a.dfov_deg > a.hfov_deg && a.hfov_deg > a.vfov_deg);
@@ -450,7 +450,7 @@ mod tests {
         assert!((a.hfov_deg - expect).abs() < 1e-4, "{} vs {expect}", a.hfov_deg);
         assert!((a.hfov_collimated_deg - expect).abs() < 1e-12);
         // eyebox → D − 2 L tan(FOV/2)
-        let eb = 18.0 - 2.0 * 26.0 * (expect.to_radians() / 2.0).tan();
+        let eb = 18.0 - 2.0 * 29.0 * (expect.to_radians() / 2.0).tan();
         assert!((a.eyebox_mm - eb).abs() < 1e-3, "{} vs {eb}", a.eyebox_mm);
         let exact = OpticsParams {
             display_to_lens_mm: 20.0,
@@ -486,21 +486,36 @@ mod tests {
     fn eyebox_formula_and_pupil_variants() {
         let a = analyze(&params(), &Extras::default());
         let si = image_distance(20.0, 19.7).abs();
-        let l = 26.0;
+        let l = 29.0;
         let tan = (a.hfov_deg.to_radians() / 2.0).tan();
         let exact = (si + l) / si * (18.0 - 2.0 * l * tan);
         assert!((a.eyebox_mm - exact).abs() < 1e-6, "{} vs {exact}", a.eyebox_mm);
         assert!((a.eyebox_full_pupil_mm - (exact - 4.0)).abs() < 1e-6);
         assert!((a.eyebox_partial_mm - (exact + 4.0)).abs() < 1e-6);
-        // Iris: 8 mm lens-to-combiner is too short for an 18 mm aperture
+        // an 18 mm aperture needs ≥ ~10.2 mm lens-to-combiner (Iris v0.3 had 8 mm; v0.4 uses 11 mm)
         assert!(
             a.min_lens_to_combiner_mm > 10.0 && a.min_lens_to_combiner_mm < 10.5,
             "{}",
             a.min_lens_to_combiner_mm
         );
-        assert!(a.warnings.iter().any(|w| w.contains("cut through the lens")));
-        // the 10 mm stub default aperture would give ≈ 0 eyebox
-        let small = analyze(&OpticsParams::default(), &Extras::default());
-        assert!(small.eyebox_mm < 0.5);
+        assert!(!a.warnings.iter().any(|w| w.contains("cut through the lens")));
+        // the v0.3 layout (8 mm) collides with the lens
+        let v03 = analyze(
+            &OpticsParams {
+                lens_to_combiner_mm: 8.0,
+                ..params()
+            },
+            &Extras::default(),
+        );
+        assert!(v03.warnings.iter().any(|w| w.contains("cut through the lens")));
+        // a 10 mm aperture would give ≈ 0 eyebox
+        let small = analyze(
+            &OpticsParams {
+                lens_diameter_mm: 10.0,
+                ..params()
+            },
+            &Extras::default(),
+        );
+        assert!(small.eyebox_mm < 0.5, "{}", small.eyebox_mm);
     }
 }
