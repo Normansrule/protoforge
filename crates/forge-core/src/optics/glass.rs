@@ -7,7 +7,8 @@
 //! n²(λ) − 1 = B₁λ²/(λ² − C₁) + B₂λ²/(λ² − C₂) + B₃λ²/(λ² − C₃)
 //! ```
 //!
-//! with the published coefficients for N-BK7 and N-SF11 (SCHOTT datasheets)
+//! with the published coefficients for N-BK7, N-SF11, N-SF6 and N-F2 (SCHOTT
+//! datasheets)
 //! and for fused silica (I. H. Malitson, "Interspecimen comparison of the
 //! refractive index of fused silica", *J. Opt. Soc. Am.* 55, 1205 (1965)).
 //! The same numbers are tabulated on refractiveindex.info.
@@ -105,6 +106,7 @@ impl Material {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn sellmeier(id: &str, name: &str, b: [f64; 3], c: [f64; 3], nd: f64, vd: f64, rho: f64, source: &str, notes: &str) -> Material {
     Material {
         id: id.into(),
@@ -155,9 +157,31 @@ pub fn catalog() -> Vec<Material> {
             [0.013188707, 0.0623068142, 155.23629],
             1.78472,
             25.68,
-            4.74,
+            3.22,
             "SCHOTT datasheet Sellmeier coefficients",
-            "High index, high dispersion: the flint half of a compact achromat (heavy).",
+            "High index, high dispersion: the flint half of a compact achromat (lead-free, but 2.7× the density of PMMA).",
+        ),
+        sellmeier(
+            "N-SF6",
+            "SCHOTT N-SF6 (dense flint)",
+            [1.77931763, 0.338149866, 2.08734474],
+            [0.0133714182, 0.0617533621, 174.01759],
+            1.80518,
+            25.36,
+            3.37,
+            "SCHOTT datasheet Sellmeier coefficients",
+            "One of the highest-index common flints; strong negative elements stay thin.",
+        ),
+        sellmeier(
+            "N-F2",
+            "SCHOTT N-F2 (flint)",
+            [1.39757037, 0.159201403, 1.2686543],
+            [0.00995906143, 0.0546931752, 119.248346],
+            1.62005,
+            36.43,
+            2.65,
+            "SCHOTT datasheet Sellmeier coefficients",
+            "A light, moderate flint: gentler curves than N-SF11 in an achromat, but more secondary colour correction work.",
         ),
         sellmeier(
             "F_SILICA",
@@ -233,7 +257,9 @@ pub fn lookup(id: &str) -> Result<Option<Material>, String> {
             }
         }
     }
-    Err(format!("unknown material `{t}` (use a catalogue id such as N-BK7, PMMA, PC, COP, or a model glass `nd/vd`)"))
+    Err(format!(
+        "unknown material `{t}` (use a catalogue id such as N-BK7, PMMA, PC, COP, or a model glass `nd/vd`)"
+    ))
 }
 
 /// Index of a material id at a wavelength (air → 1).
@@ -315,6 +341,13 @@ mod tests {
         let sf11 = get("n-sf11");
         assert!((sf11.nd() - 1.78472).abs() < 2e-5, "{}", sf11.nd());
         assert!((sf11.vd() - 25.68).abs() < 0.02, "{}", sf11.vd());
+        // N-SF6: nd = 1.80518, Vd = 25.36; N-F2: nd = 1.62005, Vd = 36.43
+        let sf6 = get("N-SF6");
+        assert!((sf6.nd() - 1.80518).abs() < 2e-5, "{}", sf6.nd());
+        assert!((sf6.vd() - 25.36).abs() < 0.02, "{}", sf6.vd());
+        let f2 = get("N-F2");
+        assert!((f2.nd() - 1.62005).abs() < 2e-5, "{}", f2.nd());
+        assert!((f2.vd() - 36.43).abs() < 0.02, "{}", f2.vd());
         // fused silica: nd = 1.45846, Vd = 67.8
         let fs = get("F_SILICA");
         assert!((fs.nd() - 1.45846).abs() < 2e-5, "{}", fs.nd());

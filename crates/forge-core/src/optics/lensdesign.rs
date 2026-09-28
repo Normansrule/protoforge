@@ -1,4 +1,6 @@
-//! Lens design for the Iris heads-up display (HUD): catalogue presets, the
+//! Lens design for the Iris heads-up display (HUD): catalogue presets (the
+//! collimator as an ideal lens, a plano-convex singlet, a PMMA asphere, two
+//! moulded cemented achromats and a glass cemented achromat), the
 //! reversed eyepiece model, the achromat condition and a damped
 //! least-squares optimiser.
 //!
@@ -37,7 +39,7 @@ use crate::project::OpticsParams;
 /// Presets are designed at this focal length and scaled to the project's.
 pub const DESIGN_F_MM: f64 = 20.0;
 /// Default lens for the `optics.*` image-quality metrics.
-pub const DEFAULT_LENS: &str = "achromat_pmma_pc";
+pub const DEFAULT_LENS: &str = "achromat_cop_pc";
 /// Minimum element edge thickness kept by the thickness fit, mm.
 pub const MIN_EDGE_MM: f64 = 0.8;
 /// Minimum element centre thickness, mm.
@@ -91,7 +93,10 @@ pub fn presets() -> Vec<LensPreset> {
         ..Default::default()
     }];
     // (b) plano-convex PMMA, convex side towards the eye (the collimated side)
-    let pcx = vec![s("PMMA front", (n_pmma - 1.0) * DESIGN_F_MM, 6.0, "PMMA"), s("PMMA back (flat)", 0.0, 15.0, "")];
+    let pcx = vec![
+        s("PMMA front", (n_pmma - 1.0) * DESIGN_F_MM, 6.0, "PMMA"),
+        s("PMMA back (flat)", 0.0, 15.0, ""),
+    ];
     // (c) aspheric PMMA singlet — optimised by `optimize` from the plano-convex start
     //     (see the test `asphere_preset_is_a_local_optimum`)
     let asph = vec![
@@ -112,28 +117,48 @@ pub fn presets() -> Vec<LensPreset> {
             ..Default::default()
         },
     ];
-    // (d) cemented PMMA + polycarbonate achromat (UV-cured optical adhesive), optimised from the thin-lens solution
-    let ach = vec![
-        Surface {
-            label: "PMMA front (asphere)".into(),
-            radius: ACH_PC[0],
-            conic: ACH_PC[1],
-            aspheric: vec![ACH_PC[2], ACH_PC[3]],
-            thickness: 7.0,
-            material: "PMMA".into(),
-            ..Default::default()
-        },
-        s("PMMA/PC cemented", ACH_PC[4], 1.2, "PC"),
-        Surface {
-            label: "PC back (asphere)".into(),
-            radius: ACH_PC[5],
-            aspheric: vec![ACH_PC[6], ACH_PC[7]],
-            thickness: 12.0,
-            ..Default::default()
-        },
+    // (d) cemented moulded achromat (UV-cured optical adhesive), optimised from the thin-lens solution.
+    //     A PMMA crown works on paper too, but every optimum the damped least squares found from
+    //     textbook starts sat on a knife edge (rays grazing total internal reflection at the corner),
+    //     so the robust cyclo-olefin (COP, Zeonex-class, higher index) version is the preset.
+    let ach = |label: &str, crown: &str, c: &[f64; 8]| {
+        vec![
+            Surface {
+                label: format!("{crown} front (asphere)"),
+                radius: c[0],
+                conic: c[1],
+                aspheric: vec![c[2], c[3]],
+                thickness: 7.0,
+                material: crown.into(),
+                ..Default::default()
+            },
+            s(&format!("{label} cemented"), c[4], 1.2, "PC"),
+            Surface {
+                label: "PC back (asphere)".into(),
+                radius: c[5],
+                aspheric: vec![c[6], c[7]],
+                thickness: 12.0,
+                ..Default::default()
+            },
+        ]
+    };
+    let ach_cop = ach("COP/PC", "COP", &ACH_COP);
+    // (e) cemented glass achromat N-BK7 + N-SF11, spherical surfaces, optimised bending
+    let glass_ach = vec![
+        s("N-BK7 front", ACH_G[0], 6.0, "N-BK7"),
+        s("cemented", ACH_G[1], 1.2, "N-SF11"),
+        s("N-SF11 back", ACH_G[2], 12.0, ""),
     ];
-    // (e) cemented glass achromat N-BK7 + N-SF11, from the thin-lens solution, optimised bending
-    let glass_ach = vec![s("N-BK7 front", ACH_G[0], 6.0, "N-BK7"), s("cemented", ACH_G[1], 1.2, "N-SF11"), s("N-SF11 back", ACH_G[2], 12.0, "")];
+    let ach_vars = vec![
+        var(0, "curvature"),
+        var(0, "conic"),
+        var(0, "a4"),
+        var(0, "a6"),
+        var(1, "curvature"),
+        var(2, "curvature"),
+        var(2, "a4"),
+        var(2, "a6"),
+    ];
     vec![
         LensPreset {
             id: "ideal".into(),
@@ -144,14 +169,14 @@ pub fn presets() -> Vec<LensPreset> {
         },
         LensPreset {
             id: "pmma_pcx".into(),
-            title: "PMMA plano-convex".into(),
+            title: "PMMA plano-convex singlet".into(),
             summary: "The cheapest real lens: one spherical acrylic surface, R = (n − 1)·f. Field curvature, astigmatism and lateral colour grow fast off-axis.".into(),
             lens: pcx,
             variables: vec![var(0, "curvature"), var(1, "curvature")],
         },
         LensPreset {
             id: "pmma_asphere".into(),
-            title: "Aspheric PMMA singlet".into(),
+            title: "PMMA asphere singlet".into(),
             summary: "Both surfaces bent and made aspheric (conic + A4/A6) by the optimiser: moulded plastic makes aspheres free. Monochromatic blur drops; colour stays.".into(),
             lens: asph,
             variables: vec![
@@ -165,25 +190,16 @@ pub fn presets() -> Vec<LensPreset> {
             ],
         },
         LensPreset {
-            id: "achromat_pmma_pc".into(),
-            title: "PMMA + PC achromat".into(),
-            summary: "Positive acrylic 'crown' and negative polycarbonate 'flint' satisfying φ₁/V₁ + φ₂/V₂ = 0, with one aspheric surface: kills lateral colour, still injection-mouldable.".into(),
-            lens: ach,
-            variables: vec![
-                var(0, "curvature"),
-                var(0, "conic"),
-                var(0, "a4"),
-                var(0, "a6"),
-                var(1, "curvature"),
-                var(2, "curvature"),
-                var(2, "a4"),
-                var(2, "a6"),
-            ],
+            id: "achromat_cop_pc".into(),
+            title: "COP + PC achromat (moulded)".into(),
+            summary: "Cemented moulded achromatic doublet: a positive cyclo-olefin (COP, Zeonex-class) crown and a negative polycarbonate flint with φ₁/V₁ + φ₂/V₂ = 0, two aspheric faces. The best preset here.".into(),
+            lens: ach_cop,
+            variables: ach_vars,
         },
         LensPreset {
             id: "achromat_glass".into(),
             title: "Glass achromat (N-BK7 + N-SF11)".into(),
-            summary: "Classic cemented crown–flint doublet, spherical surfaces only. Excellent colour correction but heavy (N-SF11 is 4.7 g/cm³).".into(),
+            summary: "The textbook cemented crown–flint achromatic doublet, spherical surfaces only (grind-and-polish glass). Good colour, but the spheres leave field aberrations and the glass is 2–3× heavier than plastic.".into(),
             lens: glass_ach,
             variables: vec![var(0, "curvature"), var(1, "curvature"), var(2, "curvature")],
         },
@@ -191,11 +207,32 @@ pub fn presets() -> Vec<LensPreset> {
 }
 
 // Baked optimiser results at f = 20 mm, 18 mm aperture, 4 mm eye pupil,
-// ±14° diagonal field (Iris defaults). Regenerate with
+// ±14° diagonal field (Iris defaults), from the textbook starting points in
+// `bake` below. Regenerate with
 // `cargo test -p forge-core optics::lensdesign::bake -- --ignored --nocapture`.
-const ASPH: [f64; 7] = [9.93444, -0.2324, -2.3589345881209228e-4, 5.975621675626905e-7, -825.35903, -2.173599004520222e-4, 1.949397185545372e-6];
-const ACH_PC: [f64; 8] = [9.42, 0.0, 0.0, 0.0, -9.42, -75.0, 0.0, 0.0];
-const ACH_G: [f64; 3] = [12.4, -12.4, -26.2];
+// Asphere: [R1, k1, A4₁, A6₁, R2, A4₂, A6₂].
+const ASPH: [f64; 7] = [
+    9.93444,
+    -0.2324,
+    -2.3589345881209228e-4,
+    5.975621675626905e-7,
+    -825.35903,
+    -2.173599004520222e-4,
+    1.949397185545372e-6,
+];
+// Achromats: [R1, k1, A4₁, A6₁, R2 (cemented), R3, A4₃, A6₃].
+const ACH_COP: [f64; 8] = [
+    10.97367655272556,
+    -0.13298720944754916,
+    -1.2798402643841576e-4,
+    -4.551643476679061e-8,
+    -11.795911297862808,
+    -82.35290227176614,
+    -1.3025306802113014e-4,
+    9.801789065759069e-7,
+];
+// Glass achromat: [R1, R2 (cemented), R3].
+const ACH_G: [f64; 3] = [14.781514707420792, -10.365186166006435, -17.31348184651231];
 
 /// Thin-lens achromat powers `(φ₁, φ₂)` for total power `phi`.
 pub fn achromat_powers(phi: f64, v1: f64, v2: f64) -> (f64, f64) {
@@ -281,7 +318,7 @@ pub fn hud_system(o: &OpticsParams, x: &Extras, lens: &[Surface]) -> System {
         surfaces,
         pupil_diameter_mm: x.pupil_mm,
         object_distance_mm: object,
-        fields_deg: vec![0.0, 0.5 * half, 0.7071 * half, half],
+        fields_deg: vec![0.0, 0.5 * half, std::f64::consts::FRAC_1_SQRT_2 * half, half],
         wavelengths_nm: vec![glass::LAMBDA_F, glass::LAMBDA_D, glass::LAMBDA_C],
         primary: 1,
     }
@@ -367,8 +404,14 @@ pub fn display_sampling(o: &OpticsParams) -> (f64, f64) {
 pub fn lens_mass_g(lens: &[Surface]) -> f64 {
     let mut m = 0.0;
     for i in 0..lens.len().saturating_sub(1) {
-        let Ok(Some(mat)) = glass::lookup(&lens[i].material) else { continue };
-        let h = lens[i].semi_diameter.max(lens[i + 1].semi_diameter).min(max_height(&lens[i])).min(max_height(&lens[i + 1]));
+        let Ok(Some(mat)) = glass::lookup(&lens[i].material) else {
+            continue;
+        };
+        let h = lens[i]
+            .semi_diameter
+            .max(lens[i + 1].semi_diameter)
+            .min(max_height(&lens[i]))
+            .min(max_height(&lens[i + 1]));
         // ∫ 2πr (t + sag2(r) − sag1(r)) dr
         let n = 60;
         let mut v = 0.0;
@@ -487,9 +530,12 @@ struct Evaluator<'a> {
     efl_target: f64,
     pupil: Vec<(f64, f64)>,
     evals: usize,
+    /// Largest clear semi-diameter of the lens group (0 = unlimited).
+    sd_full: f64,
 }
 
 const FAIL_ARCMIN: f64 = 60.0;
+const VIG_ARCMIN: f64 = 8.0;
 
 enum Ray {
     Hit([f64; 2]),
@@ -504,6 +550,17 @@ impl Evaluator<'_> {
         for (k, var) in self.cfg.variables.iter().enumerate() {
             if let Some(s) = sys.surfaces.get_mut(self.start + var.surface) {
                 set_var(s, &var.param, v[k]);
+            }
+        }
+        // every lens surface keeps the full clear aperture: the optimiser must
+        // not "improve" the merit by vignetting rays on an artificially small
+        // internal aperture (a steep surface that cannot reach it makes rays
+        // miss, which is penalised)
+        if self.sd_full > 0.0 {
+            for s in sys.surfaces[self.start..].iter_mut() {
+                if !s.is_ideal() && s.semi_diameter > 0.0 {
+                    s.semi_diameter = self.sd_full;
+                }
             }
         }
         let fit_t = !self.cfg.variables.iter().any(|v| v.param == "thickness");
@@ -533,8 +590,8 @@ impl Evaluator<'_> {
             }
         }
         let k = RAD_TO_ARCMIN / self.efl_target.abs().max(1e-9);
-        let mut sum2 = 0.0;
-        let mut cnt = 0usize;
+        let (mut sum2, mut cnt) = (0.0, 0usize); // real spot, rays that reach the display
+        let mut total = 0usize;
         for &f in &sys.fields_deg {
             let mut pts: Vec<Ray> = Vec::with_capacity(nw * self.pupil.len());
             for w in 0..nw {
@@ -546,7 +603,6 @@ impl Evaluator<'_> {
                             let q = ro.at_z(prep.z_image);
                             Ray::Hit([q[0], q[1]])
                         }
-                        // vignetted rays are excluded (as in Zemax); TIR and misses are penalised
                         Some((_, Fail::Clipped)) => Ray::Vignetted,
                         Some(_) => Ray::Failed,
                     });
@@ -563,26 +619,34 @@ impl Evaluator<'_> {
             let cx = good.iter().map(|p| p[0]).sum::<f64>() / n;
             let cy = good.iter().map(|p| p[1]).sum::<f64>() / n;
             for p in &pts {
+                // vignetted rays carry a moderate penalty (otherwise the optimiser
+                // "improves" a field by throwing its worst rays out of the aperture);
+                // TIR and misses a large one
                 let (ex, ey) = match p {
                     Ray::Hit(q) => ((q[0] - cx) * k, (q[1] - cy) * k),
                     Ray::Failed => (FAIL_ARCMIN, FAIL_ARCMIN),
-                    Ray::Vignetted => (0.0, 0.0),
+                    Ray::Vignetted => (VIG_ARCMIN, VIG_ARCMIN),
                 };
-                if !matches!(p, Ray::Vignetted) {
+                if matches!(p, Ray::Hit(_)) {
                     sum2 += ex * ex + ey * ey;
                     cnt += 1;
                 }
+                total += 1;
                 r.push(ex);
                 r.push(ey);
             }
         }
         let rms = (sum2 / cnt.max(1) as f64).sqrt();
-        // scale per-ray residuals so |r|² / count = RMS²
-        let norm = 1.0 / (cnt.max(1) as f64).sqrt();
+        // scale per-ray residuals so |r|² / count = mean squared error
+        let norm = 1.0 / (total.max(1) as f64).sqrt();
         for x in r.iter_mut() {
             *x *= norm;
         }
-        let e = if efl.is_finite() { (efl - self.efl_target) / self.efl_target } else { 1.0 };
+        let e = if efl.is_finite() {
+            (efl - self.efl_target) / self.efl_target
+        } else {
+            1.0
+        };
         r.push(EFL_WEIGHT * e);
         (r, rms, efl, sys)
     }
@@ -617,6 +681,11 @@ pub fn optimize(sys: &System, lens_start: usize, cfg: &OptConfig) -> Result<OptR
         efl_target,
         pupil: hexapolar(cfg.rings.clamp(1, 6)),
         evals: 0,
+        sd_full: sys.surfaces[lens_start..]
+            .iter()
+            .filter(|s| !s.is_ideal())
+            .map(|s| s.semi_diameter)
+            .fold(0.0, f64::max),
     };
     let mut x: Vec<f64> = cfg
         .variables
@@ -731,7 +800,13 @@ pub fn optimize(sys: &System, lens_start: usize, cfg: &OptConfig) -> Result<OptR
 /// project's focal length).
 pub fn project_lens(p: &crate::project::Project) -> (String, Vec<Surface>) {
     let o = &p.design.optics;
-    let id = p.design.extra.get("optics_lens").and_then(|v| v.as_str()).unwrap_or(DEFAULT_LENS).to_string();
+    let id = p
+        .design
+        .extra
+        .get("optics_lens")
+        .and_then(|v| v.as_str())
+        .unwrap_or(DEFAULT_LENS)
+        .to_string();
     if id == "custom" {
         if let Some(rx) = p.design.extra.get("optics_lens_rx") {
             if let Ok(lens) = serde_json::from_value::<Vec<Surface>>(rx.clone()) {
@@ -799,12 +874,75 @@ mod tests {
             let f = lens_efl(&l);
             assert!((f - o.lens_focal_mm).abs() < 1e-3, "{}: {f}", p.id);
             // positive edge and centre thicknesses
-            for i in 0..l.len() - 1 {
-                if !l[i].material.is_empty() {
-                    assert!(l[i].thickness >= MIN_CENTER_MM * 0.99, "{}", p.id);
+            for s in &l[..l.len() - 1] {
+                if !s.material.is_empty() {
+                    assert!(s.thickness >= MIN_CENTER_MM * 0.99, "{}", p.id);
                 }
             }
         }
+    }
+
+    #[test]
+    fn baked_presets_rank_as_the_textbooks_say() {
+        let o = Project::iris().design.optics;
+        let q = |id: &str| hud_quality(&o, &preset_lens(id, &o).unwrap(), true).unwrap().1;
+        let pcx = q("pmma_pcx");
+        let asph = q("pmma_asphere");
+        let cop = q("achromat_cop_pc");
+        let glass = q("achromat_glass");
+        // aspheres beat the spherical singlet; the optimised moulded achromat beats the all-spherical glass one
+        assert!(
+            asph.worst_rms_arcmin < 0.3 * pcx.worst_rms_arcmin,
+            "{} vs {}",
+            asph.worst_rms_arcmin,
+            pcx.worst_rms_arcmin
+        );
+        assert!(cop.worst_rms_arcmin < glass.worst_rms_arcmin && cop.worst_rms_arcmin < asph.worst_rms_arcmin);
+        // an achromat cuts lateral colour of the singlet (same material, same power) several-fold
+        assert!(
+            cop.worst_lateral_arcmin < 0.35 * asph.worst_lateral_arcmin,
+            "{} vs {}",
+            cop.worst_lateral_arcmin,
+            asph.worst_lateral_arcmin
+        );
+        assert!(glass.worst_lateral_arcmin < 0.35 * asph.worst_lateral_arcmin);
+        // and longitudinal colour ≈ f/V for the singlet, much less for the glass doublet; the
+        // optimised moulded doublet trades part of its axial colour for field performance
+        // (the merit is the polychromatic spot over all fields, not axial colour alone)
+        let f = o.lens_focal_mm;
+        let lca = asph.chromatic.longitudinal_mm.abs();
+        assert!((lca - f / 57.4).abs() / (f / 57.4) < 0.25, "singlet LCA {lca}");
+        let (lc, lg) = (cop.chromatic.longitudinal_mm.abs(), glass.chromatic.longitudinal_mm.abs());
+        assert!(lc < 0.6 * lca && lg < 0.3 * lca, "singlet {lca} COP {lc} glass {lg}");
+    }
+
+    #[test]
+    fn optimiser_does_not_move_a_baked_preset_much() {
+        // the baked asphere is (close to) a local optimum of the same merit function
+        let o = OpticsParams {
+            lens_focal_mm: DESIGN_F_MM,
+            ..Project::iris().design.optics
+        };
+        let p = presets().into_iter().find(|p| p.id == "pmma_asphere").unwrap();
+        let mut sys = hud_system(&o, &Extras::default(), &adapt_lens(p.lens, &o));
+        paraxial_focus(&mut sys);
+        let r = optimize(
+            &sys,
+            LENS_START,
+            &OptConfig {
+                variables: p.variables,
+                efl_mm: DESIGN_F_MM,
+                max_iter: 5,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            r.final_rms_arcmin > 0.9 * r.start_rms_arcmin,
+            "{} → {}",
+            r.start_rms_arcmin,
+            r.final_rms_arcmin
+        );
     }
 
     #[test]
@@ -816,7 +954,11 @@ mod tests {
         assert!((qi.pixel_arcmin - 2.256).abs() < 0.01, "{}", qi.pixel_arcmin);
         let (_, qp) = hud_quality(&o, &preset_lens("pmma_pcx", &o).unwrap(), true).unwrap();
         assert!(qp.worst_rms_arcmin > 1.0, "{}", qp.worst_rms_arcmin);
-        assert!(qp.worst_lateral_arcmin > 2.0, "a singlet has lateral colour: {}", qp.worst_lateral_arcmin);
+        assert!(
+            qp.worst_lateral_arcmin > 2.0,
+            "a singlet has lateral colour: {}",
+            qp.worst_lateral_arcmin
+        );
     }
 }
 
@@ -831,18 +973,51 @@ mod bake {
         let mut sys = hud_system(o, &Extras::default(), &lens);
         paraxial_focus(&mut sys);
         let t0 = std::time::Instant::now();
-        let r = optimize(&sys, LENS_START, &OptConfig { variables: vars, efl_mm: o.lens_focal_mm, max_iter: 150, ..Default::default() }).unwrap();
+        let r = optimize(
+            &sys,
+            LENS_START,
+            &OptConfig {
+                variables: vars,
+                efl_mm: o.lens_focal_mm,
+                max_iter: 150,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let lens2 = r.system.surfaces[LENS_START..].to_vec();
         let (_, q1) = hud_quality(o, &lens2, true).unwrap();
         println!(
             "{:22} start rms {:.2}' mtf {:.2} lat {:.2}'  → opt rms {:.2}' mtf {:.2} lat {:.2}' eflx {:.3} ({} ms, {})",
-            name, q0.worst_rms_arcmin, q0.worst_mtf_nyquist, q0.worst_lateral_arcmin, q1.worst_rms_arcmin, q1.worst_mtf_nyquist,
-            q1.worst_lateral_arcmin, lens_efl(&lens2), t0.elapsed().as_millis(), r.note
+            name,
+            q0.worst_rms_arcmin,
+            q0.worst_mtf_nyquist,
+            q0.worst_lateral_arcmin,
+            q1.worst_rms_arcmin,
+            q1.worst_mtf_nyquist,
+            q1.worst_lateral_arcmin,
+            lens_efl(&lens2),
+            t0.elapsed().as_millis(),
+            r.note
         );
         for s in &lens2 {
-            println!("    R {:10.5} k {:8.4} A {:?} t {:.3} {}", s.radius, s.conic, s.aspheric, s.thickness, s.material);
+            println!(
+                "    R {:?} k {:?} A {:?} t {:.3} {}",
+                s.radius, s.conic, s.aspheric, s.thickness, s.material
+            );
         }
-        println!("    mass {:.2} g  spots {:?}", lens_mass_g(&lens2), q1.spots.iter().map(|s| (s.rms_arcmin * 100.0).round() / 100.0).collect::<Vec<_>>());
+        // what the preset path (adapt_lens) will produce from these numbers
+        let re = adapt_lens(lens2.clone(), o);
+        let (_, q2) = hud_quality(o, &re, true).unwrap();
+        println!(
+            "    as a preset: spots {:?} {:?}",
+            q2.spots.iter().map(|s| (s.rms_arcmin * 100.0).round() / 100.0).collect::<Vec<_>>(),
+            q2.warnings
+        );
+        println!(
+            "    mass {:.2} g  spots {:?}",
+            lens_mass_g(&lens2),
+            q1.spots.iter().map(|s| (s.rms_arcmin * 100.0).round() / 100.0).collect::<Vec<_>>()
+        );
         (q1.worst_rms_arcmin, lens2)
     }
 
@@ -852,33 +1027,88 @@ mod bake {
     #[ignore]
     fn bake() {
         let o = Project::iris().design.optics;
-        let o20 = OpticsParams { lens_focal_mm: DESIGN_F_MM, ..o.clone() };
+        let o20 = OpticsParams {
+            lens_focal_mm: DESIGN_F_MM,
+            ..o.clone()
+        };
         for p in presets() {
             run(&o20, &p.id, p.lens.clone(), p.variables.clone());
         }
         let v = |l: &[(usize, &str)]| l.iter().map(|(a, b)| var(*a, b)).collect::<Vec<_>>();
-        let asv = v(&[(0, "curvature"), (0, "conic"), (0, "a4"), (0, "a6"), (1, "curvature"), (1, "a4"), (1, "a6")]);
-        run(&o20, "asph from bent", vec![s("a", 15.0, 5.0, "PMMA"), s("b", -25.0, 15.0, "")], asv.clone());
-        run(&o20, "asph from meniscus", vec![s("a", -30.0, 5.0, "PMMA"), s("b", -7.0, 15.0, "")], asv.clone());
-        run(&o20, "asph flat-first", vec![s("a", 0.0, 5.0, "PMMA"), s("b", -9.84, 15.0, "")], asv.clone());
-        let av = v(&[(0, "curvature"), (0, "conic"), (0, "a4"), (0, "a6"), (1, "curvature"), (2, "curvature"), (2, "a4"), (2, "a6")]);
-        run(&o20, "ach PMMA bent", vec![s("a", 12.0, 7.0, "PMMA"), s("c", -8.0, 1.2, "PC"), s("d", -40.0, 12.0, "")], av.clone());
-        run(&o20, "ach PC first", vec![s("a", 40.0, 1.2, "PC"), s("c", 9.0, 7.0, "PMMA"), s("d", -20.0, 12.0, "")], av.clone());
-        run(&o20, "ach COP/PC", vec![s("a", 9.6, 7.0, "COP"), s("c", -9.6, 1.2, "PC"), s("d", -75.0, 12.0, "")], av.clone());
-        run(&o20, "ach PMMA flatter", vec![s("a", 11.0, 7.0, "PMMA"), s("c", -11.0, 1.2, "PC"), s("d", -200.0, 12.0, "")], av.clone());
+        let asv = v(&[
+            (0, "curvature"),
+            (0, "conic"),
+            (0, "a4"),
+            (0, "a6"),
+            (1, "curvature"),
+            (1, "a4"),
+            (1, "a6"),
+        ]);
+        run(
+            &o20,
+            "asph from bent",
+            vec![s("a", 15.0, 5.0, "PMMA"), s("b", -25.0, 15.0, "")],
+            asv,
+        );
+        let av = v(&[
+            (0, "curvature"),
+            (0, "conic"),
+            (0, "a4"),
+            (0, "a6"),
+            (1, "curvature"),
+            (2, "curvature"),
+            (2, "a4"),
+            (2, "a6"),
+        ]);
+        // PMMA crowns: optimise, but land on knife-edge designs (see `presets`)
+        run(
+            &o20,
+            "ach PMMA bent",
+            vec![s("a", 12.0, 7.0, "PMMA"), s("c", -8.0, 1.2, "PC"), s("d", -40.0, 12.0, "")],
+            av.clone(),
+        );
+        run(
+            &o20,
+            "ach COP/PC",
+            vec![s("a", 9.6, 7.0, "COP"), s("c", -9.6, 1.2, "PC"), s("d", -75.0, 12.0, "")],
+            av.clone(),
+        );
+        run(
+            &o20,
+            "ach PMMA/PC like COP",
+            vec![s("a", 9.6, 7.0, "PMMA"), s("c", -9.6, 1.2, "PC"), s("d", -75.0, 12.0, "")],
+            av,
+        );
     }
 }
 
 #[cfg(test)]
 mod dbg {
+    /// Preset table for the guide:
+    /// `cargo test -p forge-core optics::lensdesign::dbg -- --ignored --nocapture`
     #[test]
     #[ignore]
     fn show() {
         let o = crate::project::Project::iris().design.optics;
+        println!(
+            "| preset | worst RMS spot µm (′) | per field ′ | MTF@Nyq worst / on-axis | lateral colour ′ | axial colour µm | mass g |"
+        );
         for p in super::presets() {
             let l = super::preset_lens(&p.id, &o).unwrap();
-            println!("{} efl {}", p.id, super::lens_efl(&l));
-            for s in &l { println!("  R {} t {} sd {} {}", s.radius, s.thickness, s.semi_diameter, s.material); }
+            let (_, q) = super::hud_quality(&o, &l, true).unwrap();
+            let m0 = q.mtf.fields.first().map(|m| m.at_nyquist_t.min(m.at_nyquist_s)).unwrap_or(0.0);
+            println!(
+                "| {} | {:.1} ({:.2}) | {:?} | {:.3} / {:.2} | {:.2} | {:.0} | {:.2} |",
+                p.title,
+                q.worst_rms_mm * 1000.0,
+                q.worst_rms_arcmin,
+                q.spots.iter().map(|s| (s.rms_arcmin * 100.0).round() / 100.0).collect::<Vec<_>>(),
+                q.worst_mtf_nyquist,
+                m0,
+                q.worst_lateral_arcmin,
+                q.chromatic.longitudinal_mm.abs() * 1000.0,
+                super::lens_mass_g(&l)
+            );
         }
     }
 }

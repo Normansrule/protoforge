@@ -10,9 +10,13 @@
 //! | `optics.lens_optimize` | `{project?, optics?, preset? \| system?, variables?, max_iter?}` | damped-least-squares history (+ a layout per step) |
 //! | `optics.achromat` | `{f_mm, crown, flint}` | thin-lens achromat powers and starting radii |
 //!
-//! Metrics (worst field, lens chosen by `design.extra.optics_lens`, default
-//! [`lensdesign::DEFAULT_LENS`]): `optics.rms_spot_arcmin`,
-//! `optics.mtf_nyquist`, `optics.lateral_color_arcmin`.
+//! Metrics (informational; worst field, lens chosen by
+//! `design.extra.optics_lens`, default [`lensdesign::DEFAULT_LENS`]):
+//! `optics.rms_spot_um`, `optics.rms_spot_arcmin`, `optics.mtf_at_nyquist`,
+//! `optics.lateral_color_arcmin`. The MTF is the **geometric** MTF (Fourier
+//! transform of the ray-spot distribution) multiplied by the diffraction MTF
+//! of the circular pupil — not an FFT of the diffraction point spread
+//! function (PSF).
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -55,7 +59,14 @@ struct PresetOut {
 fn preset_system(o: &OpticsParams, id: &str) -> Result<System, String> {
     let lens = lensdesign::preset_lens(id, o).ok_or_else(|| format!("unknown lens preset `{id}`"))?;
     let mut sys = lensdesign::hud_system(o, &Extras::default(), &lens);
-    sys.name = format!("Iris HUD — {}", lensdesign::presets().into_iter().find(|p| p.id == id).map(|p| p.title).unwrap_or_default());
+    sys.name = format!(
+        "Iris HUD — {}",
+        lensdesign::presets()
+            .into_iter()
+            .find(|p| p.id == id)
+            .map(|p| p.title)
+            .unwrap_or_default()
+    );
     lensdesign::paraxial_focus(&mut sys);
     Ok(sys)
 }
@@ -139,7 +150,11 @@ fn pick_system(who: &Who, preset: &Option<String>, system: &Option<System>) -> R
         (Some(s), _) if !s.surfaces.is_empty() => Ok(s.clone()),
         (_, Some(id)) => preset_system(&o, id),
         _ => {
-            let id = who.project.as_ref().map(|p| lensdesign::project_lens(p).0).unwrap_or_else(|| lensdesign::DEFAULT_LENS.into());
+            let id = who
+                .project
+                .as_ref()
+                .map(|p| lensdesign::project_lens(p).0)
+                .unwrap_or_else(|| lensdesign::DEFAULT_LENS.into());
             if id == "custom" {
                 let p = who.project.as_ref().ok_or("custom lens needs the project")?;
                 let (_, lens) = lensdesign::project_lens(p);
@@ -176,7 +191,11 @@ fn analyze(i: AnalyzeIn) -> Result<AnalyzeOut, String> {
     sys.surfaces[last].thickness = q.image_distance_mm;
     let prep = sys.prepare()?;
     let layout = seq::layout(&sys, &prep, i.config.rays_per_fan.clamp(2, 31));
-    let start = sys.surfaces.iter().position(|s| s.is_ideal() || s.curvature() != 0.0 || !s.material.trim().is_empty()).unwrap_or(0);
+    let start = sys
+        .surfaces
+        .iter()
+        .position(|s| s.is_ideal() || s.curvature() != 0.0 || !s.material.trim().is_empty())
+        .unwrap_or(0);
     let lens = &sys.surfaces[start..];
     let elements = layout
         .elements
@@ -197,7 +216,12 @@ fn analyze(i: AnalyzeIn) -> Result<AnalyzeOut, String> {
         layout,
         quality: q,
         system: sys,
-        project_lens: i.who.project.as_ref().map(|p| lensdesign::project_lens(p).0).unwrap_or_else(|| lensdesign::DEFAULT_LENS.into()),
+        project_lens: i
+            .who
+            .project
+            .as_ref()
+            .map(|p| lensdesign::project_lens(p).0)
+            .unwrap_or_else(|| lensdesign::DEFAULT_LENS.into()),
     })
 }
 
@@ -230,7 +254,11 @@ fn optimize(i: OptimizeIn) -> Result<OptimizeOut, String> {
     let start = i.lens_start.unwrap_or(LENS_START).min(sys.surfaces.len().saturating_sub(1));
     let variables = match (&i.variables, &i.preset) {
         (Some(v), _) if !v.is_empty() => v.clone(),
-        (_, Some(id)) => lensdesign::presets().into_iter().find(|p| &p.id == id).map(|p| p.variables).unwrap_or_default(),
+        (_, Some(id)) => lensdesign::presets()
+            .into_iter()
+            .find(|p| &p.id == id)
+            .map(|p| p.variables)
+            .unwrap_or_default(),
         _ => {
             // default: every curvature in the lens group
             (start..sys.surfaces.len())
@@ -264,7 +292,11 @@ fn optimize(i: OptimizeIn) -> Result<OptimizeOut, String> {
             layouts.push(seq::layout(&s2, &p, 5));
         }
     }
-    Ok(OptimizeOut { result: r, layouts, variables })
+    Ok(OptimizeOut {
+        result: r,
+        layouts,
+        variables,
+    })
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -364,7 +396,11 @@ fn metrics_uncached(o: &OpticsParams, id: &str, lens: &[Surface]) -> Vec<Metric>
     let Ok((sys, q)) = lensdesign::hud_quality(o, lens, true) else {
         return vec![];
     };
-    let title = lensdesign::presets().into_iter().find(|x| x.id == id).map(|x| x.title).unwrap_or_else(|| "custom lens".into());
+    let title = lensdesign::presets()
+        .into_iter()
+        .find(|x| x.id == id)
+        .map(|x| x.title)
+        .unwrap_or_else(|| "custom lens".into());
     let worst_field = q
         .spots
         .iter()
@@ -372,16 +408,21 @@ fn metrics_uncached(o: &OpticsParams, id: &str, lens: &[Surface]) -> Vec<Metric>
         .map(|s| s.field_deg)
         .unwrap_or(0.0);
     let fmax = sys.fields_deg.iter().cloned().fold(0.0, f64::max);
+    let pitch_um = o.display_width_mm / o.px_w.max(1) as f64 * 1000.0;
+    let rms_um = q.worst_rms_mm * 1000.0;
+    let centre_mtf = q.mtf.fields.first().map(|m| m.at_nyquist_t.min(m.at_nyquist_s)).unwrap_or(0.0);
     vec![
-        Metric::new("optics.rms_spot_arcmin", "RMS spot size (worst field)", q.worst_rms_arcmin, "arcmin", "optics").with_note(&format!(
-            "{title}: polychromatic (F, d, C) RMS blur seen by the eye, worst at {worst_field:.1}° of 0–{fmax:.1}° (display corner), 4 mm pupil, display at best focus; one pixel = {:.2}′",
+        Metric::new("optics.rms_spot_um", "RMS spot radius on the display (worst field)", rms_um, "um", "optics").with_note(&format!(
+            "{title}: polychromatic (F, d, C) RMS radius about the centroid, real rays from a 4 mm eye pupil (reversed model), worst at {worst_field:.1}° of 0–{fmax:.1}°, display at best focus; = {:.1} pixels of {pitch_um:.1} µm",
+            rms_um / pitch_um.max(1e-9)
+        )),
+        Metric::new("optics.rms_spot_arcmin", "RMS spot size seen by the eye (worst field)", q.worst_rms_arcmin, "arcmin", "optics").with_note(&format!(
+            "RMS spot / EFL; one pixel = {:.2}′",
             q.pixel_arcmin
         )),
-        Metric::new("optics.mtf_nyquist", "MTF at the display Nyquist (worst field)", q.worst_mtf_nyquist, "", "optics").with_note(&format!(
-            "geometric × diffraction MTF at {:.1} cycles/mm (pixel pitch {:.1} µm); diffraction limit alone {:.2}",
-            q.mtf.nyquist_lp_mm,
-            o.display_width_mm / o.px_w.max(1) as f64 * 1000.0,
-            q.mtf.diffraction_at_nyquist
+        Metric::new("optics.mtf_at_nyquist", "MTF at the display Nyquist frequency (worst field)", q.worst_mtf_nyquist, "", "optics").with_note(&format!(
+            "geometric MTF of the spot × diffraction MTF of the pupil, min of tangential/sagittal, at {:.1} cycles/mm (pixel pitch {pitch_um:.1} µm); on-axis {centre_mtf:.2}; diffraction limit alone {:.2}",
+            q.mtf.nyquist_lp_mm, q.mtf.diffraction_at_nyquist
         )),
         Metric::new("optics.lateral_color_arcmin", "Lateral colour F−C (worst field)", q.worst_lateral_arcmin, "arcmin", "optics").with_note(&format!(
             "chief-ray image height difference between 486 nm and 656 nm, as an angle at the eye ({title})"
@@ -399,10 +440,17 @@ mod tests {
         assert!(v["materials"].as_array().unwrap().len() >= 7);
         let v = dispatch("optics.lens_presets", &serde_json::json!({})).unwrap().unwrap();
         assert!(v.as_array().unwrap().len() >= 5);
-        let a = dispatch("optics.lens_analyze", &serde_json::json!({ "preset": "pmma_pcx" })).unwrap().unwrap();
+        let a = dispatch("optics.lens_analyze", &serde_json::json!({ "preset": "pmma_pcx" }))
+            .unwrap()
+            .unwrap();
         assert!(a["quality"]["spots"].as_array().unwrap().len() == 4);
         assert!(a["layout"]["rays"].as_array().unwrap().len() > 10);
-        let ach = dispatch("optics.achromat", &serde_json::json!({ "f_mm": 20, "crown": "N-BK7", "flint": "N-SF11" })).unwrap().unwrap();
+        let ach = dispatch(
+            "optics.achromat",
+            &serde_json::json!({ "f_mm": 20, "crown": "N-BK7", "flint": "N-SF11" }),
+        )
+        .unwrap()
+        .unwrap();
         let (p1, p2) = (ach["phi1"].as_f64().unwrap(), ach["phi2"].as_f64().unwrap());
         assert!((p1 / 64.17 + p2 / 25.68).abs() < 1e-4);
         assert!(dispatch("optics.nope", &serde_json::json!({})).is_none());
@@ -432,7 +480,13 @@ mod tests {
         let dt = t0.elapsed();
         let get = |k: &str| m.iter().find(|x| x.key == k).unwrap().value;
         let rms = get("optics.rms_spot_arcmin");
-        let mtf = get("optics.mtf_nyquist");
+        let um = get("optics.rms_spot_um");
+        // µm on the display ↔ arcmin at the eye through the 20 mm EFL
+        assert!(
+            (um / 1000.0 / p.design.optics.lens_focal_mm * quality::RAD_TO_ARCMIN - rms).abs() < 0.02 * rms,
+            "{um} µm vs {rms}′"
+        );
+        let mtf = get("optics.mtf_at_nyquist");
         let lat = get("optics.lateral_color_arcmin");
         assert!(rms > 0.0 && rms < 100.0, "{rms}");
         assert!((0.0..=1.0).contains(&mtf), "{mtf}");
@@ -443,7 +497,9 @@ mod tests {
         let mut p2 = p.clone();
         p2.design.extra.insert("optics_lens".into(), serde_json::json!("ideal"));
         let m2 = metrics(&p2);
-        let rms2 = m2.iter().find(|x| x.key == "optics.rms_spot_arcmin").unwrap().value;
+        let rms2 = m2.iter().find(|x| x.key == "optics.rms_spot_um").unwrap().value;
         assert!(rms2 < 1e-6);
+        let mtf2 = m2.iter().find(|x| x.key == "optics.mtf_at_nyquist").unwrap().value;
+        assert!(mtf2 > 0.8, "ideal lens is diffraction-limited: {mtf2}");
     }
 }

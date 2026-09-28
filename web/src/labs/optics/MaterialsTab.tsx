@@ -45,15 +45,17 @@ function AbbeDiagram({ mats, hi, onHover, pick }: { mats: MaterialRow[]; hi: str
           const b = mats.find((x) => x.id === pick[1]);
           return a && b ? <line x1={vx(a.vd)} y1={ny(a.nd)} x2={vx(b.vd)} y2={ny(b.nd)} stroke="var(--accent)" strokeWidth={2} strokeDasharray="3 3" /> : null;
         })()}
-        {mats.map((x) => {
+        {mats.map((x, k) => {
           const X = vx(x.vd), Y = ny(x.nd);
+          // move the label below-left when an earlier point sits close by (N-SF6/N-SF11, PC/PS)
+          const crowded = mats.slice(0, k).some((o) => Math.hypot(vx(o.vd) - X, ny(o.nd) - Y) < 22);
           const on = hi === x.id || pick.includes(x.id);
           return (
             <g key={x.id} onMouseEnter={() => onHover(x.id)} onMouseLeave={() => onHover(null)} style={{ cursor: 'default' }}>
               {x.kind === 'plastic'
                 ? <rect x={X - 6} y={Y - 6} width={12} height={12} rx={2} fill={kindColor(x.kind)} stroke={on ? 'var(--text)' : 'var(--surface-1)'} strokeWidth={on ? 2 : 1} />
                 : <circle cx={X} cy={Y} r={6.5} fill={kindColor(x.kind)} stroke={on ? 'var(--text)' : 'var(--surface-1)'} strokeWidth={on ? 2 : 1} />}
-              <text x={X + 9} y={Y - 7} className="op-abbe-lbl">{x.id}</text>
+              <text x={crowded ? X - 9 : X + 9} y={crowded ? Y + 17 : Y - 7} textAnchor={crowded ? 'end' : 'start'} className="op-abbe-lbl">{x.id}</text>
             </g>
           );
         })}
@@ -163,7 +165,7 @@ export function MaterialsTab() {
       <Card title="Catalogue" subtitle="Computed nd and Vd from the dispersion formulae, checked against the datasheet or typical catalogue values (unit-tested).">
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Material</th><th>nd</th><th>Vd</th><th>catalogue nd / Vd</th><th>ρ (g/cm³)</th><th>Data</th></tr></thead>
+            <thead><tr><th>Material</th><th>nd</th><th>Vd</th><th>catalogue nd / Vd</th><th className="op-nocaps">density (g/cm³)</th><th>Data</th></tr></thead>
             <tbody>
               {C.materials.map((m) => (
                 <tr key={m.id} onMouseEnter={() => setHi(m.id)} onMouseLeave={() => setHi(null)} className={hi === m.id ? 'hi' : ''}>

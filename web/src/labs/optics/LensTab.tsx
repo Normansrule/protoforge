@@ -31,8 +31,8 @@ export function useLensInit() {
   const presets = presetsC.data;
   useEffect(() => {
     if (system || !presets?.length) return;
-    const want = (project.design.extra?.optics_lens as string) || 'achromat_pmma_pc';
-    const p = presets.find((x) => x.id === want) ?? presets.find((x) => x.id === 'achromat_pmma_pc') ?? presets[0];
+    const want = (project.design.extra?.optics_lens as string) || 'achromat_cop_pc';
+    const p = presets.find((x) => x.id === want) ?? presets.find((x) => x.id === 'achromat_cop_pc') ?? presets[0];
     const rx = project.design.extra?.optics_lens_rx as Surface[] | undefined;
     if (want === 'custom' && Array.isArray(rx) && rx.length) {
       load('custom', { ...p.system, surfaces: [...p.system.surfaces.slice(0, LENS_START), ...rx] }, p.variables);
@@ -135,7 +135,7 @@ export function LensTab() {
       setOpt(null);
     }
   };
-  const projectLens = (project.design.extra?.optics_lens as string) || 'achromat_pmma_pc';
+  const projectLens = (project.design.extra?.optics_lens as string) || 'achromat_cop_pc';
   const inUse = edited ? false : projectLens === presetId;
   const useForIris = () => {
     if (!system) return;
@@ -155,7 +155,7 @@ export function LensTab() {
         <div className="op-stats">
           <Stat label="Effective focal length (EFL)" value={fmt(A!.lens_efl, 3)} unit="mm" note={`back focal length ${fmt(px.bfl, 2)} mm · working f/${fmt(px.working_fnum, 2)} (4 mm eye pupil)`} />
           <Stat label="RMS spot, worst field" value={fmt(q.worst_rms_arcmin, 2)} unit="arcmin" tone={tone(q.worst_rms_arcmin <= pixel)} note={`${q.worst_rms_arcmin <= pixel ? '✓' : '✕'} target ≤ 1 pixel = ${pixel.toFixed(2)}′ · ${fmt(q.worst_rms_mm * 1000, 1)} µm on the display`} />
-          <Stat label="MTF at Nyquist, worst" value={fmt(q.worst_mtf_nyquist, 2)} tone={tone(q.worst_mtf_nyquist >= 0.3)} note={`${q.worst_mtf_nyquist >= 0.3 ? '✓' : '✕'} target ≥ 0.3 at ${fmt(A!.nyquist_lp_mm, 1)} cycles/mm · diffraction limit ${fmt(q.mtf.diffraction_at_nyquist, 2)}`} />
+          <Stat label="MTF at Nyquist, worst" value={fmt(q.worst_mtf_nyquist, 2)} tone={tone(q.worst_mtf_nyquist >= 0.3)} note={`${q.worst_mtf_nyquist >= 0.3 ? '✓' : '✕'} rule of thumb ≥ 0.3 at ${fmt(A!.nyquist_lp_mm, 1)} cycles/mm · on-axis ${fmt(q.mtf.fields[0] ? Math.min(q.mtf.fields[0].at_nyquist_t, q.mtf.fields[0].at_nyquist_s) : 0, 2)} · diffraction limit ${fmt(q.mtf.diffraction_at_nyquist, 2)}`} />
           <Stat label="Lateral colour F−C" value={fmt(q.worst_lateral_arcmin, 2)} unit="arcmin" tone={tone(q.worst_lateral_arcmin <= pixel)} note={`longitudinal ${fmt(q.chromatic.longitudinal_mm * 1000, 0)} µm (${fmt(q.chromatic.longitudinal_diopter, 2)} D) · lens mass ${fmt(A!.lens_mass_g, 2)} g`} />
         </div>
       )}
@@ -264,11 +264,11 @@ export function LensTab() {
               </select>
             </label>
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-              <button className="btn small" onClick={() => choosePreset(presetId === 'custom' ? 'achromat_pmma_pc' : presetId)}>Reset</button>
+              <button className="btn small" onClick={() => choosePreset(presetId === 'custom' ? 'achromat_cop_pc' : presetId)}>Reset</button>
               <button className={`btn small ${inUse ? '' : 'primary'}`} onClick={useForIris} disabled={inUse}>{inUse ? '✓ Iris uses this lens' : 'Use for Iris metrics'}</button>
             </div>
             <div className="small muted" style={{ marginTop: 8 }}>
-              The requirement metrics <code>optics.rms_spot_arcmin</code>, <code>optics.mtf_nyquist</code> and <code>optics.lateral_color_arcmin</code> use the lens chosen here (now: <b>{projectLens}</b>).
+              The informational metrics <code>optics.rms_spot_um</code>, <code>optics.rms_spot_arcmin</code>, <code>optics.mtf_at_nyquist</code> and <code>optics.lateral_color_arcmin</code> use the lens chosen here (now: <b>{projectLens}</b>). The first-order metrics (field of view, pixels per degree, eyebox) stay paraxial.
             </div>
           </Card>
           <Card
@@ -301,7 +301,7 @@ export function LensTab() {
           </Card>
           {q && px && (
             <Card title="First-order data (paraxial y–nu trace)">
-              <dl className="op-kv">
+              <dl className="op-kv stacked">
                 <dt>EFL (lens)</dt><dd>{fmt(A!.lens_efl, 4)} mm</dd>
                 <dt>Front / rear principal planes</dt><dd>z = {fmt(px.z_front_principal, 2)} / {fmt(px.z_rear_principal, 2)} mm</dd>
                 <dt>Paraxial image of the virtual object</dt><dd>z = {fmt(px.z_paraxial_image, 3)} mm</dd>

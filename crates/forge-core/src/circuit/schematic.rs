@@ -271,7 +271,12 @@ pub fn num(s: &str) -> Option<f64> {
     let t = clean_value(s).to_ascii_lowercase();
     let end = t
         .char_indices()
-        .find(|(i, c)| !(c.is_ascii_digit() || *c == '.' || ((*c == '-' || *c == '+') && (*i == 0 || t[..*i].ends_with('e'))) || (*c == 'e' && t[i + 1..].starts_with(|d: char| d.is_ascii_digit() || d == '-' || d == '+'))))
+        .find(|(i, c)| {
+            !(c.is_ascii_digit()
+                || *c == '.'
+                || ((*c == '-' || *c == '+') && (*i == 0 || t[..*i].ends_with('e')))
+                || (*c == 'e' && t[i + 1..].starts_with(|d: char| d.is_ascii_digit() || d == '-' || d == '+')))
+        })
         .map(|(i, _)| i)
         .unwrap_or(t.len());
     let m: f64 = t[..end].parse().ok()?;
@@ -297,7 +302,11 @@ pub fn num(s: &str) -> Option<f64> {
 }
 
 fn prop<'a>(p: &'a SchPart, k: &str, d: &'a str) -> String {
-    p.props.get(k).map(|s| clean_value(s)).filter(|s| !s.is_empty()).unwrap_or_else(|| d.to_string())
+    p.props
+        .get(k)
+        .map(|s| clean_value(s))
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| d.to_string())
 }
 
 fn with_letter(name: &str, letter: char) -> String {
@@ -323,7 +332,13 @@ fn source_spec(p: &SchPart) -> String {
             prop(p, "pw", "0.5m"),
             prop(p, "per", "1m")
         ),
-        "sin" => format!("DC {} SIN({} {} {})", prop(p, "vo", "0"), prop(p, "vo", "0"), prop(p, "va", &dc), prop(p, "freq", "1k")),
+        "sin" => format!(
+            "DC {} SIN({} {} {})",
+            prop(p, "vo", "0"),
+            prop(p, "vo", "0"),
+            prop(p, "va", &dc),
+            prop(p, "freq", "1k")
+        ),
         _ => format!("DC {dc}"),
     };
     let ac = prop(p, "ac", "");
@@ -334,7 +349,10 @@ fn source_spec(p: &SchPart) -> String {
 }
 
 /// SPICE cards and models for one part given its pin nets.
-fn emit(p: &SchPart, nets: &[String]) -> Result<(Vec<(String, String)>, Vec<String>), String> {
+/// `(element name, card)` pairs and `.model` lines emitted for one part.
+type Emitted = (Vec<(String, String)>, Vec<String>);
+
+fn emit(p: &SchPart, nets: &[String]) -> Result<Emitted, String> {
     let n = |i: usize| nets.get(i).cloned().unwrap_or_else(|| "0".into());
     if let Some(t) = &p.template {
         // imported card(s): substitute the pins
@@ -354,14 +372,20 @@ fn emit(p: &SchPart, nets: &[String]) -> Result<(Vec<(String, String)>, Vec<Stri
     let cards: Vec<(String, String)> = match p.kind.as_str() {
         "resistor" => {
             let e = with_letter(&p.name, 'R');
-            vec![(e.clone(), format!("{e} {} {} {}", n(0), n(1), if v.is_empty() { "1k".into() } else { v }))]
+            vec![(
+                e.clone(),
+                format!("{e} {} {} {}", n(0), n(1), if v.is_empty() { "1k".into() } else { v }),
+            )]
         }
         "capacitor" | "inductor" => {
             let (l, d) = if p.kind == "capacitor" { ('C', "1u") } else { ('L', "10u") };
             let e = with_letter(&p.name, l);
             let ic = prop(p, "ic", "");
             let ic = if ic.is_empty() { String::new() } else { format!(" IC={ic}") };
-            vec![(e.clone(), format!("{e} {} {} {}{ic}", n(0), n(1), if v.is_empty() { d.into() } else { v }))]
+            vec![(
+                e.clone(),
+                format!("{e} {} {} {}{ic}", n(0), n(1), if v.is_empty() { d.into() } else { v }),
+            )]
         }
         "vsource" | "battery" => {
             let e = with_letter(&p.name, 'V');
@@ -374,7 +398,11 @@ fn emit(p: &SchPart, nets: &[String]) -> Result<(Vec<(String, String)>, Vec<Stri
         "diode" | "led" => {
             let e = with_letter(&p.name, 'D');
             let m = format!("D_{}", e.to_uppercase());
-            let (is, nn, rs) = if p.kind == "led" { ("2.2e-18", "2", "2") } else { ("2.52n", "1.752", "0.568") };
+            let (is, nn, rs) = if p.kind == "led" {
+                ("2.2e-18", "2", "2")
+            } else {
+                ("2.52n", "1.752", "0.568")
+            };
             models.push(format!(
                 ".model {m} D(IS={} N={} RS={} BV={})",
                 prop(p, "is", is),
@@ -396,17 +424,26 @@ fn emit(p: &SchPart, nets: &[String]) -> Result<(Vec<(String, String)>, Vec<Stri
                 prop(p, "kp", if pm { "40u" } else { "100u" }),
                 prop(p, "lambda", "0.01")
             ));
-            vec![(e.clone(), format!("{e} {d} {g} {s} {s} {m} W={} L={}", prop(p, "w", "1m"), prop(p, "l", "1u")))]
+            vec![(
+                e.clone(),
+                format!("{e} {d} {g} {s} {s} {m} W={} L={}", prop(p, "w", "1m"), prop(p, "l", "1u")),
+            )]
         }
         "switch" => {
             let e = with_letter(&p.name, 'S');
             let ctl = format!("_{}ctl", e.to_lowercase());
             let m = format!("SW_{}", e.to_uppercase());
-            models.push(format!(".model {m} SW(RON={} ROFF={} VT=0.5 VH=0)", prop(p, "ron", "10m"), prop(p, "roff", "10meg")));
+            models.push(format!(
+                ".model {m} SW(RON={} ROFF={} VT=0.5 VH=0)",
+                prop(p, "ron", "10m"),
+                prop(p, "roff", "10meg")
+            ));
             let state = prop(p, "state", "closed");
             let drive = match state.as_str() {
                 "pwm" => {
-                    let f = num(&prop(p, "freq", "100k")).filter(|f| *f > 0.0).ok_or("switch PWM frequency must be a positive number")?;
+                    let f = num(&prop(p, "freq", "100k"))
+                        .filter(|f| *f > 0.0)
+                        .ok_or("switch PWM frequency must be a positive number")?;
                     let duty = num(&prop(p, "duty", "0.5")).unwrap_or(0.5).clamp(0.0, 1.0);
                     let per = 1.0 / f;
                     let edge = (per * 1e-3).min(1e-9);
@@ -429,9 +466,18 @@ fn emit(p: &SchPart, nets: &[String]) -> Result<(Vec<(String, String)>, Vec<Stri
         }
         "opamp" => {
             // single-pole macro-model: E (gain A0) → R·C pole at GBW/A0 → unity buffer
-            let base: String = p.name.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>().to_uppercase();
-            let a0v = num(&prop(p, "a0", "100k")).filter(|v| *v > 0.0).ok_or("op-amp gain A0 must be positive")?;
-            let gbw = num(&prop(p, "gbw", "1meg")).filter(|v| *v > 0.0).ok_or("op-amp GBW must be positive")?;
+            let base: String = p
+                .name
+                .chars()
+                .filter(|c| c.is_ascii_alphanumeric())
+                .collect::<String>()
+                .to_uppercase();
+            let a0v = num(&prop(p, "a0", "100k"))
+                .filter(|v| *v > 0.0)
+                .ok_or("op-amp gain A0 must be positive")?;
+            let gbw = num(&prop(p, "gbw", "1meg"))
+                .filter(|v| *v > 0.0)
+                .ok_or("op-amp GBW must be positive")?;
             let a0 = fmt_num(a0v);
             let cp = fmt_num(a0v / (2.0 * std::f64::consts::PI * 1e3 * gbw));
             let x = format!("_{}x", base.to_lowercase());
@@ -496,7 +542,13 @@ fn analysis_cards(a: &AnalysisSpec) -> Vec<String> {
         v.push(".op".into());
     }
     if a.dc && !a.dc_source.trim().is_empty() {
-        v.push(format!(".dc {} {} {} {}", a.dc_source.trim(), clean_value(&a.dc_start), clean_value(&a.dc_stop), clean_value(&a.dc_step)));
+        v.push(format!(
+            ".dc {} {} {} {}",
+            a.dc_source.trim(),
+            clean_value(&a.dc_start),
+            clean_value(&a.dc_stop),
+            clean_value(&a.dc_step)
+        ));
     }
     if a.tran {
         let mut s = format!(".tran {} {}", clean_value(&a.tstep), clean_value(&a.tstop));
@@ -509,7 +561,12 @@ fn analysis_cards(a: &AnalysisSpec) -> Vec<String> {
         v.push(s);
     }
     if a.ac {
-        v.push(format!(".ac dec {} {} {}", a.ac_points.max(1), clean_value(&a.fstart), clean_value(&a.fstop)));
+        v.push(format!(
+            ".ac dec {} {} {}",
+            a.ac_points.max(1),
+            clean_value(&a.fstart),
+            clean_value(&a.fstop)
+        ));
     }
     v
 }
@@ -518,7 +575,13 @@ fn sanitize_net(s: &str) -> String {
     let t: String = s
         .trim()
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c.to_ascii_lowercase() } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
         .collect();
     if t == "gnd" {
         "0".into()
@@ -533,7 +596,7 @@ pub fn extract(s: &Schematic) -> Result<Extracted, String> {
     // ---- collect points ----------------------------------------------------
     let mut idx: HashMap<Key, usize> = HashMap::new();
     let mut coords: Vec<[f64; 2]> = Vec::new();
-    let mut point = |x: f64, y: f64, idx: &mut HashMap<Key, usize>, coords: &mut Vec<[f64; 2]>| -> usize {
+    let point = |x: f64, y: f64, idx: &mut HashMap<Key, usize>, coords: &mut Vec<[f64; 2]>| -> usize {
         let k = key(x, y);
         *idx.entry(k).or_insert_with(|| {
             coords.push([x, y]);
@@ -637,7 +700,10 @@ pub fn extract(s: &Schematic) -> Result<Extracted, String> {
     }
     for (r, names) in &label_sets {
         if names.len() > 1 {
-            warnings.push(format!("net labels {} are wired together (shorted)", names.iter().cloned().collect::<Vec<_>>().join(", ")));
+            warnings.push(format!(
+                "net labels {} are wired together (shorted)",
+                names.iter().cloned().collect::<Vec<_>>().join(", ")
+            ));
         }
         if names.contains("0") {
             net_name.insert(*r, "0".into());
@@ -707,7 +773,11 @@ pub fn extract(s: &Schematic) -> Result<Extracted, String> {
     }
 
     // ---- emit the deck -----------------------------------------------------
-    let title = if s.title.trim().is_empty() { "Schematic".to_string() } else { s.title.trim().replace('\n', " ") };
+    let title = if s.title.trim().is_empty() {
+        "Schematic".to_string()
+    } else {
+        s.title.trim().replace('\n', " ")
+    };
     let mut lines: Vec<String> = vec![title, "* netlist extracted from the Protoforge schematic editor".into()];
     let mut models: Vec<String> = Vec::new();
     let mut parts_out = Vec::new();
@@ -794,7 +864,10 @@ pub fn extract(s: &Schematic) -> Result<Extracted, String> {
     }
     let mut junctions: Vec<[f64; 2]> = deg.iter().filter(|(_, d)| **d >= 3).map(|(i, _)| coords[*i]).collect();
     junctions.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let wire_nets = wire_pts.iter().map(|v| v.first().map(|&pt| name_of(pt, &net_name)).unwrap_or_default()).collect();
+    let wire_nets = wire_pts
+        .iter()
+        .map(|v| v.first().map(|&pt| name_of(pt, &net_name)).unwrap_or_default())
+        .collect();
     Ok(Extracted {
         netlist,
         nets: nets_map.into_values().collect(),
@@ -921,7 +994,7 @@ fn flow_wires(
     let mut used = vec![false; edges.len()];
     let mut out = Vec::new();
     let clean = |m: BTreeMap<String, f64>| -> Vec<(String, f64)> { m.into_iter().filter(|(_, v)| v.abs() > 1e-9).collect() };
-    for (eid, &(a, b, real)) in edges.iter().enumerate() {
+    for (eid, &(a, _, real)) in edges.iter().enumerate() {
         if !real || used[eid] {
             continue;
         }
@@ -957,11 +1030,17 @@ fn flow_wires(
             if !passthrough(v) {
                 break;
             }
-            let Some(next) = real_adj[v].iter().copied().find(|&q| q != e && !used[q]) else { break };
+            let Some(next) = real_adj[v].iter().copied().find(|&q| q != e && !used[q]) else {
+                break;
+            };
             e = next;
         }
         let net = net_name.get(&roots[first_from]).cloned().unwrap_or_default();
-        out.push(FlowWire { net, pts, flow: clean(flow) });
+        out.push(FlowWire {
+            net,
+            pts,
+            flow: clean(flow),
+        });
     }
     out
 }
@@ -1070,7 +1149,13 @@ pub fn from_preset(id: &str, project: Option<&Project>) -> Result<Schematic, Str
                 .elements
                 .iter()
                 .find(|e| e.name.eq_ignore_ascii_case(&lp.el))
-                .map(|e| card_at(&pr.netlist, e.line).split_whitespace().skip(node_positions(&e.name).end).collect::<Vec<_>>().join(" "))
+                .map(|e| {
+                    card_at(&pr.netlist, e.line)
+                        .split_whitespace()
+                        .skip(node_positions(&e.name).end)
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                })
                 .unwrap_or_default(),
             props: BTreeMap::new(),
             template: Some(cards.join("\n")),
@@ -1095,7 +1180,11 @@ pub fn from_preset(id: &str, project: Option<&Project>) -> Result<Schematic, Str
             name: l.text.clone(),
             x: l.x,
             y: l.y,
-            value: if is_port { l.node.clone().unwrap_or_default() } else { l.text.clone() },
+            value: if is_port {
+                l.node.clone().unwrap_or_default()
+            } else {
+                l.text.clone()
+            },
             props: l.node.iter().map(|n| ("net".to_string(), n.clone())).collect(),
             ..Default::default()
         });
@@ -1124,7 +1213,8 @@ pub fn from_preset(id: &str, project: Option<&Project>) -> Result<Schematic, Str
             continue;
         }
         let lower = t.to_ascii_lowercase();
-        if lower.starts_with(".tran") || lower.starts_with(".ac") || lower.starts_with(".dc") || lower.starts_with(".op") || lower == ".end" {
+        if lower.starts_with(".tran") || lower.starts_with(".ac") || lower.starts_with(".dc") || lower.starts_with(".op") || lower == ".end"
+        {
             cont_skip = true;
             continue;
         }
@@ -1145,7 +1235,9 @@ pub fn from_preset(id: &str, project: Option<&Project>) -> Result<Schematic, Str
     for a in &nl.analyses {
         match a {
             Analysis::Op => analysis.op = true,
-            Analysis::Tran { tstep, tstop, tmax, uic, .. } => {
+            Analysis::Tran {
+                tstep, tstop, tmax, uic, ..
+            } => {
                 analysis.tran = true;
                 analysis.tstep = fmt_num(*tstep);
                 analysis.tstop = fmt_num(*tstop);
@@ -1176,6 +1268,7 @@ pub fn from_preset(id: &str, project: Option<&Project>) -> Result<Schematic, Str
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn part(id: &str, kind: &str, name: &str, x: f64, y: f64, rot: u8, value: &str, props: &[(&str, &str)]) -> SchPart {
     SchPart {
         id: id.into(),
@@ -1209,7 +1302,25 @@ pub fn examples() -> Vec<Example> {
     let rc = Schematic {
         title: "RC low-pass filter".into(),
         parts: vec![
-            part("v1", "vsource", "V1", 3.0, 8.0, 0, "1", &[("wave", "pulse"), ("v1", "0"), ("v2", "1"), ("pw", "0.5m"), ("per", "1m"), ("tr", "1u"), ("tf", "1u"), ("ac", "1")]),
+            part(
+                "v1",
+                "vsource",
+                "V1",
+                3.0,
+                8.0,
+                0,
+                "1",
+                &[
+                    ("wave", "pulse"),
+                    ("v1", "0"),
+                    ("v2", "1"),
+                    ("pw", "0.5m"),
+                    ("per", "1m"),
+                    ("tr", "1u"),
+                    ("tf", "1u"),
+                    ("ac", "1"),
+                ],
+            ),
             part("r1", "resistor", "R1", 9.0, 4.0, 3, "1k", &[]),
             part("c1", "capacitor", "C1", 15.0, 8.0, 0, "100n", &[]),
             part("g1", "ground", "GND", 9.0, 12.0, 0, "", &[]),
@@ -1239,26 +1350,43 @@ pub fn examples() -> Vec<Example> {
     let led = Schematic {
         title: "LED driver (low-side NMOS switch)".into(),
         parts: vec![
-            part("v1", "vsource", "V1", 2.0, 9.0, 0, "5", &[]),
+            part("v1", "vsource", "V1", -3.0, 9.0, 0, "5", &[]),
             part("r1", "resistor", "R1", 8.0, 5.0, 0, "150", &[]),
             part("d1", "led", "D1", 8.0, 10.0, 0, "", &[]),
             part("m1", "nmos", "M1", 8.0, 15.0, 0, "", &[("w", "1m"), ("l", "1u")]),
             part("rg", "resistor", "RG", 3.0, 15.0, 3, "100", &[]),
-            part("vg", "vsource", "VG", 0.0, 19.0, 0, "5", &[("wave", "pulse"), ("v1", "0"), ("v2", "5"), ("td", "0.1m"), ("tr", "1u"), ("tf", "1u"), ("pw", "0.5m"), ("per", "1m")]),
+            part(
+                "vg",
+                "vsource",
+                "VG",
+                0.0,
+                19.0,
+                0,
+                "5",
+                &[
+                    ("wave", "pulse"),
+                    ("v1", "0"),
+                    ("v2", "5"),
+                    ("td", "0.1m"),
+                    ("tr", "1u"),
+                    ("tf", "1u"),
+                    ("pw", "0.5m"),
+                    ("per", "1m"),
+                ],
+            ),
             part("g1", "ground", "GND", 8.0, 21.0, 0, "", &[]),
             part("l1", "label", "vdd", 2.0, 3.0, 0, "vdd", &[]),
             part("pr1", "probe", "P1", 11.0, 12.5, 0, "", &[]),
         ],
         wires: vec![
-            wire(&[(2.0, 7.0), (2.0, 3.0), (8.0, 3.0)]),
+            wire(&[(-3.0, 7.0), (-3.0, 3.0), (8.0, 3.0)]),
             wire(&[(8.0, 7.0), (8.0, 8.0)]),
             wire(&[(8.0, 12.0), (8.0, 13.0)]),
             wire(&[(8.0, 12.5), (11.0, 12.5)]),
             wire(&[(5.0, 15.0), (6.0, 15.0)]),
             wire(&[(1.0, 15.0), (0.0, 15.0), (0.0, 17.0)]),
             wire(&[(8.0, 17.0), (8.0, 21.0)]),
-            wire(&[(2.0, 11.0), (2.0, 21.0), (8.0, 21.0)]),
-            wire(&[(0.0, 21.0), (2.0, 21.0)]),
+            wire(&[(-3.0, 11.0), (-3.0, 21.0), (8.0, 21.0)]),
         ],
         analysis: AnalysisSpec {
             op: false,
@@ -1273,8 +1401,26 @@ pub fn examples() -> Vec<Example> {
         title: "Buck converter power stage (5 V → ~1.8 V, open loop)".into(),
         parts: vec![
             part("vin", "vsource", "VIN", 2.0, 9.0, 0, "5", &[]),
-            part("s1", "switch", "S1", 7.0, 5.0, 3, "", &[("state", "pwm"), ("freq", "500k"), ("duty", "0.4"), ("ron", "50m")]),
-            part("d1", "diode", "D1", 11.0, 9.0, 2, "", &[("is", "1u"), ("n", "1.05"), ("rs", "50m"), ("bv", "40")]),
+            part(
+                "s1",
+                "switch",
+                "S1",
+                7.0,
+                5.0,
+                3,
+                "",
+                &[("state", "pwm"), ("freq", "500k"), ("duty", "0.4"), ("ron", "50m")],
+            ),
+            part(
+                "d1",
+                "diode",
+                "D1",
+                11.0,
+                9.0,
+                2,
+                "",
+                &[("is", "1u"), ("n", "1.05"), ("rs", "50m"), ("bv", "40")],
+            ),
             part("l1", "inductor", "L1", 15.0, 5.0, 3, "22u", &[("ic", "0.17")]),
             part("c1", "capacitor", "C1", 20.0, 9.0, 0, "10u", &[("ic", "1.75")]),
             part("rl", "resistor", "RLOAD", 25.0, 9.0, 0, "10", &[]),
@@ -1361,14 +1507,18 @@ struct SimOut {
 pub fn dispatch(method: &str, input: &serde_json::Value) -> Option<crate::api::ApiResult> {
     use crate::api::handle;
     match method {
-        "circuit.schematic_netlist" => handle(input, |i: SchIn| extract(&i.schematic)),
+        "circuit.schematic_netlist" | "circuit.schematic_to_netlist" => handle(input, |i: SchIn| extract(&i.schematic)),
         "circuit.schematic_simulate" => handle(input, |i: SchIn| {
             let x = extract(&i.schematic)?;
             let (result, error) = match super::simulate(&x.netlist, &BTreeMap::new()) {
                 Ok(r) => (Some(r), None),
                 Err(e) => (None, Some(e)),
             };
-            Ok(SimOut { extracted: x, result, error })
+            Ok(SimOut {
+                extracted: x,
+                result,
+                error,
+            })
         }),
         "circuit.schematic_from_preset" => handle(input, |i: FromPresetIn| from_preset(&i.id, i.project.as_ref())),
         "circuit.schematic_examples" => handle(input, |_: serde_json::Value| Ok(examples())),
@@ -1434,7 +1584,11 @@ mod tests {
         // the probe branch carries no current, the R1–R2 wire carries 250 µA downwards
         let probe = x.wires.iter().find(|w| w.pts.iter().any(|p| p[0] == 9.0)).unwrap();
         assert!(i(probe).abs() < 1e-12);
-        let mid = x.wires.iter().find(|w| w.pts.first() == Some(&[6.0, 5.0]) || w.pts.last() == Some(&[6.0, 5.0])).unwrap();
+        let mid = x
+            .wires
+            .iter()
+            .find(|w| w.pts.first() == Some(&[6.0, 5.0]) || w.pts.last() == Some(&[6.0, 5.0]))
+            .unwrap();
         let im = i(mid).abs();
         assert!((im - 250e-6).abs() < 1e-9, "{im}");
         // every wire on the top net carries the full current
@@ -1445,12 +1599,17 @@ mod tests {
 
     #[test]
     fn engineering_numbers() {
-        assert_eq!(num("10k"), Some(10e3));
-        assert_eq!(num("4.7µ"), Some(4.7e-6));
-        assert_eq!(num("1meg"), Some(1e6));
-        assert_eq!(num("2m"), Some(2e-3));
-        assert_eq!(num("1e-3"), Some(1e-3));
-        assert_eq!(num("100nF"), Some(100e-9));
+        let close = |s: &str, v: f64| {
+            let x = num(s).unwrap_or_else(|| panic!("{s} did not parse"));
+            assert!((x - v).abs() <= 1e-12 * v.abs(), "{s}: {x} vs {v}");
+        };
+        close("10k", 10e3);
+        close("4.7µ", 4.7e-6);
+        close("1meg", 1e6);
+        close("2m", 2e-3);
+        close("1e-3", 1e-3);
+        close("100nF", 100e-9);
+        close("2.2 kΩ", 2.2e3);
         assert_eq!(num("abc"), None);
     }
 
@@ -1479,7 +1638,10 @@ mod tests {
     #[test]
     fn floating_pins_and_duplicates_are_reported() {
         let s = Schematic {
-            parts: vec![part("r", "resistor", "R1", 0.0, 0.0, 0, "1k", &[]), part("r2", "resistor", "R1", 5.0, 0.0, 0, "1k", &[])],
+            parts: vec![
+                part("r", "resistor", "R1", 0.0, 0.0, 0, "1k", &[]),
+                part("r2", "resistor", "R1", 5.0, 0.0, 0, "1k", &[]),
+            ],
             ..Default::default()
         };
         assert!(extract(&s).is_err());
@@ -1501,7 +1663,7 @@ mod tests {
                     let ac = r.ac.as_ref().unwrap();
                     let k = r.node_idx("out").unwrap();
                     // |H| at the corner 1/(2πRC) = 1.59 kHz ≈ −3 dB
-                    let f3 = crate::circuit::measure::f_3db(&ac.freq, &ac.mag[k]).unwrap();
+                    let f3 = crate::circuit::measure::f_3db(&ac.freq, &ac.mag[k], ac.mag[k][0] as f64).unwrap();
                     assert!((f3 - 1591.5).abs() / 1591.5 < 0.05, "{f3}");
                 }
                 "led_driver" => {

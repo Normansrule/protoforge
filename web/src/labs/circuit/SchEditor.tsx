@@ -5,7 +5,7 @@
 // simulated by the same engine as the rest of the lab, and animated with
 // current flowing along the wires exactly as drawn.
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { Card, Chip, Code, DownloadButton, ErrorBox, Explainer, Formula, Tabs, downloadText } from '../../components/ui';
+import { Card, Chip, Code, DownloadButton, ErrorBox, Explainer, Formula, downloadText } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { useCompute } from '../../engine/hooks';
 import { tryCall } from '../../engine/engine';
@@ -14,7 +14,7 @@ import { useProject } from '../../state/project';
 import { REFS } from './Explainers';
 import { SchResults, decodeSim } from './SchResults';
 import { labelPos, SymbolBody, valueText } from './SchSymbols';
-import { DEFAULT_ANALYSIS, EMPTY_DOC, PALETTE, pinsOf, spiceNum, type Extracted, type SchDoc, type SchExample, type SchPart, type SchSimOut, type SchWire } from './schTypes';
+import { DEFAULT_ANALYSIS, EMPTY_DOC, PALETTE, pinsOf, spiceNum, type Extracted, type SchDoc, type SchExample, type SchPart, type SchSimOut } from './schTypes';
 import type { Preset, SimResult } from './types';
 import { elemVIP, frameAt, prefersReducedMotion, rampColor, si, snapshot, switchOn, voltageRange } from './util';
 import './schematic.css';
@@ -26,6 +26,8 @@ type Sel = { type: 'part'; id: string } | { type: 'wire'; idx: number } | null;
 type Pt = [number, number];
 
 const snap = (v: number) => Math.round(v * 2) / 2;
+/** Resistors and inductors read left-to-right by default; everything else stands upright. */
+const defaultRot = (kind: string) => (kind === 'resistor' || kind === 'inductor' ? 3 : 0);
 const same = (a: Pt, b: Pt) => Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
 
 function loadDoc(): SchDoc | null {
@@ -97,7 +99,8 @@ const newId = () => `p${Date.now().toString(36)}${(uid++).toString(36)}`;
 function bbox(doc: SchDoc): [number, number, number, number] {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   const add = (x: number, y: number) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
-  for (const p of doc.parts) { add(p.x - 3, p.y - 3); add(p.x + 4, p.y + 3); }
+  // parts plus room for their name/value labels (drawn to the right)
+  for (const p of doc.parts) { add(p.x - 3, p.y - 3); add(p.x + (p.kind === 'probe' || p.kind === 'label' ? 6 : 5.5), p.y + 3); }
   for (const w of doc.wires) for (const q of w.pts) add(q[0], q[1]);
   if (!Number.isFinite(x0)) return [0, 0, 30, 20];
   return [x0 - 1, y0 - 1, x1 + 1, y1 + 1];
@@ -256,7 +259,7 @@ export function SchematicEditor() {
   const [hoverNet, setHoverNet] = useState<string | null>(null);
   const [hoverPart, setHoverPart] = useState<string | null>(null);
   const [wrapRef, width] = useElementWidth<HTMLDivElement>();
-  const H = width > 700 ? 540 : 420;
+  const H = width > 700 ? 540 : width > 500 ? 420 : 340;
   const [view, setView] = useState({ x: -2, y: -2, k: 1 });
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<null | { kind: 'move'; start: Pt; doc0: SchDoc; ids: Set<string>; moved: boolean } | { kind: 'pan'; sx: number; sy: number; v0: { x: number; y: number; k: number } }>(null);
@@ -497,7 +500,7 @@ export function SchematicEditor() {
     const svg = svgRef.current;
     if (!svg) return '';
     const clone = svg.cloneNode(true) as SVGSVGElement;
-    clone.querySelectorAll('.sch-ui').forEach((n) => n.remove());
+    clone.querySelectorAll('.sch-ui, .cl-dots').forEach((n) => n.remove());
     const [x0, y0, x1, y1] = bbox(doc);
     clone.setAttribute('viewBox', `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
     clone.setAttribute('width', String((x1 - x0) * PX));
@@ -543,7 +546,7 @@ export function SchematicEditor() {
     <div className="stack sch-root">
       <Card
         title={<input className="sch-title" value={doc.title} onChange={(e) => setHist((h) => ({ ...h, doc: { ...h.doc, title: e.target.value } }))} aria-label="schematic title" />}
-        subtitle="Click a part in the palette, click the canvas to place it (R rotates). W draws wires: click to add corners, click a pin or wire (or double-click / Enter) to finish. Drag parts — wires follow. Wheel or buttons zoom, drag the background to pan."
+        subtitle="Drag a part from the palette onto the sheet (or click it, then click the sheet; R rotates). W draws wires: click to add corners, click a pin or wire (or double-click / Enter) to finish. Drag parts — wires follow. Wheel or buttons zoom, drag the background to pan."
         actions={
           <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
             <select className="sch-select" value="" onChange={(e) => { const x = examples.data?.find((q) => q.id === e.target.value); if (x) openDoc(x.schematic); }} aria-label="open a starter example">
@@ -563,7 +566,15 @@ export function SchematicEditor() {
           <button className={`sch-tool ${tool.t === 'wire' ? 'on' : ''}`} onClick={() => { setTool({ t: 'wire' }); setDraft(null); }} title="draw wires (W)" aria-pressed={tool.t === 'wire'}>╱ Wire</button>
           <span className="sch-sep" />
           {PALETTE.map((it) => (
-            <button key={it.kind} className={`sch-tool pal ${tool.t === 'place' && tool.kind === it.kind ? 'on' : ''}`} onClick={() => { setTool({ t: 'place', kind: it.kind, rot: it.kind === 'resistor' || it.kind === 'inductor' ? 3 : 0 }); setDraft(null); }} title={`${it.label} — ${it.hint}`} aria-label={it.label}>
+            <button
+              key={it.kind}
+              className={`sch-tool pal ${tool.t === 'place' && tool.kind === it.kind ? 'on' : ''}`}
+              onClick={() => { setTool({ t: 'place', kind: it.kind, rot: defaultRot(it.kind) }); setDraft(null); }}
+              draggable
+              onDragStart={(e) => { e.dataTransfer.setData('application/x-protoforge-part', it.kind); e.dataTransfer.setData('text/plain', it.kind); e.dataTransfer.effectAllowed = 'copy'; }}
+              title={`${it.label} — ${it.hint} (click, or drag onto the sheet)`}
+              aria-label={it.label}
+            >
               <svg viewBox="-3.4 -3.4 6.8 6.8" width="26" height="26"><g className="cl-sym"><SymbolBody kind={it.kind} props={it.props} /></g></svg>
               <span>{it.label}</span>
             </button>
@@ -577,7 +588,7 @@ export function SchematicEditor() {
         </div>
 
         <div className="sch-main">
-          <div ref={wrapRef} className="sch-canvas cl-top" style={{ height: H }}>
+          <div ref={wrapRef} className="sch-canvas" style={{ height: H }}>
             <svg
               ref={svgRef}
               className={`cl-schem sch-svg tool-${tool.t}`}
@@ -591,6 +602,15 @@ export function SchematicEditor() {
               onPointerLeave={() => setCur(null)}
               onWheel={onWheel}
               onDoubleClick={() => { if (draft && draft.length >= 2) finishWire(draft); }}
+              onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-protoforge-part')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; const w = toWorld(e); setCur([snap(w[0]), snap(w[1])]); } }}
+              onDrop={(e) => {
+                const kind = e.dataTransfer.getData('application/x-protoforge-part');
+                if (!kind || !PALETTE.some((p) => p.kind === kind)) return;
+                e.preventDefault();
+                const w = toWorld(e);
+                placePart(kind, [snap(w[0]), snap(w[1])], defaultRot(kind));
+                setTool({ t: 'select' });
+              }}
               onContextMenu={(e) => { e.preventDefault(); if (draft) { if (draft.length >= 2) finishWire(draft); else setDraft(null); } else setTool({ t: 'select' }); }}
               role="application"
               aria-label="schematic canvas"
@@ -812,4 +832,3 @@ function AnalysisPanel({ doc, commit }: { doc: SchDoc; commit: (d: SchDoc) => vo
   );
 }
 
-export { Tabs };

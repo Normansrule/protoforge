@@ -241,7 +241,7 @@ pub fn best_focus_shift(sys: &System, prep: &Prepared, rings: usize) -> f64 {
 }
 
 fn diffraction_mtf(nu: f64, cutoff: f64) -> f64 {
-    if !(cutoff > 0.0) || nu >= cutoff {
+    if cutoff.is_nan() || cutoff <= 0.0 || nu >= cutoff {
         return 0.0;
     }
     let x = (nu / cutoff).clamp(0.0, 1.0);
@@ -307,7 +307,13 @@ pub fn analyze(sys0: &System, cfg: &QualityConfig) -> Result<Quality, String> {
     let ideal = sys.surfaces.iter().any(|s| s.is_ideal());
     let parax: Vec<Paraxial> = (0..nw).map(|w| paraxial(&sys, &prep, w)).collect();
     let efl = parax[pw].efl;
-    let to_arcmin = |mm: f64| if efl.is_finite() && efl.abs() > 1e-9 { mm / efl.abs() * RAD_TO_ARCMIN } else { 0.0 };
+    let to_arcmin = |mm: f64| {
+        if efl.is_finite() && efl.abs() > 1e-9 {
+            mm / efl.abs() * RAD_TO_ARCMIN
+        } else {
+            0.0
+        }
+    };
 
     // ---- spot diagrams ----------------------------------------------------
     let pupil = hexapolar(rings);
@@ -397,7 +403,11 @@ pub fn analyze(sys0: &System, cfg: &QualityConfig) -> Result<Quality, String> {
     for &f in &sys.fields_deg {
         let a = trace_at(&sys, &prep, iw_f, f, 0.0, 0.0);
         let b = trace_at(&sys, &prep, iw_c, f, 0.0, 0.0);
-        lat_mm.push(if a.ok() && b.ok() { a.at_z(z_img)[1] - b.at_z(z_img)[1] } else { 0.0 });
+        lat_mm.push(if a.ok() && b.ok() {
+            a.at_z(z_img)[1] - b.at_z(z_img)[1]
+        } else {
+            0.0
+        });
     }
     let lat_arcmin: Vec<f64> = lat_mm.iter().map(|x| to_arcmin(*x)).collect();
     let (shift_wl, shift_mm) = if cfg.lite {
@@ -579,7 +589,11 @@ pub fn analyze(sys0: &System, cfg: &QualityConfig) -> Result<Quality, String> {
 
     // ---- MTF ----------------------------------------------------------------
     let fnum = parax[pw].working_fnum;
-    let cutoff = if fnum.is_finite() && fnum > 0.0 { 1.0 / (lam_mm * fnum) } else { 0.0 };
+    let cutoff = if fnum.is_finite() && fnum > 0.0 {
+        1.0 / (lam_mm * fnum)
+    } else {
+        0.0
+    };
     let nyq = cfg.nyquist_lp_mm;
     let fmax_nu = if nyq > 0.0 {
         (nyq * 2.0).min(if cutoff > 0.0 { cutoff } else { f64::INFINITY })
@@ -625,7 +639,9 @@ pub fn analyze(sys0: &System, cfg: &QualityConfig) -> Result<Quality, String> {
     // a field where no ray reaches the image is a failure, not a perfect spot
     let dead: Vec<f64> = spots.iter().filter(|s| s.failed >= s.rays).map(|s| s.field_deg).collect();
     if !dead.is_empty() {
-        warnings.push(format!("no ray reaches the image at field(s) {dead:?}° (total internal reflection or vignetting)"));
+        warnings.push(format!(
+            "no ray reaches the image at field(s) {dead:?}° (total internal reflection or vignetting)"
+        ));
     }
     let worst_rms_mm = spots
         .iter()
@@ -767,7 +783,11 @@ mod tests {
         .unwrap();
         assert!(q.worst_rms_mm < 1e-9, "{}", q.worst_rms_mm);
         // F/5 at 587.6 nm → cutoff 1/(λN) = 340 lp/mm
-        assert!((q.mtf.cutoff_lp_mm - 1.0 / (587.5618e-6 * 5.0)).abs() < 0.5, "{}", q.mtf.cutoff_lp_mm);
+        assert!(
+            (q.mtf.cutoff_lp_mm - 1.0 / (587.5618e-6 * 5.0)).abs() < 0.5,
+            "{}",
+            q.mtf.cutoff_lp_mm
+        );
         assert!((q.worst_mtf_nyquist - q.mtf.diffraction_at_nyquist).abs() < 1e-9);
         // distortion-free in tan θ
         let c = q.curves.unwrap();
@@ -810,7 +830,11 @@ mod tests {
         // on-axis: no lateral colour, spot is round
         assert!(q.chromatic.lateral_mm[0].abs() < 1e-12);
         // OPD of an F/10 singlet with this much SA is a fraction of a wave to a few waves
-        assert!(q.wavefront[0].rms_waves > 0.05 && q.wavefront[0].rms_waves < 5.0, "{}", q.wavefront[0].rms_waves);
+        assert!(
+            q.wavefront[0].rms_waves > 0.05 && q.wavefront[0].rms_waves < 5.0,
+            "{}",
+            q.wavefront[0].rms_waves
+        );
     }
 
     #[test]

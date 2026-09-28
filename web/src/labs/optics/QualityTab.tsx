@@ -25,8 +25,8 @@ function SpotBox({ spot, waves, only, scale, pixel, airy, title }: { spot: SpotF
         <rect x={-S} y={-S} width={2 * S} height={2 * S} className="op-spot-bg" />
         <line x1={-S} y1={0} x2={S} y2={0} className="op-spot-axis" strokeWidth={S / 200} />
         <line x1={0} y1={-S} x2={0} y2={S} className="op-spot-axis" strokeWidth={S / 200} />
-        {pixel > 0 && <rect x={-pixel / 2} y={-pixel / 2} width={pixel} height={pixel} className="op-spot-pixel" strokeWidth={S / 120} />}
-        {airy > 0 && <circle r={airy} className="op-spot-airy" strokeWidth={S / 150} />}
+        {pixel > 0 && <rect x={-pixel / 2} y={-pixel / 2} width={pixel} height={pixel} className="op-spot-pixel" strokeWidth={1.4} />}
+        {airy > 0 && <circle r={airy} className="op-spot-airy" strokeWidth={1.2} />}
         {pts.map((p, k) => <circle key={k} cx={p[0]} cy={-p[1]} r={r} fill={waveColor(p[2], waves)} />)}
       </svg>
       <figcaption>
@@ -90,7 +90,7 @@ export function QualityTab() {
     <div className="stack">
       <div className="op-stats">
         <Stat label="RMS spot (worst)" value={fmt(q.worst_rms_arcmin, 2)} unit="arcmin" tone={tone(q.worst_rms_arcmin <= pixel)} note={`${q.worst_rms_arcmin <= pixel ? '✓' : '✕'} ≤ 1 pixel (${pixel.toFixed(2)}′) · ${title}`} />
-        <Stat label="MTF at Nyquist (worst)" value={fmt(q.worst_mtf_nyquist, 2)} tone={tone(q.worst_mtf_nyquist >= 0.3)} note={`${q.worst_mtf_nyquist >= 0.3 ? '✓' : '✕'} ≥ 0.3 at ${fmt(q.mtf.nyquist_lp_mm, 1)} cy/mm`} />
+        <Stat label="MTF at Nyquist (worst)" value={fmt(q.worst_mtf_nyquist, 2)} tone={tone(q.worst_mtf_nyquist >= 0.3)} note={`${q.worst_mtf_nyquist >= 0.3 ? '✓' : '✕'} rule of thumb ≥ 0.3 at ${fmt(q.mtf.nyquist_lp_mm, 1)} cycles/mm`} />
         <Stat label="Lateral colour (worst)" value={fmt(q.worst_lateral_arcmin, 2)} unit="arcmin" tone={tone(q.worst_lateral_arcmin <= pixel)} note={`colour fringes of ${fmt(q.worst_lateral_arcmin / Math.max(pixel, 1e-9), 1)} pixels at the corner`} />
         <Stat label="Distortion (edge)" value={fmt(curves ? curves.distortion_pct[curves.distortion_pct.length - 1] : 0, 2)} unit="%" note="reversed model; the eye sees the opposite sign — pre-warp the frame buffer to cancel it" />
       </div>
@@ -119,7 +119,7 @@ export function QualityTab() {
 
       <div className="grid grid-2">
         <Card title="Modulation transfer function (MTF)" subtitle="Contrast the lens passes vs spatial frequency on the display: geometric MTF of the spot × the diffraction limit." actions={<DownloadButton small filename="iris-mtf.csv" content={mtfCsv} label="mtf.csv" />}>
-          <Plot series={mtfSeries} height={260} xLabel="spatial frequency (cycles/mm on the display)" yLabel="MTF" yDomain={[0, 1]} vLines={[{ value: q.mtf.nyquist_lp_mm, label: 'display Nyquist', color: 'var(--accent)' }]} hLines={[{ value: 0.3, label: 'target 0.3', color: 'var(--bad)' }]} legend />
+          <Plot series={mtfSeries} height={260} xLabel="spatial frequency (cycles/mm on the display)" yLabel="MTF" yDomain={[0, 1]} vLines={[{ value: q.mtf.nyquist_lp_mm, label: 'display Nyquist', color: 'var(--accent)' }]} hLines={[{ value: 0.3, label: 'rule of thumb 0.3', color: 'var(--bad)' }]} legend />
         </Card>
         <Card title="Field curvature and distortion" subtitle="Where each field focuses (T tangential, S sagittal) relative to the flat display, and how far the image is stretched.">
           {curves && (
@@ -146,7 +146,7 @@ export function QualityTab() {
           <Plot series={[{ name: 'lateral colour F−C', x: q.spots.map((s) => s.field_deg), y: q.chromatic.lateral_arcmin.map(Math.abs), color: 'var(--series-5)', width: 2.2 }]} height={150} xLabel="field (°)" yLabel="|F − C| (′)" hLines={[{ value: pixel, label: '1 pixel', color: 'var(--good)' }]} legend={false} />
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Field</th><th>RMS F / d / C (µm)</th><th>Wavefront RMS</th><th>P–V</th><th>Strehl</th></tr></thead>
+              <thead><tr><th>Field</th><th className="op-nocaps">RMS F / d / C (µm)</th><th>Wavefront RMS</th><th>P–V</th><th>Strehl</th></tr></thead>
               <tbody>
                 {q.spots.map((s, k) => (
                   <tr key={k}>

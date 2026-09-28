@@ -98,7 +98,7 @@ export const LensLayout = forwardRef<SVGSVGElement, LensLayoutProps>(function Le
         {L.rays.filter((r) => showWave[r.wave]).map((r, k) => (
           <g key={k}>
             <path d={path(r.pts)} fill="none" stroke={waveColor(r.wave, waves)} strokeWidth={sw * 0.8} strokeOpacity={0.75} strokeLinejoin="round" />
-            {props.playing && <path d={path(r.pts)} fill="none" stroke={waveColor(r.wave, waves)} strokeWidth={sw * 2.2} className="op-pulse" pathLength={100} style={{ animationDelay: `${-(r.field * 0.37 + r.py * 0.05) % 1.6}s` }} />}
+            {props.playing && <path d={path(r.pts)} fill="none" stroke={waveColor(r.wave, waves)} strokeWidth={sw * 2.2} className="op-pulse" pathLength={100} style={{ animationDelay: `${-(r.field * 0.37 + r.py * 0.05 + r.wave * 0.53) % 1.6}s` }} />}
             {r.fail && r.pts.length > 0 && (
               <g transform={`translate(${r.pts[r.pts.length - 1][0]} ${-r.pts[r.pts.length - 1][1]})`} className="op-fail">
                 <path d={`M${-unit * 0.6},${-unit * 0.6} L${unit * 0.6},${unit * 0.6} M${-unit * 0.6},${unit * 0.6} L${unit * 0.6},${-unit * 0.6}`} strokeWidth={sw} />
@@ -115,8 +115,8 @@ export const LensLayout = forwardRef<SVGSVGElement, LensLayoutProps>(function Le
       {/* scale bar */}
       {!compact && (
         <g className="op-scale">
-          <line x1={box.zmin + unit * 2} y1={box.ym - fs * 0.9} x2={box.zmin + unit * 2 + bar} y2={box.ym - fs * 0.9} strokeWidth={sw * 1.4} />
-          <text x={box.zmin + unit * 2 + bar / 2} y={box.ym - fs * 1.4} fontSize={fs * 0.9} textAnchor="middle" className="op-lbl">{bar} mm</text>
+          <line x1={box.zmin + box.w * 0.42} y1={box.ym - fs * 0.9} x2={box.zmin + box.w * 0.42 + bar} y2={box.ym - fs * 0.9} strokeWidth={sw * 1.4} />
+          <text x={box.zmin + box.w * 0.42 + bar / 2} y={box.ym - fs * 1.4} fontSize={fs * 0.9} textAnchor="middle" className="op-lbl">{bar} mm</text>
         </g>
       )}
     </svg>

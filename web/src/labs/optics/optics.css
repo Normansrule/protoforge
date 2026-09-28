@@ -113,3 +113,12 @@ select.op-cell { width: 92px; font-family: var(--font); }
 .op-abbe .op-ax { fill: var(--muted); font-size: 11px; font-family: var(--font); }
 .op-abbe .op-abbe-lbl { fill: var(--text); font-size: 11.5px; font-weight: 650; font-family: var(--font); }
 .table tr.hi td { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+
+/* stacked key–value list for narrow side cards */
+.op-kv.stacked { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.op-kv.stacked dt { margin-top: 6px; font-size: 12px; }
+.op-kv.stacked dd { text-align: left; }
+/* where rays of the three wavelengths coincide they add up (dark) or darken (light) */
+.op-rays > g > path:first-child { mix-blend-mode: screen; }
+:root[data-theme='light'] .op-rays > g > path:first-child { mix-blend-mode: normal; stroke-opacity: 0.55; }
+.op-nocaps { text-transform: none !important; }
