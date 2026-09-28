@@ -1,5 +1,5 @@
 //! lz-string's `compressToEncodedURIComponent` / `decompressFromEncodedURIComponent`
-//! (P. Piroux, <https://github.com/pieroxy/lz-string>, MIT licence), ported
+//! (pieroxy, <https://github.com/pieroxy/lz-string>, MIT licence), ported
 //! to Rust bit for bit so Protoforge can build Falstad CircuitJS links
 //! (`circuitjs.html?ctz=…` is decompressed with this exact function).
 //!
@@ -236,7 +236,10 @@ mod tests {
             "CQAgjCAMB0l3BWcMBMIGXeyAoATuAOwBsIAHJgMxkAs5mmY8OAxiNXRe7ewmg7HhgkuIA",
         ),
         ("Ωµ€ — unicode ✓ 😀", "pXAFbDUEAEgoBBCuB2BLAxgewCYFMKGRyCheDcAA9oA"),
-        ("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "IY18ZXTt2Q"),
+        (
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "IY18ZXTt2Q",
+        ),
     ];
 
     #[test]

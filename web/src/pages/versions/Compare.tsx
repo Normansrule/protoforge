@@ -8,7 +8,7 @@ import { useElementWidth } from '../../components/useElementWidth';
 interface ValueChange { path: string; old: unknown; new: unknown; delta: number | null; rel_pct: number | null }
 interface ItemChange { kind: 'added' | 'removed' | 'changed'; key: string; label: string; fields: ValueChange[] }
 interface Section { id: string; title: string; items: ItemChange[] }
-interface ReqRow { id: string; text: string; criterion: string; status_a: string | null; status_b: string | null; value_a: number | null; value_b: number | null; unit: string; change: string }
+interface ReqRow { id: string; text: string; criterion: string; status_a: string | null; status_b: string | null; value_a: number | null; value_b: number | null; margin_a?: number | null; margin_b?: number | null; unit: string; change: string }
 interface MetricChange { key: string; label: string; unit: string; source: string; old: number | null; new: number | null; delta: number | null; rel_pct: number | null; note: string }
 interface CheckChange { preset: string; preset_title: string; key: string; label: string; unit: string; old: number | null; new: number | null; pass_old: boolean | null; pass_new: boolean | null; note: string; changed: boolean }
 interface Sum { short: string; name: string; version: string; evaluation: { pass: number; fail: number; unverified: number } | null }
@@ -124,8 +124,8 @@ export function CompareView({ d }: { d: Diff }) {
                   <tr key={r.id}>
                     <td className="mono">{r.id}</td>
                     <td className="small">{r.text}<div className="muted">{r.criterion}</div></td>
-                    <td className="small"><Glyph s={r.status_a} />{r.value_a !== null && <div className="tnum">{fmtNum(r.value_a)} {r.unit}</div>}</td>
-                    <td className="small"><Glyph s={r.status_b} />{r.value_b !== null && <div className="tnum">{fmtNum(r.value_b)} {r.unit}</div>}</td>
+                    <td className="small"><Glyph s={r.status_a} />{r.value_a !== null && <div className="tnum">{fmtNum(r.value_a)} {r.unit}</div>}{r.margin_a != null && <div className="muted tnum">margin {(100 * r.margin_a).toFixed(1)} %</div>}</td>
+                    <td className="small"><Glyph s={r.status_b} />{r.value_b !== null && <div className="tnum">{fmtNum(r.value_b)} {r.unit}</div>}{r.margin_b != null && <div className="muted tnum">margin {(100 * r.margin_b).toFixed(1)} %</div>}</td>
                     <td><Chip tone={CHANGE[r.change]?.tone}>{CHANGE[r.change]?.text ?? r.change}</Chip></td>
                   </tr>
                 ))}

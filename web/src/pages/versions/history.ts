@@ -26,7 +26,11 @@ export interface Version {
   created: number;
   branch: string;
   parent: string | null;
-  kind: 'manual' | 'auto' | 'example';
+  /** Second parent of a merge version (the tip of the branch merged in). */
+  merged?: string | null;
+  /** Configuration-management baseline label (e.g. "Allocated baseline"), if this version is one. */
+  baseline?: string | null;
+  kind: 'manual' | 'auto' | 'example' | 'merge';
   summary: Summary;
   project: Project;
 }
@@ -37,7 +41,9 @@ interface Persisted { versions: Version[]; branches: Branch[]; branch: string; b
 
 interface HistoryState extends Persisted {
   storageError: string | null;
-  create: (name: string, description: string, kind?: Version['kind']) => Version;
+  create: (name: string, description: string, kind?: Version['kind'], merged?: string | null) => Version;
+  setBaseline: (id: string, label: string | null) => void;
+  commitMerge: (merged: Project, theirs: string, name: string, description: string) => Version;
   restore: (id: string) => void;
   branchFrom: (id: string, name: string) => void;
   switchBranch: (name: string) => void;
@@ -99,9 +105,9 @@ export const useHistory = create<HistoryState>((set, get) => {
   return {
     ...load(),
     storageError: null,
-    create: (name, description, kind = 'manual') => {
+    create: (name, description, kind = 'manual', merged = null) => {
       const project = structuredClone(useProject.getState().project);
-      const v: Version = { id: uid(), name, description, created: Date.now(), branch: get().branch, parent: get().base, kind, summary: quickSummary(project), project };
+      const v: Version = { id: uid(), name, description, created: Date.now(), branch: get().branch, parent: get().base, merged, kind, summary: quickSummary(project), project };
       let versions = [...get().versions, v];
       if (kind === 'auto') {
         const autos = versions.filter((x) => x.kind === 'auto');
@@ -114,6 +120,14 @@ export const useHistory = create<HistoryState>((set, get) => {
       save();
       fill(v.id, project);
       return v;
+    },
+    setBaseline: (id, label) => {
+      set({ versions: get().versions.map((v) => (v.id === id ? { ...v, baseline: label } : v)) });
+      save();
+    },
+    commitMerge: (merged, theirs, name, description) => {
+      useProject.getState().setProject(structuredClone(merged));
+      return get().create(name, description, 'merge', theirs);
     },
     restore: (id) => {
       const v = get().versions.find((x) => x.id === id);
@@ -142,7 +156,10 @@ export const useHistory = create<HistoryState>((set, get) => {
       const v = get().versions.find((x) => x.id === id);
       if (!v) return;
       set({
-        versions: get().versions.filter((x) => x.id !== id).map((x) => (x.parent === id ? { ...x, parent: v.parent } : x)),
+        versions: get()
+          .versions.filter((x) => x.id !== id)
+          .map((x) => (x.parent === id ? { ...x, parent: v.parent } : x))
+          .map((x) => (x.merged === id ? { ...x, merged: v.parent } : x)),
         branches: get().branches.map((b) => (b.from === id ? { ...b, from: v.parent } : b)),
         base: get().base === id ? v.parent : get().base,
       });
@@ -172,9 +189,9 @@ export const useHistory = create<HistoryState>((set, get) => {
   };
 });
 
-interface ExampleVersion { name: string; description: string; project: Project }
+interface ExampleVersion { name: string; description: string; branch: string; parent: number | null; baseline: string | null; project: Project }
 
-/** First visit: seed Iris v0.3 → v0.4 (the story the simulations tell). */
+/** First visit: seed Iris v0.3 → v0.4 (the story the simulations tell) and an exploratory branch. */
 export function seedIfEmpty() {
   const h = useHistory.getState();
   if (h.seeded || h.versions.length > 0) return;
@@ -183,11 +200,17 @@ export function seedIfEmpty() {
   const versions: Version[] = [];
   ex.forEach((e, i) => {
     versions.push({
-      id: `example-${i}`, name: e.name, description: e.description, created: now - (ex.length - i) * 60_000, branch: 'main',
-      parent: i === 0 ? null : `example-${i - 1}`, kind: 'example', summary: quickSummary(e.project), project: e.project,
+      id: `example-${i}`, name: e.name, description: e.description, created: now - (ex.length - i) * 60_000, branch: e.branch || 'main',
+      parent: e.parent === null ? null : `example-${e.parent}`, baseline: e.baseline, kind: 'example', summary: quickSummary(e.project), project: e.project,
     });
   });
-  useHistory.setState({ versions, base: versions[versions.length - 1]?.id ?? null, seeded: true });
+  const branches: Branch[] = [{ name: 'main', from: null, created: 0 }];
+  versions.forEach((v) => {
+    if (!branches.some((b) => b.name === v.branch)) branches.push({ name: v.branch, from: v.parent, created: v.created });
+  });
+  // the working state starts on main at the newest main version (the shipped project)
+  const mainTip = [...versions].filter((v) => v.branch === 'main').pop();
+  useHistory.setState({ versions, branches, branch: 'main', base: mainTip?.id ?? null, seeded: true });
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(persisted(useHistory.getState())));
   } catch {
@@ -249,3 +272,35 @@ export function startAutoVersioning() {
   });
 }
 
+
+// ---------------------------------------------------------------------------
+// Graph helpers
+// ---------------------------------------------------------------------------
+
+/** Every ancestor of a version (itself included), following both parents of merges. */
+export function ancestors(versions: Version[], id: string | null): Set<string> {
+  const out = new Set<string>();
+  const stack = id ? [id] : [];
+  while (stack.length) {
+    const cur = stack.pop()!;
+    if (out.has(cur)) continue;
+    out.add(cur);
+    const v = versions.find((x) => x.id === cur);
+    if (v?.parent) stack.push(v.parent);
+    if (v?.merged) stack.push(v.merged);
+  }
+  return out;
+}
+
+/** Newest common ancestor of two versions (the merge base), or null. */
+export function mergeBase(versions: Version[], a: string | null, b: string | null): Version | null {
+  const A = ancestors(versions, a);
+  const common = [...ancestors(versions, b)].filter((id) => A.has(id));
+  const vs = common.map((id) => versions.find((v) => v.id === id)!).filter(Boolean);
+  return vs.sort((x, y) => y.created - x.created)[0] ?? null;
+}
+
+/** Latest version saved on a branch. */
+export function branchTip(versions: Version[], branch: string): Version | null {
+  return [...versions].filter((v) => v.branch === branch).sort((a, b) => b.created - a.created)[0] ?? null;
+}

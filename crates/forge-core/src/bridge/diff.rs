@@ -110,6 +110,9 @@ pub struct ReqRow {
     pub status_b: Option<String>,
     pub value_a: Option<f64>,
     pub value_b: Option<f64>,
+    /// Signed margin as a fraction of the target (positive = inside the limit).
+    pub margin_a: Option<f64>,
+    pub margin_b: Option<f64>,
     pub unit: String,
     /// "same", "value", "improved", "regressed", "added", "removed"
     pub change: String,
@@ -401,6 +404,8 @@ pub fn diff(a: &Project, b: &Project) -> Diff {
             status_b: sb,
             value_a: va,
             value_b: vb,
+            margin_a: ra.and_then(|r| r.margin),
+            margin_b: rb.and_then(|r| r.margin),
             unit: rb.or(ra).map(|r| r.unit.clone()).unwrap_or_default(),
             change: change.into(),
         });
@@ -509,6 +514,28 @@ pub fn diff(a: &Project, b: &Project) -> Diff {
             _ => format!("{}: {} → {}{val}", r.id, glyph(&r.status_a), glyph(&r.status_b)),
         });
     }
+    // Same verdict, but the margin to the limit halved or doubled: worth a line in a review.
+    for r in rows.iter().filter(|r| r.change == "value") {
+        if let (Some(ma), Some(mb)) = (r.margin_a, r.margin_b) {
+            if ma > 0.0 && mb > 0.0 && (mb < 0.5 * ma || mb > 2.0 * ma) {
+                headline.push(format!(
+                    "{}: margin {} from {:.1} % to {:.1} % of the target ({} → {} {}, still {})",
+                    r.id,
+                    if mb < ma { "shrank" } else { "grew" },
+                    100.0 * ma,
+                    100.0 * mb,
+                    r.value_a.map(fmt).unwrap_or_default(),
+                    r.value_b.map(fmt).unwrap_or_default(),
+                    r.unit,
+                    if r.status_b.as_deref() == Some("pass") {
+                        "✓ pass"
+                    } else {
+                        "the same verdict"
+                    }
+                ));
+            }
+        }
+    }
     for c in checks.iter().filter(|c| c.pass_old != c.pass_new && c.pass_old.is_some()) {
         let g = |p: Option<bool>| match p {
             Some(true) => "✓",
@@ -591,12 +618,21 @@ pub fn diff(a: &Project, b: &Project) -> Diff {
 pub struct ExampleVersion {
     pub name: String,
     pub description: String,
+    /// Branch the version was saved on.
+    pub branch: String,
+    /// Index of the parent version in the list.
+    pub parent: Option<usize>,
+    /// Configuration-management baseline label, if this version is one.
+    pub baseline: Option<String>,
     pub project: Project,
 }
 
 /// Reconstruct Iris v0.3 from the shipped v0.4: the combiner 8 mm after the
 /// lens, the battery-sense divider at 1 MΩ / 1.2 MΩ and no combiner-clearance
 /// requirement (R-025). The descriptions quote numbers computed by the labs.
+/// A third, exploratory version on its own branch (a 250 mAh cell) gives the
+/// branch, compare and merge tools something to work on; its description
+/// states only the change — the labs report what it does when it is compared.
 pub fn iris_history() -> Vec<ExampleVersion> {
     let v4 = Project::iris();
     let mut v3 = v4.clone();
@@ -633,6 +669,9 @@ pub fn iris_history() -> Vec<ExampleVersion> {
                 "Every requirement of the time passed, but the labs flagged two physical problems no requirement covered: the Optics Lab put the 45° combiner {:.1} mm into the collimating lens (lens-to-combiner 8 mm), and the Circuit Lab showed the 1 MΩ / 1.2 MΩ battery-sense divider driving the ADC pin to {:.2} V at a full cell — above the {rail:.1} V rail.",
                 -c3, a3
             ),
+            branch: "main".into(),
+            parent: None,
+            baseline: None,
             project: v3,
         },
         ExampleVersion {
@@ -640,7 +679,36 @@ pub fn iris_history() -> Vec<ExampleVersion> {
             description: format!(
                 "Combiner moved to 11 mm after the lens ({c4:+.2} mm clearance) and requirement R-025 added so the interference can never come back; divider changed to 1.5 MΩ / 1 MΩ ({a4:.2} V at the ADC pin, less always-on current)."
             ),
-            project: v4,
+            branch: "main".into(),
+            parent: Some(0),
+            baseline: Some("Allocated baseline".into()),
+            project: v4.clone(),
+        },
+        {
+            let mut big = v4.clone();
+            let b = &mut big.design.battery;
+            let k = 250.0 / b.capacity_mah;
+            b.capacity_mah = 250.0;
+            b.mass_g = (b.mass_g * k * 100.0).round() / 100.0;
+            big.meta.version = "0.4.1-exp".into();
+            let mass = big.design.battery.mass_g;
+            // the BOM line carries the mass the mass budget adds up; cost is left
+            // as it was (a real change would need a supplier quote)
+            for c in big.components.iter_mut().filter(|c| c.refdes == "BT1") {
+                c.name = "LiPo cell 250 mAh".into();
+                c.example_part = format!("3.7 V 250 mAh LiPo, ~{mass:.1} g");
+                c.mass_g = mass;
+            }
+            ExampleVersion {
+                name: "Explore: 250 mAh cell".into(),
+                description: format!(
+                    "What if the cell grows from 180 mAh to 250 mAh? Battery mass scaled at the same energy density ({mass:.2} g, design parameter and BOM line BT1); unit cost left unchanged until a supplier quotes it. Compare with v0.4 to see what every lab says about battery life, mass and skin temperature before deciding whether to merge it."
+                ),
+                branch: "explore/battery-250".into(),
+                parent: Some(1),
+                baseline: None,
+                project: big,
+            }
         },
     ]
 }
@@ -706,6 +774,30 @@ mod tests {
             "{}",
             h[0].description
         );
+    }
+
+    #[test]
+    fn exploratory_branch_changes_battery_life_in_proportion() {
+        let h = iris_history();
+        assert_eq!(h[2].branch, "explore/battery-250");
+        assert_eq!(h[2].parent, Some(1));
+        let d = diff(&h[1].project, &h[2].project);
+        let life = d
+            .metrics
+            .iter()
+            .find(|m| m.key == "power.battery_life_h")
+            .expect("battery life moved");
+        // Capacity ×250/180 with the same load: life scales by about the same ratio
+        // (the discharge model's internal-resistance loss keeps it slightly off).
+        let ratio = life.new.unwrap() / life.old.unwrap();
+        assert!((ratio - 250.0 / 180.0).abs() < 0.08, "ratio {ratio}");
+        assert!(d.params.iter().any(|p| p.path == "design.battery.mass_g"));
+        // the heavier cell shows up in the mass budget: +1.56 g
+        let m = d.metrics.iter().find(|m| m.key == "mass.total_g").expect("total mass moved");
+        assert!((m.delta.unwrap() - 1.56).abs() < 1e-6, "{:?}", m.delta);
+        assert!(d.sections[1].items.iter().any(|i| i.key == "BT1" && i.kind == "changed"));
+        // R-001 keeps passing but most of its mass margin is gone — the review says so
+        assert!(d.headline.iter().any(|h| h.starts_with("R-001: margin shrank")), "{:?}", d.headline);
     }
 
     #[test]

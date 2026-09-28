@@ -12,6 +12,7 @@
 //! | [`falstad`] + [`lzstring`] | Circuit Lab presets → Falstad CircuitJS text and `?ctz=` links |
 //! | [`rayoptics`] | the heads-up display as a Ray Optics Simulation scene |
 //! | [`diff`] | Onshape-style version comparison with requirement verdict changes |
+//! | [`merge`] | three-way merge of two branches with a visible, overridable decision per difference |
 //!
 //! Every exporter is re-parsed in its unit tests (and, outside the test
 //! suite, with independent parsers — see `docs/toolchain.md`).
@@ -27,6 +28,7 @@ pub mod diff;
 pub mod falstad;
 pub mod kicad;
 pub mod lzstring;
+pub mod merge;
 pub mod rayoptics;
 pub mod scad;
 pub mod step;
@@ -217,6 +219,15 @@ struct DiffIn {
 }
 
 #[derive(Deserialize)]
+struct MergeIn {
+    base: Project,
+    ours: Project,
+    theirs: Project,
+    #[serde(default)]
+    choices: std::collections::BTreeMap<String, merge::Side>,
+}
+
+#[derive(Deserialize)]
 struct SummaryIn {
     project: Project,
     #[serde(default)]
@@ -262,7 +273,11 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
             })
         }),
         "bridge.falstad_netlist" => handle(input, |i: NetlistIn| {
-            let t = if i.title.is_empty() { "netlist".to_string() } else { i.title.clone() };
+            let t = if i.title.is_empty() {
+                "netlist".to_string()
+            } else {
+                i.title.clone()
+            };
             Ok(falstad::convert("custom", &t, "Custom", &i.netlist, None))
         }),
         "bridge.lz_compress" => handle(input, |i: TextIn| Ok(lzstring::compress_to_encoded_uri_component(&i.text))),
@@ -271,6 +286,7 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         }),
         "bridge.export_all" => handle(input, |i: ExportIn| Ok(export_all(&i.project, &i.options))),
         "bridge.diff" => handle(input, |i: DiffIn| Ok(diff::diff(&i.a, &i.b))),
+        "bridge.merge" => handle(input, |i: MergeIn| Ok(merge::merge3(&i.base, &i.ours, &i.theirs, &i.choices))),
         "bridge.summary" => handle(input, |i: SummaryIn| {
             let ev = i.evaluate.then(|| crate::systems::evaluate(&i.project));
             Ok(diff::summary(&i.project, ev.as_ref()))
@@ -300,7 +316,20 @@ mod tests {
             },
         );
         let has = |pre: &str| files.iter().any(|f| f.path.starts_with(pre));
-        for pre in ["README.md", "kicad/iris.kicad_pcb", "kicad/iris.kicad_pro", "kicad/Protoforge.pretty/", "pcb/", "cad/iris-frame.step", "cad/iris-frame.scad", "cad/stl/", "circuits/", "chip/", "optics/", "project.json"] {
+        for pre in [
+            "README.md",
+            "kicad/iris.kicad_pcb",
+            "kicad/iris.kicad_pro",
+            "kicad/Protoforge.pretty/",
+            "pcb/",
+            "cad/iris-frame.step",
+            "cad/iris-frame.scad",
+            "cad/stl/",
+            "circuits/",
+            "chip/",
+            "optics/",
+            "project.json",
+        ] {
             assert!(has(pre), "missing {pre}");
         }
         let mut paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
@@ -318,6 +347,6 @@ mod tests {
         let s = crate::api::call_value("bridge.summary", &serde_json::json!({ "project": p })).unwrap();
         assert_eq!(s["hash"].as_str().unwrap().len(), 16);
         let h = crate::api::call_value("bridge.example_history", &Value::Null).unwrap();
-        assert_eq!(h.as_array().unwrap().len(), 2);
+        assert_eq!(h.as_array().unwrap().len(), 3);
     }
 }

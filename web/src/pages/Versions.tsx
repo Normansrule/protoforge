@@ -3,12 +3,14 @@
 // auto-versioning, and JSON export/import of the history.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LabPage } from '../components/LabPage';
-import { Card, Chip, DownloadButton, ErrorBox, Explainer, Formula, Stat, Toggle } from '../components/ui';
+import { Card, Chip, DownloadButton, ErrorBox, Explainer, Formula, Stat, Tabs, Toggle } from '../components/ui';
 import { useEvaluation, useProject } from '../state/project';
 import { workerCall } from '../labs/pcb/useWorker';
 import { downloadText } from '../components/ui';
 import { VersionGraph } from './versions/Graph';
 import { CompareView, type Diff } from './versions/Compare';
+import { MergePanel } from './versions/Merge';
+import { Concepts } from './versions/Concepts';
 import { quickSummary, seedIfEmpty, startAutoVersioning, useHistory, type Version } from './versions/history';
 import './versions/versions.css';
 
@@ -36,6 +38,8 @@ function Detail({ v, onCompare }: { v: Version; onCompare: (a: string, b: string
     setEditing(false);
   }, [v]);
   const e = v.summary.evaluation;
+  const mergedFrom = v.merged ? h.versions.find((x) => x.id === v.merged) : null;
+  const parent = v.parent ? h.versions.find((x) => x.id === v.parent) : null;
   return (
     <Card title={v.name} subtitle={`${v.kind === 'example' ? 'Example history · ' : ''}branch ${v.branch} · #${v.summary.short} · ${new Date(v.created).toLocaleString()}`}>
       {editing ? (
@@ -52,6 +56,18 @@ function Detail({ v, onCompare }: { v: Version; onCompare: (a: string, b: string
         <Chip>{v.summary.requirements} requirements</Chip>
         <Chip>{v.summary.components} BOM lines · ${v.summary.bom_cost_usd.toFixed(2)}</Chip>
         <Chip>v{v.summary.version}</Chip>
+        {v.baseline && <Chip tone="warn">⚑ {v.baseline}</Chip>}
+      </div>
+      <div className="small muted" style={{ marginBottom: 10 }}>
+        Parent: {parent ? <button className="btn small ghost" onClick={() => onCompare(parent.id, v.id)}>{parent.name} (compare)</button> : 'none (first version)'}
+        {mergedFrom && <> · merged in: <button className="btn small ghost" onClick={() => onCompare(mergedFrom.id, v.id)}>{mergedFrom.name} (compare)</button></>}
+      </div>
+      <div className="row" style={{ gap: 8, marginBottom: 12 }}>
+        <label className="small muted" htmlFor={`bl-${v.id}`}>Baseline</label>
+        <select id={`bl-${v.id}`} value={v.baseline ?? ''} onChange={(x) => h.setBaseline(v.id, x.target.value || null)} style={{ maxWidth: 220 }}>
+          <option value="">— not a baseline</option>
+          {['Functional baseline', 'Allocated baseline', 'Product baseline', ...(v.baseline && !['Functional baseline', 'Allocated baseline', 'Product baseline'].includes(v.baseline) ? [v.baseline] : [])].map((b) => <option key={b} value={b}>{b}</option>)}
+        </select>
       </div>
       <div className="row" style={{ gap: 6 }}>
         <button className="btn small primary" onClick={() => confirm(`Restore “${v.name}”? The working state is replaced (create a version first to keep it).`) && h.restore(v.id)}>Restore</button>
@@ -79,6 +95,7 @@ export default function Versions() {
   const [desc, setDesc] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const [importErr, setImportErr] = useState<string | null>(null);
+  const [tab, setTab] = useState<'compare' | 'merge' | 'concepts'>('compare');
 
   useEffect(() => {
     seedIfEmpty();
@@ -109,6 +126,7 @@ export default function Versions() {
   const options = [{ id: WORKING, label: `Working state (${h.branch})` }, ...[...h.versions].sort((a, b) => b.created - a.created).map((v) => ({ id: v.id, label: `${v.name} · #${v.summary.short}` }))];
   const compare = (a: string, b: string) => {
     setCmp([a, b]);
+    setTab('compare');
     setTimeout(() => document.getElementById('vd-compare')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
 
@@ -137,7 +155,7 @@ export default function Versions() {
     >
       <ErrorBox error={h.storageError || importErr} />
       <div className="grid grid-4">
-        <Stat label="Versions" value={h.versions.length} note={`${h.versions.filter((v) => v.kind === 'auto').length} automatic · stored in this browser`} />
+        <Stat label="Versions" value={h.versions.length} note={`${h.versions.filter((v) => v.baseline).length} baselines · ${h.versions.filter((v) => v.kind === 'merge').length} merges · ${h.versions.filter((v) => v.kind === 'auto').length} automatic · stored in this browser`} />
         <Stat label="Branches" value={h.branches.length} note={h.branches.map((b) => b.name).join(' · ')} />
         <Stat label="Working state" value={working ? `#${working.short}` : '…'} note={modified ? `modified since ${base?.name ?? 'no version'}` : `same as ${base?.name ?? '—'}`} tone={modified ? 'warn' : 'pass'} />
         <Stat label="Live verification" value={ev.data ? `✓ ${ev.data.pass}` : '…'} note={ev.data ? `${ev.data.fail} failing · ${ev.data.unverified} unverified` : ''} tone={ev.data ? (ev.data.fail > 0 ? 'fail' : 'pass') : undefined} />
@@ -177,26 +195,41 @@ export default function Versions() {
               {selected === WORKING && base && <button className="btn small" style={{ marginTop: 10 }} onClick={() => compare(base.id, WORKING)}>Compare with {base.name}</button>}
             </Card>
           )}
-          <Explainer title="Versions are baselines" refs={[{ label: 'International Organization for Standardization (ISO) 10007:2017 Quality management — Guidelines for configuration management' }, { label: 'NASA/SP-2016-6105 Rev 2, NASA Systems Engineering Handbook — configuration management process' }, { label: 'Onshape Learning Center: versions, branching and merging', href: 'https://learn.onshape.com' }]}>
+          <Explainer title="Versions are baselines" refs={[{ label: 'International Organization for Standardization (ISO) 10007:2017 Quality management — Guidelines for configuration management' }, { label: 'SAE/EIA-649, Configuration Management Standard (check the current revision)' }, { label: 'NASA/SP-2016-6105 Rev 2, NASA Systems Engineering Handbook — configuration management process' }, { label: 'Onshape Learning Center: versions, branching and merging', href: 'https://learn.onshape.com' }]}>
             Configuration management keeps every decision traceable: a <b>baseline</b> is an agreed, frozen description of the product (functional, allocated, product baselines), changes are proposed against it, and <b>status accounting</b> records what changed and why. Onshape brings the same idea to CAD — immutable <i>versions</i>, a mutable <i>workspace</i>, <i>branches</i> for alternatives, and <i>compare</i>. Here a version freezes the whole project.json: requirements, BOM, and every design parameter the labs read, so comparing two versions also re-runs the verification.
             The fingerprint is a Fowler–Noll–Vo (FNV-1a) hash of the whole file:
             <Formula>{'fingerprint = FNV-1a-64(project.json)\nh ← (h ⊕ byte) · 1099511628211  mod 2⁶⁴,  h₀ = 14695981039346656037'}</Formula>
           </Explainer>
         </div>
       </div>
-      <Card title="Compare two versions" subtitle="Both are evaluated by every lab in a background worker" className="vd-compare">
-        <div id="vd-compare" className="row" style={{ gap: 8 }}>
-          <label className="small muted" htmlFor="vd-a">A (before)</label>
-          <select id="vd-a" value={cmp[0] ?? ''} onChange={(e) => setCmp([e.target.value, cmp[1]])} style={{ maxWidth: 280 }}>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
-          <button className="btn small" onClick={() => setCmp([cmp[1], cmp[0]])} aria-label="Swap A and B">⇄</button>
-          <label className="small muted" htmlFor="vd-b">B (after)</label>
-          <select id="vd-b" value={cmp[1] ?? ''} onChange={(e) => setCmp([cmp[0], e.target.value])} style={{ maxWidth: 280 }}>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
-          {diff.busy && <span className="small muted">Evaluating both versions…</span>}
-        </div>
-        <div className="small muted" style={{ marginTop: 6 }}>{labelOf(cmp[0])} → {labelOf(cmp[1])}</div>
-      </Card>
-      <ErrorBox error={diff.error} />
-      {diff.data && <CompareView d={diff.data} />}
+      <Tabs<'compare' | 'merge' | 'concepts'>
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: 'compare', label: 'Compare (design review)' },
+          { id: 'merge', label: 'Merge branches' },
+          { id: 'concepts', label: 'Baselines & concepts' },
+        ]}
+      />
+      {tab === 'compare' && (
+        <>
+          <Card title="Compare two versions" subtitle="Both are evaluated by every lab in a background worker" className="vd-compare">
+            <div id="vd-compare" className="row" style={{ gap: 8 }}>
+              <label className="small muted" htmlFor="vd-a">A (before)</label>
+              <select id="vd-a" value={cmp[0] ?? ''} onChange={(e) => setCmp([e.target.value, cmp[1]])} style={{ maxWidth: 280 }}>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
+              <button className="btn small" onClick={() => setCmp([cmp[1], cmp[0]])} aria-label="Swap A and B">⇄</button>
+              <label className="small muted" htmlFor="vd-b">B (after)</label>
+              <select id="vd-b" value={cmp[1] ?? ''} onChange={(e) => setCmp([cmp[0], e.target.value])} style={{ maxWidth: 280 }}>{options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}</select>
+              {diff.busy && <span className="small muted">Evaluating both versions…</span>}
+            </div>
+            <div className="small muted" style={{ marginTop: 6 }}>{labelOf(cmp[0])} → {labelOf(cmp[1])}</div>
+          </Card>
+          <ErrorBox error={diff.error} />
+          {diff.data && <CompareView d={diff.data} />}
+        </>
+      )}
+      {tab === 'merge' && <MergePanel />}
+      {tab === 'concepts' && <Concepts onCompare={compare} />}
       <div className="row" style={{ justifyContent: 'flex-end' }}>
         <button className="btn small ghost" onClick={() => confirm('Delete the whole version history in this browser? (Export it first to keep a copy.)') && h.reset()}>Clear history</button>
       </div>

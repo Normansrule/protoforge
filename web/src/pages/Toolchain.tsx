@@ -8,6 +8,7 @@ import { useCompute } from '../engine/hooks';
 import { useProject } from '../state/project';
 import { useWorkerCompute } from '../labs/pcb/useWorker';
 import { FlowDiagram } from './toolchain/FlowDiagram';
+import { HowToStrip } from './toolchain/HowTo';
 import { KicadPreview, useBoard } from './toolchain/KicadPreview';
 import { CodeView } from './toolchain/CodeView';
 import { CircuitsTab } from './toolchain/CircuitsTab';
@@ -37,8 +38,9 @@ function ToolCard({ tool, picked, onTab, bundle }: { tool: Tool; picked: boolean
         ))}
         {tool.lab && <a className="btn small ghost" href={tool.lab.href}>{tool.lab.label} →</a>}
       </div>
+      <HowToStrip steps={tool.howto} label={tool.name} />
       <details className="tc-steps">
-        <summary className="small">How to open Protoforge’s files</summary>
+        <summary className="small">Step by step, in words</summary>
         <ol className="small">{tool.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
       </details>
     </section>
@@ -133,7 +135,7 @@ export default function Toolchain() {
         <Stat label="Real tools" value={TOOLS.length} note={`${DISCIPLINES.length} disciplines · ${TOOLS.filter((t) => t.kind.includes('web')).length} run in a browser`} />
         <Stat label="Hand-off formats" value={formats} note="KiCad, Gerber, STEP, OpenSCAD, stereolithography (STL), G-code, SPICE, Verilog …" />
         <Stat label="Falstad circuits" value={falstad.data?.length ?? '…'} note={falstad.data ? `${full} exact · ${falstad.data.length - full} with listed simplifications` : 'converting…'} tone={falstad.data?.every((c) => c.connectivity_ok) ? 'pass' : undefined} />
-        <Stat label="Checked by an outside parser" value={`${VERIFIED_COUNT} exports`} note="kiutils · OpenCASCADE (gmsh) · OpenSCAD · lz-string (JS)" tone="pass" />
+        <Stat label="Checked by an outside parser" value={`${VERIFIED_COUNT} exports`} note="kiutils · OpenCASCADE (gmsh) · OpenSCAD · lz-string (JS) · gerbonara" tone="pass" />
       </div>
       <Tabs<Tab>
         value={tab}
@@ -186,14 +188,17 @@ export default function Toolchain() {
             <Card title="Downloads">
               <div className="stack" style={{ gap: 8 }}>
                 {kicad.data && <DownloadButton filename={kicad.data.filename} content={() => new Blob([kicad.data!.content], { type: 'text/plain' })} label={kicad.data.filename} primary />}
-                <button className="btn" disabled={bundle.busy} onClick={() => bundle.get().then((f) => downloadFiles(f, TOOLS.find((t) => t.id === 'kicad')!.downloads![0]))}>↓ KiCad project (.zip: board, .kicad_pro, netlist, footprint library)</button>
+                <button className="btn" disabled={bundle.busy} onClick={() => bundle.get().then((f) => downloadFiles(f, TOOLS.find((t) => t.id === 'kicad')!.downloads![0]))}>↓ KiCad project (.zip)</button>
+                <div className="small muted">Board, .kicad_pro with net classes, netlist and the footprint library.</div>
               </div>
             </Card>
-            <Card title="Open in KiCanvas (browser)" subtitle="kicanvas.org reads a public GitHub file URL from its ?github= parameter">
+            <Card title="Open in KiCanvas (browser)" subtitle="Drag the downloaded file onto kicanvas.org, or link a copy committed to GitHub">
+              <HowToStrip steps={TOOLS.find((t) => t.id === 'kicanvas')!.howto} label="KiCanvas" />
+              <div className="small muted" style={{ margin: '10px 0 6px' }}>For a project page, commit the board and build a shareable link — kicanvas.org reads a public GitHub file URL from its <span className="mono">?github=</span> parameter:</div>
               <KiCanvasBuilder filename={kicad.data?.filename ?? 'iris.kicad_pcb'} />
             </Card>
             {kicad.data && <div className="callout small">{kicad.data.notes.map((n, i) => <div key={i}>• {n}</div>)}</div>}
-            <Explainer title="Two coordinate systems" refs={[{ label: 'KiCad file formats: board file', href: 'https://dev-docs.kicad.org/en/file-formats/' }, { label: 'KiCanvas source (theacodes/kicanvas)', href: 'https://github.com/theacodes/kicanvas' }]}>
+            <Explainer title="Two coordinate systems" refs={[{ label: 'KiCad file formats: board file', href: 'https://dev-docs.kicad.org/en/file-formats/' }, { label: 'T. Flowers, KiCanvas — KiCad viewer for the web (source)', href: 'https://github.com/theacodes/kicanvas' }, { label: 'KiCad Developer Documentation: S-expression format', href: 'https://dev-docs.kicad.org/en/file-formats/' }]}>
               Protoforge measures from the board's bottom-left corner with y up; KiCad measures from the sheet's top-left with y down and turns angles counter-clockwise on screen. Each point and pad is mapped as
               <Formula>{'X = X₀ + x        Y = Y₀ + H − y\npad (local) = (pₓ, −p_y),  angle unchanged\nabsolute = anchor + R(θ)·local'}</Formula>
               The test suite re-applies KiCad's rule to every pad in the file and checks it lands on the engine's pad (to 0.1 µm) with the same net.
@@ -211,11 +216,50 @@ export default function Toolchain() {
           <ErrorBox error={step.error} />
           <div className="grid grid-2">
             <StepCard step={step.data} busy={step.busy} />
-            <Explainer title="Faceted STEP: a mesh in STEP clothing" refs={[{ label: 'ISO 10303-21 Clear text encoding of the exchange structure' }, { label: 'ISO 10303-42 Geometric and topological representation' }, { label: 'Onshape Learning Center', href: 'https://learn.onshape.com' }]}>
-              Every triangle of the CAD mesh becomes a planar FACE_SURFACE bounded by a POLY_LOOP; each watertight piece becomes a CLOSED_SHELL inside a FACETED_BREP, in millimetres, with its colour. It imports everywhere and is fine for viewing, fit checks, quotes and printing services — but a mold maker wants native B-rep (real cylinders and splines): rebuild the parts in Onshape or FreeCAD for tooling.
+            <Explainer
+              title="STEP, AP214 and AP242 in one paragraph"
+              refs={[
+                { label: 'ISO 10303-21, Clear text encoding of the exchange structure (the .step file syntax)' },
+                { label: 'ISO 10303-42, Geometric and topological representation (faceted B-rep)' },
+                { label: 'ISO 10303-214, Core data for automotive mechanical design processes (AP214)' },
+                { label: 'ISO 10303-242, Managed model-based 3D engineering (AP242)' },
+                { label: 'Onshape Learning Center', href: 'https://learn.onshape.com' },
+              ]}
+            >
+              The Standard for the Exchange of Product model data (STEP, ISO 10303) splits into <i>integrated resources</i> (shared geometry such as Part 42) and <i>application protocols</i> (APs) that pick what a domain exchanges. AP203 and AP214 were the classic mechanical and automotive protocols; AP242 merges them and adds product and manufacturing information (tolerances, annotations), which is why modern CAD exports default to it. Protoforge writes an AP214 header (<span className="mono">AUTOMOTIVE_DESIGN</span>), the schema every importer we know accepts, with geometry from Part 42.
+              <br />
+              Every triangle of the CAD mesh becomes a planar FACE_SURFACE bounded by a POLY_LOOP; each watertight piece becomes a CLOSED_SHELL inside a FACETED_BREP, in millimetres, with its colour. That imports everywhere and is fine for viewing, fit checks, quotes and printing services — but a mold maker wants a native boundary representation (B-rep) with real cylinders and splines: rebuild the parts in Onshape or FreeCAD for tooling.
               <Formula>{'χ = V − E + F = 2 − 2g   (closed, orientable shell of genus g)\nfront: two lens openings → g = 2 → χ = −2'}</Formula>
               The Euler characteristic of each exported shell is computed from the file's own vertices, edges and faces — a quick topological check that the shells are closed.
             </Explainer>
+          </div>
+          <div className="grid grid-2">
+            <Card title="Into Onshape (STEP import)" subtitle="Browser CAD with versions and branches — the same ideas as the Versions page">
+              <HowToStrip steps={TOOLS.find((t) => t.id === 'onshape')!.howto} label="Onshape" />
+              <ol className="small" style={{ marginTop: 10 }}>
+                <li>Download <span className="mono">{step.data?.filename ?? 'iris-frame.step'}</span> (as worn) or the print-orientation file.</li>
+                <li>In an Onshape document use <b>Import</b> (the + menu or the tab list) and pick the file; choose millimetre if asked.</li>
+                <li>Each part arrives as a faceted body in a Part Studio. Use it as reference: sketch on its faces, extrude the real features, then hide the import.</li>
+                <li>Save an Onshape <b>Version</b> at each baseline and name it like the Protoforge version it came from, so both histories line up.</li>
+              </ol>
+              <div className="row">
+                <a className="btn small primary" href="https://www.onshape.com/" target="_blank" rel="noreferrer">Onshape ↗</a>
+                {step.data && <DownloadButton filename={step.data.filename} content={() => new Blob([step.data!.content], { type: 'application/step' })} label="STEP" small />}
+              </div>
+            </Card>
+            <Card title="STL parts → 3DViewer.net and your slicer" subtitle="Binary STL per part, already in print orientation">
+              <HowToStrip steps={TOOLS.find((t) => t.id === '3dviewer')!.howto} label="Online 3D Viewer" />
+              <ol className="small" style={{ marginTop: 10 }}>
+                <li>Download the STL zip (one file per frame part) — the same meshes CAD Studio shows.</li>
+                <li>Drag them (or the STEP) onto 3dviewer.net to orbit, measure and check hinge clearances.</li>
+                <li>Import them into Bambu Studio, PrusaSlicer, OrcaSlicer or Cura and compare the slicer's time with the Print Lab.</li>
+              </ol>
+              <div className="row">
+                <a className="btn small primary" href="https://3dviewer.net/" target="_blank" rel="noreferrer">3dviewer.net ↗</a>
+                <button className="btn small" disabled={bundle.busy} onClick={() => bundle.get().then((f) => downloadFiles(f, TOOLS.find((t) => t.id === '3dviewer')!.downloads![0]))}>↓ STL parts (.zip)</button>
+                <a className="btn small ghost" href="#/cad">CAD Studio →</a>
+              </div>
+            </Card>
           </div>
           <Card title="OpenSCAD — the frame as an editable program" subtitle="Parameters come from design.frame and design.optics; edit them in the Customizer and re-render" actions={<a className="btn small primary" href="https://ochafik.com/openscad2" target="_blank" rel="noreferrer">OpenSCAD Playground ↗</a>}>
             {scad.data ? <CodeView code={scad.data} filename={`${project.meta.codename?.toLowerCase() || 'frame'}-frame.scad`} lang="scad" maxLines={400} maxHeight={460} /> : <div className="muted small">…</div>}
@@ -224,6 +268,9 @@ export default function Toolchain() {
               <li>Paste the program, press F5 to preview, change e.g. <code className="mono">bridge = 20;</code>, F6 to render.</li>
               <li>Export STL/3MF and slice it — or compare it with the exact meshes from CAD Studio.</li>
             </ol>
+            <Explainer title="Constructive solid geometry as a program" refs={[{ label: 'OpenSCAD User Manual (Wikibooks)', href: 'https://en.wikibooks.org/wiki/OpenSCAD_User_Manual' }, { label: 'OpenSCAD Playground source (openscad/openscad-playground)', href: 'https://github.com/openscad/openscad-playground' }, { label: 'OpenSCAD documentation', href: 'https://openscad.org/documentation.html' }]}>
+              OpenSCAD builds solids by constructive solid geometry (CSG): primitives and extrusions combined with <span className="mono">union()</span>, <span className="mono">difference()</span> and <span className="mono">hull()</span>. Because the model is text, the parameters at the top of the file are the design — edit one, re-render, and the whole frame follows, exactly like changing <span className="mono">design.frame</span> here.
+            </Explainer>
             <div className="small muted">A simplified re-statement of CAD Studio's generator: same numbers, close shapes (superellipse rims, drafted extrusions via <code className="mono">linear_extrude(scale = (w − 2h·tan θ)/w)</code>, hollow pods, bent temples).</div>
           </Card>
         </div>

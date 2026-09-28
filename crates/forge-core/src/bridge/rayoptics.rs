@@ -55,9 +55,21 @@ pub fn scene(p: &Project) -> Value {
         let q = pt(x, y);
         json!({ "type": "TextLabel", "x": q["x"], "y": q["y"], "text": text, "fontSize": 16 })
     };
-    objs.push(label(-1.0, -big_d / 2.0 - 3.0, format!("{} display ({} mm tall)", p.meta.codename, h)));
-    objs.push(label(d - 2.0, big_d / 2.0 + 4.0, format!("lens f = {} mm, {} mm from display", o.lens_focal_mm, d)));
-    objs.push(label(xc + half + 1.0, -half, format!("combiner R = {:.0} %, {} mm after lens", o.combiner_reflectance * 100.0, lc)));
+    objs.push(label(
+        -1.0,
+        -big_d / 2.0 - 3.0,
+        format!("{} display ({} mm tall)", p.meta.codename, h),
+    ));
+    objs.push(label(
+        d - 2.0,
+        big_d / 2.0 + 4.0,
+        format!("lens f = {} mm, {} mm from display", o.lens_focal_mm, d),
+    ));
+    objs.push(label(
+        xc + half + 1.0,
+        -half,
+        format!("combiner R = {:.0} %, {} mm after lens", o.combiner_reflectance * 100.0, lc),
+    ));
     objs.push(label(xc + 3.0, er + 1.0, format!("eye pupil ({} mm eye relief)", er)));
     json!({
         "version": 5,

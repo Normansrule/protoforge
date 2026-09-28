@@ -36,6 +36,44 @@ The **Download toolchain bundle** button zips all of it (`bridge.export_all`),
 with a README per folder. Each tool card on the page also downloads just the
 files that tool needs.
 
+## Tool cards and the animated how-to strips
+
+The **Tool map** tab opens with an animated flow — engine → files → tools →
+who builds it (PCB fab, molder, your printer, a Tiny Tapeout shuttle, the
+bench, quantum cloud hardware); hover a tool to trace its files, click it to
+jump to its card. Every card then says what the tool is, which Protoforge file
+it takes, and shows a four- or five-step **how-to strip**: small SVG
+pictograms (download, unzip, open, drag-and-drop, paste, click, run, view,
+edit, export, create a version) that animate one after another. The strip
+pauses with its ❚❚ button, a click on a step jumps to it, and with
+`prefers-reduced-motion` every step is drawn still. The same steps are written
+out under “Step by step, in words”.
+
+| Tool | Runs | What we hand it | Steps in short |
+|---|---|---|---|
+| [Falstad CircuitJS](https://www.falstad.com/circuit/) | browser | the circuit inside the link (`?ctz=`) | click → it simulates → right-click a part to edit |
+| [ngspice](https://ngspice.sourceforge.io/) | desktop | `.cir` decks | `ngspice -b deck.cir` |
+| [KiCad](https://www.kicad.org/) | desktop | KiCad project zip | unzip → open `.kicad_pro` → **B** to fill zones → design-rule check (DRC) |
+| [KiCanvas](https://kicanvas.org/) | browser | `.kicad_pcb` | drag the file onto kicanvas.org, or link a copy on GitHub |
+| [tracespace viewer](https://tracespace.io/view/) | browser | Gerber + drill zip | drop the zip, check both sides; fabs such as JLCPCB also render the uploaded zip on their quote page |
+| [Onshape](https://www.onshape.com/) | browser | `iris-frame.step` | Import (millimetre) → re-model on the faceted reference → create a Version |
+| [FreeCAD](https://www.freecad.org/) | desktop | STEP | File → Open → Part → Convert to solid |
+| [OpenSCAD Playground](https://ochafik.com/openscad2) | browser | `iris-frame.scad` | paste → change `bridge = 20;` → F6 → export STL or 3D Manufacturing Format (3MF) |
+| [Online 3D Viewer](https://3dviewer.net/) | browser | STL parts or STEP | drag in → orbit and measure |
+| Bambu Studio / PrusaSlicer / OrcaSlicer / Cura | desktop | STL parts (print orientation) | import → polyethylene terephthalate glycol (PETG), 0.2 mm layers → slice → compare with the Print Lab |
+| [NC Viewer](https://ncviewer.com/) | browser | G-code | open the file → scrub the toolpath |
+| [EDA Playground](https://www.edaplayground.com/) | browser (free account) | Verilog + testbenches | testbench left, design right → Icarus Verilog + EPWave → Run |
+| [DigitalJS](https://digitaljs.tilk.eu/) | browser | `iris_gesture_fsm.v` | paste → Synthesize and simulate → toggle inputs |
+| [8bitworkshop](https://8bitworkshop.com/) | browser | any small module | choose the Verilog platform → paste → watch the scope |
+| [Ray Optics Simulation](https://phydemo.app/ray-optics/) | browser | scene JSON | Open → the file → drag the combiner towards the lens |
+| IBM Quantum Composer, [Quirk](https://algassert.com/quirk) | browser | OpenQASM, Quirk links | built by the Quantum Lab (`#/quantum`) |
+| [Wokwi](https://wokwi.com/) | browser | ESP32 sketch + wiring | built by Prototype & Firmware (`#/proto`) |
+
+Quantum and firmware exports are made on their own pages; the toolchain links
+to them instead of duplicating them. The printable build steps live in the
+Build Guide (`#/build`), strength checks in the Structures Lab
+(`#/structures`) and the full optical ray tracer in Optics Pro (`#/optics`).
+
 ## KiCad board (`bridge.kicad_pcb`)
 
 A KiCad 7 S-expression board (`(version 20221018)`, generator `protoforge`,
@@ -72,9 +110,12 @@ to every pad of the written file and checks it lands on PCB Studio's pad to
 
 ### KiCanvas
 
-[KiCanvas](https://kicanvas.org) renders KiCad files in the browser. It reads
-the `github` (or `repo`) query parameter — see `kicanvas-shell.ts` in
-[theacodes/kicanvas](https://github.com/theacodes/kicanvas):
+[KiCanvas](https://kicanvas.org) (Thea Flowers,
+[theacodes/kicanvas](https://github.com/theacodes/kicanvas)) renders KiCad
+files in the browser. The quickest way is to **drag the downloaded
+`iris.kicad_pcb` onto kicanvas.org**. For a shareable link on a project page it
+reads the `github` (or `repo`) query parameter — see `kicanvas-shell.ts` in the
+source:
 
 1. Commit `iris.kicad_pcb` to a public GitHub repository (for example next to
    your GitHub Pages site).
@@ -107,7 +148,20 @@ rebuild the parts in Onshape or FreeCAD (using the STEP as reference geometry)
 before tooling.
 
 Import: Onshape — in a document, **+ → Import**; FreeCAD — **File → Open**, then
-**Part → Convert to solid** if you need booleans.
+**Part → Convert to solid** if you need booleans; Online 3D Viewer
+(3dviewer.net) — drag the file in.
+
+### AP214 and AP242
+
+STEP is split into *integrated resources* shared by every industry (Part 42
+holds the geometry and topology used here) and *application protocols* (APs)
+that choose what a domain exchanges. AP203 (configuration-controlled 3D
+design) and AP214 (automotive design) were the classic mechanical protocols;
+AP242 (*managed model-based 3D engineering*) merges them and adds product and
+manufacturing information such as tolerances and annotations, which is why
+current CAD systems default to it. Protoforge writes an AP214 header
+(`AUTOMOTIVE_DESIGN`) because every importer accepts it and faceted geometry
+needs nothing AP242 adds.
 
 ## OpenSCAD (`bridge.openscad`)
 
@@ -178,17 +232,19 @@ Run on the Iris v0.4 defaults while building the page (September 2026):
 | `.kicad_pcb` | [kiutils](https://github.com/mvnmgrx/kiutils) 1.4.8 parse + write + re-parse; TypeScript reader on the page; Rust pad-position test | 28 footprints, 181 pads, 427 segments, 87 vias, 5 zones (2 GND + 3 keep-outs), 31 nets; every pad on the engine's position and net |
 | `.kicad_mod`, `.kicad_pro`, `.net` | kiutils; JSON; Rust S-expression reader | 15 footprints; 4 net classes |
 | STEP | [gmsh](https://gmsh.info) 4.15.2 (OpenCASCADE STEP reader) | 20 solids, 5 148 faces, 24.741 cm³ — identical to CAD Studio's 24.741 cm³ |
-| `.scad` | OpenSCAD compiled to WebAssembly (npm `openscad-wasm-prebuilt` 1.2.0) | renders without warnings, 3 770 facets |
+| `.scad` | OpenSCAD compiled to WebAssembly (npm `openscad-wasm-prebuilt` 1.2.0) | renders without warnings, 3 770 facets in about 12 s |
 | Falstad links | reference lz-string 1.5.0 (JavaScript) | all 10 links decode to the exact text; Rust port = 7 reference vectors |
 | Ray Optics scene | keys checked against the app's source (DATA_VERSION 5) | 13 objects, no unknown keys |
+| Gerber X2 + Excellon | [gerbonara](https://pypi.org/project/gerbonara/) 1.5.0 | 7 layers parsed and identified from their file names, outline 58 × 10 mm, 93 plated + 2 non-plated drill hits; one harmless warning (G90 after the drill header, as KiCad writes it) |
 
-**Not checked here**: opening the files in KiCad, Onshape, FreeCAD, CircuitJS
-or Ray Optics themselves — those applications (or their sites) cannot be run
+**Not checked here**: opening the files in KiCad, Onshape, FreeCAD, CircuitJS,
+tracespace or Ray Optics themselves — those applications (or their sites) cannot be run
 from the build sandbox. Please report anything they reject.
 
 To repeat the checks: `protoforge call bridge.export_all '{"project": …}'`
 writes the bundle as JSON; then in Python `kiutils.board.Board().from_file()`,
-`gmsh.open()` + `gmsh.model.occ.getMass(3, tag)`, and in Node the
+`gmsh.open()` + `gmsh.model.occ.getMass(3, tag)`, gerbonara's
+`LayerStack.open()`, and in Node the
 `openscad-wasm-prebuilt` `renderToStl()` and `lz-string`'s
 `decompressFromEncodedURIComponent()`.
 
@@ -215,9 +271,18 @@ writes the bundle as JSON; then in Python `kiutils.board.Board().from_file()`,
 * ISO 10303-21:2016, *Industrial automation systems and integration — Product
   data representation and exchange — Part 21: Clear text encoding of the
   exchange structure*; ISO 10303-42 (geometry and topology); ISO 10303-214
-  (automotive design) — and the CAx Implementor Forum recommended practices.
-* OpenSCAD User Manual — <https://openscad.org/documentation.html>
-* P. Piroux, lz-string — <https://github.com/pieroxy/lz-string>
+  (automotive design); ISO 10303-242 (managed model-based 3D engineering).
+* OpenSCAD User Manual — <https://en.wikibooks.org/wiki/OpenSCAD_User_Manual>;
+  documentation index <https://openscad.org/documentation.html>; OpenSCAD
+  Playground source <https://github.com/openscad/openscad-playground>
+* Thea Flowers, KiCanvas — <https://kicanvas.org>, <https://github.com/theacodes/kicanvas>
+* Yi-Ting Tu, Ray Optics Simulation — <https://phydemo.app/ray-optics/>,
+  <https://github.com/ricktu288/ray-optics>
+* T. A. Welch, “A technique for high-performance data compression”, *IEEE
+  Computer* 17(6), 1984 (the LZW method lz-string builds on)
+* Viktor Kovacs, Online 3D Viewer — <https://3dviewer.net>,
+  <https://github.com/kovacsv/Online3DViewer>
+* pieroxy, lz-string — <https://github.com/pieroxy/lz-string>
 * P. Falstad and I. Sharp, CircuitJS — <https://www.falstad.com/circuit/>,
   <https://github.com/sharpie7/circuitjs1>
 * Onshape Learning Center — <https://learn.onshape.com>

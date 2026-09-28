@@ -42,7 +42,10 @@ pub fn openscad(p: &Project) -> String {
     s += &format!("front_thickness = {};\n", n(f.front_thickness_mm));
     s += &format!("rim_width = {};\n", n(f.rim_width_mm));
     s += &format!("lens_shape_exponent = {}; // 2 = ellipse, 4+ = squarer\n", n(f.lens_shape_exponent));
-    s += &format!("pantoscopic_tilt = {}; // degrees, front tilted towards the cheeks\n\n", n(f.pantoscopic_tilt_deg));
+    s += &format!(
+        "pantoscopic_tilt = {}; // degrees, front tilted towards the cheeks\n\n",
+        n(f.pantoscopic_tilt_deg)
+    );
     s += "/* [Temples and pods] */\n";
     s += &format!("temple_width = {};\n", n(f.temple_width_mm));
     s += &format!("temple_height = {};\n", n(f.temple_height_mm));

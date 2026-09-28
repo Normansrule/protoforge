@@ -6,6 +6,7 @@
 // injection.
 import { useState, type ReactNode } from 'react';
 import { imageUrl, linkTarget, slugOf } from './sources';
+import { FlowDiagram, parseFlow } from './Mermaid';
 
 export interface Heading { level: number; text: string; id: string }
 
@@ -179,11 +180,22 @@ function Blocks({ src, ctx, seen, k }: { src: string; ctx: Ctx; seen: Map<string
       i++;
       const lang = fence[2].toLowerCase();
       if (lang === 'mermaid') {
+        const flow = parseFlow(body.join('\n'));
         out.push(
-          <div key={kk} className="md-mermaid">
-            <div className="small muted">Mermaid diagram (rendered on GitHub; shown here as source — paste it into the Mermaid Live Editor at https://mermaid.live to see it drawn):</div>
-            <CodeBlock code={body.join('\n')} lang="mermaid" />
-          </div>,
+          flow ? (
+            <figure key={kk} className="md-mermaid">
+              <FlowDiagram flow={flow} />
+              <details>
+                <summary className="small muted">Mermaid source (drawn here without the Mermaid library; GitHub renders the original)</summary>
+                <CodeBlock code={body.join('\n')} lang="mermaid" />
+              </details>
+            </figure>
+          ) : (
+            <div key={kk} className="md-mermaid">
+              <div className="small muted">Mermaid diagram — GitHub draws it; this viewer only draws flowcharts, so here is the source (paste it into the Mermaid Live Editor at https://mermaid.live to see it):</div>
+              <CodeBlock code={body.join('\n')} lang="mermaid" />
+            </div>
+          ),
         );
       } else out.push(<CodeBlock key={kk} code={body.join('\n')} lang={lang} />);
       continue;
@@ -256,12 +268,21 @@ function Blocks({ src, ctx, seen, k }: { src: string; ctx: Ctx; seen: Map<string
     }
     const para: string[] = [];
     while (i < lines.length && lines[i].trim() !== '' && !(para.length && isBlockStart(lines[i]))) para.push(lines[i++]);
+    // Soft line breaks join into one run (so **bold across lines** works);
+    // hard breaks (two trailing spaces or a backslash) split it.
     const parts: ReactNode[] = [];
-    para.forEach((p, j) => {
+    const runs: string[][] = [[]];
+    para.forEach((p) => {
       const hard = / {2,}$/.test(p) || p.endsWith('\\');
-      parts.push(...inline(p.replace(/\\$/, '').trim(), ctx, `${kk}p${j}`));
-      if (j < para.length - 1) parts.push(hard ? <br key={`${kk}br${j}`} /> : ' ');
+      runs[runs.length - 1].push(p.replace(/\\$/, '').trim());
+      if (hard) runs.push([]);
     });
+    runs
+      .filter((r) => r.length)
+      .forEach((r, j) => {
+        if (j > 0) parts.push(<br key={`${kk}br${j}`} />);
+        parts.push(...inline(r.join(' '), ctx, `${kk}p${j}`));
+      });
     out.push(<p key={kk}>{parts}</p>);
   }
   return <>{out}</>;

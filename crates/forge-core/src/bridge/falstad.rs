@@ -344,10 +344,8 @@ fn verify(sh: &Sheet) -> Result<(), String> {
     let mut node_root: BTreeMap<String, usize> = BTreeMap::new();
     for (k, (_, node)) in sh.posts.iter().enumerate() {
         let r = uf.find(post_ids[k]);
-        if node == "0" {
-            if gnd_root != Some(r) {
-                return Err(format!("a ground terminal at {:?} is not connected to ground", sh.posts[k].0));
-            }
+        if node == "0" && gnd_root != Some(r) {
+            return Err(format!("a ground terminal at {:?} is not connected to ground", sh.posts[k].0));
         }
         match node_root.get(node) {
             Some(r0) if *r0 != r => return Err(format!("node `{node}` is split in the CircuitJS drawing")),

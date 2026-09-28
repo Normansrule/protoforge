@@ -220,14 +220,17 @@ fn hex_rgb(s: &str) -> (f64, f64, f64) {
 pub fn write_parts(parts: &[Part], title: &str, author: &str, timestamp: &str) -> (String, StepStats) {
     let mut w = Writer { lines: Vec::new() };
     let app = w.add("APPLICATION_CONTEXT('core data for automotive mechanical design processes')".into());
-    w.add(format!("APPLICATION_PROTOCOL_DEFINITION('international standard','automotive_design',2000,#{app})"));
+    w.add(format!(
+        "APPLICATION_PROTOCOL_DEFINITION('international standard','automotive_design',2000,#{app})"
+    ));
     let pc = w.add(format!("PRODUCT_CONTEXT('',#{app},'mechanical')"));
     let pdc = w.add(format!("PRODUCT_DEFINITION_CONTEXT('part definition',#{app},'design')"));
     let len = w.add("(LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI.,.METRE.))".into());
     let ang = w.add("(NAMED_UNIT(*) PLANE_ANGLE_UNIT() SI_UNIT($,.RADIAN.))".into());
     let sol = w.add("(NAMED_UNIT(*) SI_UNIT($,.STERADIAN.) SOLID_ANGLE_UNIT())".into());
-    let unc =
-        w.add(format!("UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-07),#{len},'distance_accuracy_value','confusion accuracy')"));
+    let unc = w.add(format!(
+        "UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-07),#{len},'distance_accuracy_value','confusion accuracy')"
+    ));
     let ctx = w.add(format!(
         "(GEOMETRIC_REPRESENTATION_CONTEXT(3) GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT((#{unc})) GLOBAL_UNIT_ASSIGNED_CONTEXT((#{len},#{ang},#{sol})) REPRESENTATION_CONTEXT('Context #1','3D Context with UNIT and UNCERTAINTY'))"
     ));
@@ -265,8 +268,18 @@ pub fn write_parts(parts: &[Part], title: &str, author: &str, timestamp: &str) -
                 if nl < 1e-12 || el < 1e-12 {
                     continue; // degenerate sliver: no plane
                 }
-                let nd = w.add(format!("DIRECTION('',({},{},{}))", real(n[0] / nl), real(n[1] / nl), real(n[2] / nl)));
-                let rd = w.add(format!("DIRECTION('',({},{},{}))", real(e[0] / el), real(e[1] / el), real(e[2] / el)));
+                let nd = w.add(format!(
+                    "DIRECTION('',({},{},{}))",
+                    real(n[0] / nl),
+                    real(n[1] / nl),
+                    real(n[2] / nl)
+                ));
+                let rd = w.add(format!(
+                    "DIRECTION('',({},{},{}))",
+                    real(e[0] / el),
+                    real(e[1] / el),
+                    real(e[2] / el)
+                ));
                 let ax = w.add(format!("AXIS2_PLACEMENT_3D('',#{},#{nd},#{rd})", pid[ia as usize]));
                 let pl = w.add(format!("PLANE('',#{ax})"));
                 let lp = w.add(format!(
@@ -286,7 +299,11 @@ pub fn write_parts(parts: &[Part], title: &str, author: &str, timestamp: &str) -
         }
         let mut items = vec![world];
         items.extend(&breps);
-        let rep = w.add(format!("FACETED_BREP_SHAPE_REPRESENTATION({},({}),#{ctx})", sstr(&part.name), Writer::refs(&items)));
+        let rep = w.add(format!(
+            "FACETED_BREP_SHAPE_REPRESENTATION({},({}),#{ctx})",
+            sstr(&part.name),
+            Writer::refs(&items)
+        ));
         let prod = w.add(format!(
             "PRODUCT({},{},{},(#{pc}))",
             sstr(&part.name),
@@ -356,13 +373,12 @@ pub fn step(p: &Project, frame: StepFrame, timestamp: &str) -> StepFile {
         "Units are millimetres. Import in Onshape: Create → Import (or drag the file into the Documents page); in FreeCAD: File → Import, then Part → Convert to solid if needed.".to_string(),
     ];
     if open > 0 {
-        notes.push(format!("{open} shell(s) are not watertight in the source mesh; importers may show them as open surfaces."));
+        notes.push(format!(
+            "{open} shell(s) are not watertight in the source mesh; importers may show them as open surfaces."
+        ));
     }
     StepFile {
-        filename: format!(
-            "{base}-frame{}.step",
-            if frame == StepFrame::Print { "-print" } else { "" }
-        ),
+        filename: format!("{base}-frame{}.step", if frame == StepFrame::Print { "-print" } else { "" }),
         content,
         stats,
         notes,
@@ -386,7 +402,9 @@ mod tests {
 
     fn cube() -> Mesh {
         let mut m = Mesh::default();
-        let v: Vec<[f64; 3]> = (0..8).map(|i| [(i & 1) as f64 * 10.0, ((i >> 1) & 1) as f64 * 10.0, ((i >> 2) & 1) as f64 * 10.0]).collect();
+        let v: Vec<[f64; 3]> = (0..8)
+            .map(|i| [(i & 1) as f64 * 10.0, ((i >> 1) & 1) as f64 * 10.0, ((i >> 2) & 1) as f64 * 10.0])
+            .collect();
         for p in &v {
             m.add_vertex(*p);
         }
@@ -419,7 +437,10 @@ mod tests {
         assert_eq!(s.matches("FACE_SURFACE(").count(), 12);
         // every #reference points to a defined entity
         let defined = s.lines().filter(|l| l.starts_with('#')).count();
-        for tok in s.split(|c: char| !(c == '#' || c.is_ascii_digit())).filter(|t| t.starts_with('#') && t.len() > 1) {
+        for tok in s
+            .split(|c: char| !(c == '#' || c.is_ascii_digit()))
+            .filter(|t| t.starts_with('#') && t.len() > 1)
+        {
             let n: usize = tok[1..].parse().unwrap();
             assert!(n >= 1 && n <= defined, "dangling {tok}");
         }

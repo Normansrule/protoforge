@@ -92,7 +92,7 @@ export function MoreTab({ bundle }: { bundle: ReturnType<typeof useBundle> }) {
         </Card>
         <Card title="Preview of the exported scene" subtitle="Paraxial rays through the scene’s own objects: display → ideal lens → 45° combiner → pupil">
           {scene.data && <SceneView scene={scene.data} />}
-          <Explainer title="What the scene encodes" refs={[{ label: 'Ray Optics Simulation (Y.-T. Tu)', href: 'https://github.com/ricktu288/ray-optics' }, { label: 'E. Hecht, Optics, 5th ed., 2017' }]}>
+          <Explainer title="What the scene encodes" refs={[{ label: 'Yi-Ting Tu, Ray Optics Simulation (source)', href: 'https://github.com/ricktu288/ray-optics' }, { label: 'Ray Optics Simulation web app', href: 'https://phydemo.app/ray-optics/' }, { label: 'E. Hecht, Optics, 5th ed., 2017' }]}>
             The display pixels become point sources, the collimating lens an ideal thin lens (f = {o.lens_focal_mm} mm, drawn at 20 px/mm), the combiner a beam splitter with transmission 1 − R = {(1 - o.combiner_reflectance).toFixed(2)}, the eye pupil a detector {o.eye_relief_mm} mm below it. Behind the thin lens every ray bends by
             <Formula>{'u′ = u − y/f     (paraxial thin lens)\nd′ = 2(d·m̂)m̂ − d     (reflection off the combiner along m̂)'}</Formula>
           </Explainer>

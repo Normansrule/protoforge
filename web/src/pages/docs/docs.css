@@ -18,7 +18,7 @@
 .md-doc ul, .md-doc ol { margin: 0 0 12px; padding-left: 22px; }
 .md-doc li { margin-bottom: 4px; }
 .md-doc li > ul, .md-doc li > ol { margin: 4px 0 4px; }
-.md-doc code { font-size: 0.9em; padding: 1px 5px; border-radius: 5px; background: var(--surface-3); color: var(--text); }
+.md-doc code { overflow-wrap: anywhere; font-size: 0.9em; padding: 1px 5px; border-radius: 5px; background: var(--surface-3); color: var(--text); }
 .md-doc pre.code code { background: none; padding: 0; }
 .md-doc a { word-break: break-word; }
 .md-doc hr { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
@@ -46,3 +46,8 @@
   .dc-card { padding: 16px; }
   .dc-outline { display: none; }
 }
+.md-mermaid { overflow-x: auto; }
+.md-mermaid figure, figure.md-mermaid { margin: 0 0 14px; }
+.md-mermaid details { margin-top: 8px; }
+.md-mermaid summary { cursor: pointer; }
+

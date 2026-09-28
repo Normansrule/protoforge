@@ -56,11 +56,11 @@ export const ROWS: Row[] = [
   },
   {
     format: 'Gerber X2 + Excellon (PCB Studio)',
-    tool: 'PCB Studio’s own Gerber re-parser (pcb::fab::parse_gerber)',
-    result: 'Re-read and rendered on the PCB Studio Files tab',
-    proves: 'Syntax and apertures are consistent.',
-    notChecked: 'A third-party Gerber viewer in this sandbox.',
-    ok: false,
+    tool: 'gerbonara 1.5.0 (Python Gerber/Excellon library) · PCB Studio’s own Gerber re-parser',
+    result: '7 Gerber layers parsed and identified by file name (top/bottom copper, masks, paste, silkscreen, outline); outline 58 × 10 mm; 2 Excellon files, 93 plated + 2 non-plated hits. One harmless warning: G90 after the drill header (KiCad writes it the same way).',
+    proves: 'An independent CAM library reads every layer and drill file with the expected extents.',
+    notChecked: 'tracespace or a fab’s viewer (not reachable from the build sandbox).',
+    ok: true,
   },
 ];
 
@@ -87,7 +87,7 @@ export function Verification() {
           </table>
         </div>
       </Card>
-      <Explainer title="Why an independent parser?" refs={[{ label: 'kiutils', href: 'https://github.com/mvnmgrx/kiutils' }, { label: 'gmsh', href: 'https://gmsh.info' }, { label: 'OpenSCAD', href: 'https://openscad.org/documentation.html' }, { label: 'lz-string', href: 'https://github.com/pieroxy/lz-string' }]}>
+      <Explainer title="Why an independent parser?" refs={[{ label: 'kiutils', href: 'https://github.com/mvnmgrx/kiutils' }, { label: 'gmsh', href: 'https://gmsh.info' }, { label: 'OpenSCAD', href: 'https://openscad.org/documentation.html' }, { label: 'lz-string', href: 'https://github.com/pieroxy/lz-string' }, { label: 'gerbonara', href: 'https://pypi.org/project/gerbonara/' }]}>
         A writer and a reader built by the same person share the same misunderstandings. Checking each export with software written by someone else — and comparing numbers that must agree, like the STEP volume against CAD Studio's mass properties — catches the mistakes a round trip through our own code would hide.
       </Explainer>
     </div>

@@ -80,7 +80,13 @@ pub fn base(p: &Project) -> String {
     let s: String = s
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     if s.is_empty() {
         "board".into()
@@ -131,7 +137,11 @@ fn footprint_sexpr(fp: &Footprint, pl: Option<&Placement>, ind: &str) -> String 
             "{ind}  (at {} {}{})\n",
             num(p.x),
             num(p.y),
-            if rot.abs() > 1e-9 { format!(" {}", num(rot)) } else { String::new() }
+            if rot.abs() > 1e-9 {
+                format!(" {}", num(rot))
+            } else {
+                String::new()
+            }
         );
     }
     s += &format!("{ind}  (descr {})\n", q(&fp.description));
@@ -143,7 +153,11 @@ fn footprint_sexpr(fp: &Footprint, pl: Option<&Placement>, ind: &str) -> String 
     }
     s += &format!("{ind}  (attr {attr})\n");
     let cy = fp.courtyard;
-    let text_rot = if rot.abs() > 1e-9 { format!(" {}", num(rot)) } else { String::new() };
+    let text_rot = if rot.abs() > 1e-9 {
+        format!(" {}", num(rot))
+    } else {
+        String::new()
+    };
     let mirror = if bottom { " (justify mirror)" } else { "" };
     let (refdes, value) = match pl {
         Some(p) => (p.refdes.to_string(), p.value.to_string()),
@@ -203,14 +217,22 @@ fn footprint_sexpr(fp: &Footprint, pl: Option<&Placement>, ind: &str) -> String 
         let layers = if tht {
             "\"*.Cu\" \"*.Mask\"".to_string()
         } else {
-            let (cu, paste, mask) = if bottom { ("B.Cu", "B.Paste", "B.Mask") } else { ("F.Cu", "F.Paste", "F.Mask") };
+            let (cu, paste, mask) = if bottom {
+                ("B.Cu", "B.Paste", "B.Mask")
+            } else {
+                ("F.Cu", "F.Paste", "F.Mask")
+            };
             if pd.paste > 0.0 {
                 format!("{} {} {}", q(cu), q(paste), q(mask))
             } else {
                 format!("{} {}", q(cu), q(mask))
             }
         };
-        let ang = if rot.abs() > 1e-9 { format!(" {}", num(rot)) } else { String::new() };
+        let ang = if rot.abs() > 1e-9 {
+            format!(" {}", num(rot))
+        } else {
+            String::new()
+        };
         let mut line = format!(
             "{ind}  (pad {} {kind} {shape} (at {} {}{ang}) (size {} {})",
             q(&pd.num),
@@ -315,7 +337,9 @@ pub fn kicad_pcb_from(p: &Project, l: &Layout) -> KicadBoard {
     };
     // Footprints.
     for pp in &l.parts {
-        let Some(fp) = crate::pcb::board::part_footprint(p, &pp.refdes) else { continue };
+        let Some(fp) = crate::pcb::board::part_footprint(p, &pp.refdes) else {
+            continue;
+        };
         let pad_net: Vec<Option<(usize, String)>> = fp
             .pads
             .iter()
@@ -426,8 +450,16 @@ pub fn kicad_pcb_from(p: &Project, l: &Layout) -> KicadBoard {
                     continue;
                 }
                 // The RF feed may cross the antenna keep-out on the top layer.
-                let tracks = if !ko.allow_net.is_empty() && layer == "F.Cu" { "allowed" } else { "not_allowed" };
-                let tracks = if ko.no_pour && ko.name.contains("Touch") { "allowed" } else { tracks };
+                let tracks = if !ko.allow_net.is_empty() && layer == "F.Cu" {
+                    "allowed"
+                } else {
+                    "not_allowed"
+                };
+                let tracks = if ko.no_pour && ko.name.contains("Touch") {
+                    "allowed"
+                } else {
+                    tracks
+                };
                 s += &format!(
                     "  (zone (net 0) (net_name \"\") (layer {}) (tstamp {}) (name {}) (hatch edge 0.5)\n    (connect_pads (clearance 0))\n    (min_thickness 0.25) (filled_areas_thickness no)\n    (keepout (tracks {tracks}) (vias {}) (pads allowed) (copperpour not_allowed) (footprints allowed))\n    (fill (thermal_gap 0.5) (thermal_bridge_width 0.5))\n",
                     q(layer),
@@ -541,7 +573,9 @@ pub fn kicad_netlist(p: &Project) -> String {
         q(&format!("{name}.kicad_sch"))
     );
     for pp in l.parts.iter().filter(|x| !x.feature) {
-        let Some(fp) = crate::pcb::board::part_footprint(p, &pp.refdes) else { continue };
+        let Some(fp) = crate::pcb::board::part_footprint(p, &pp.refdes) else {
+            continue;
+        };
         let c = p.components.iter().find(|c| c.refdes == pp.refdes);
         let value = c.map(crate::pcb::fab::bom_value).unwrap_or_default();
         s += &format!(
@@ -557,7 +591,12 @@ pub fn kicad_netlist(p: &Project) -> String {
     }
     s += "  )\n  (nets\n";
     for (i, n) in l.nets.iter().enumerate() {
-        s += &format!("    (net (code \"{}\") (name {}) (class {})\n", i + 1, q(&n.name), q(class_name(n.class)));
+        s += &format!(
+            "    (net (code \"{}\") (name {}) (class {})\n",
+            i + 1,
+            q(&n.name),
+            q(class_name(n.class))
+        );
         for pin in &n.pins {
             if let Some((r, pn)) = pin.split_once('.') {
                 s += &format!("      (node (ref {}) (pin {}))\n", q(r), q(pn));
@@ -575,7 +614,9 @@ pub fn footprint_library(p: &Project) -> Vec<(String, String)> {
     let mut seen: Vec<String> = Vec::new();
     let mut out = Vec::new();
     for pp in &l.parts {
-        let Some(fp) = crate::pcb::board::part_footprint(p, &pp.refdes) else { continue };
+        let Some(fp) = crate::pcb::board::part_footprint(p, &pp.refdes) else {
+            continue;
+        };
         if seen.contains(&fp.name) {
             continue;
         }
@@ -608,15 +649,25 @@ mod tests {
         assert_eq!(t.children("segment").count(), l.tracks.len());
         assert_eq!(t.children("via").count(), l.vias.len());
         assert_eq!(t.children("net").count(), l.nets.len() + 1);
-        assert!(t.children("zone").any(|z| z.child("net_name").and_then(|n| n.text(1)) == Some("GND")));
-        assert!(t.children("gr_rect").any(|g| g.child("layer").and_then(|x| x.text(1)) == Some("Edge.Cuts")));
+        assert!(t
+            .children("zone")
+            .any(|z| z.child("net_name").and_then(|n| n.text(1)) == Some("GND")));
+        assert!(t
+            .children("gr_rect")
+            .any(|g| g.child("layer").and_then(|x| x.text(1)) == Some("Edge.Cuts")));
         // Every pad lands exactly where the Protoforge board model has it.
         let mut checked = 0;
         for f in &fps {
             let at = f.child("at").unwrap();
             let (fx, fy) = (at.f(1).unwrap(), at.f(2).unwrap());
             let ang = at.f(3).unwrap_or(0.0).to_radians();
-            let refdes = f.children("fp_text").find(|x| x.text(1) == Some("reference")).unwrap().text(2).unwrap().to_string();
+            let refdes = f
+                .children("fp_text")
+                .find(|x| x.text(1) == Some("reference"))
+                .unwrap()
+                .text(2)
+                .unwrap()
+                .to_string();
             for pad in f.children("pad") {
                 let num_ = pad.text(1).unwrap();
                 if num_.is_empty() {
@@ -628,7 +679,10 @@ mod tests {
                 let x = fx + lx * ang.cos() + ly * ang.sin();
                 let y = fy - lx * ang.sin() + ly * ang.cos();
                 let bp = l.pads.iter().find(|bp| bp.refdes == refdes && bp.pin == num_).unwrap();
-                assert!((x - kx(bp.x)).abs() < 1e-4 && (y - ky(l.board.height, bp.y)).abs() < 1e-4, "{refdes}.{num_}");
+                assert!(
+                    (x - kx(bp.x)).abs() < 1e-4 && (y - ky(l.board.height, bp.y)).abs() < 1e-4,
+                    "{refdes}.{num_}"
+                );
                 let net = pad.child("net").and_then(|n| n.text(2)).unwrap_or("");
                 assert_eq!(net, bp.net, "{refdes}.{num_} net");
                 checked += 1;
@@ -654,6 +708,10 @@ mod tests {
         }
         let pro: serde_json::Value = serde_json::from_str(&kicad_pro(&p)).unwrap();
         assert!(pro["net_settings"]["classes"].as_array().unwrap().len() == 4);
-        assert!(pro["net_settings"]["netclass_patterns"].as_array().unwrap().iter().any(|x| x["pattern"] == "GND"));
+        assert!(pro["net_settings"]["netclass_patterns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|x| x["pattern"] == "GND"));
     }
 }
