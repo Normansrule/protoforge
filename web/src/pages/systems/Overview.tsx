@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, Explainer } from '../../components/ui';
 import { Icon } from '../../components/Icon';
-import { call } from '../../engine/engine';
+import { callInWorker } from '../../engine/worker';
 import type { Evaluation, ReqResult } from '../../engine/types';
 import {
   Badge, Eyebrow, REFS, Ring, SWEEP_LABS, fmtNum, labForMetric, metricsOfLab, signedPct, statusColor, useReducedMotion, useStudio,
@@ -43,9 +43,8 @@ export function Overview() {
   const run = () => {
     if (timer.current) window.clearTimeout(timer.current);
     // re-run the whole engine for real and time it; the reveal below is paced for humans
-    const t0 = performance.now();
-    try { call<Evaluation>('systems.evaluate', project); } catch { /* shown by the live evaluation */ }
-    setRunMs(performance.now() - t0);
+    // (in the background worker, so the page never freezes)
+    callInWorker<Evaluation>('systems.evaluate', project).then((r) => setRunMs(r.ms));
     if (reduced) { setStep(rows.length); return; }
     setStep(0);
     const tick = (k: number) => {

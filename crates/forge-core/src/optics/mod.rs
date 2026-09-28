@@ -177,6 +177,17 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
             "%",
             "optics",
         ),
+        Metric::new(
+            "optics.combiner_clearance_mm",
+            "Combiner-to-lens clearance",
+            o.lens_to_combiner_mm - a.min_lens_to_combiner_mm,
+            "mm",
+            "optics",
+        )
+        .with_note(&format!(
+            "lens-to-combiner {:.1} mm vs {:.1} mm needed so the 45° combiner clears an {:.1} mm aperture",
+            o.lens_to_combiner_mm, a.min_lens_to_combiner_mm, a.aperture_mm
+        )),
     ]
 }
 
