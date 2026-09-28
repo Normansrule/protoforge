@@ -35,6 +35,11 @@ pub const DISPATCHERS: &[(&str, Dispatcher)] = &[
     ("pcb", crate::pcb::dispatch),
     ("molding", crate::molding::dispatch),
     ("mfg", crate::mfg::dispatch),
+    ("structures", crate::structures::dispatch),
+    ("quantum", crate::quantum::dispatch),
+    ("firmware", crate::firmware::dispatch),
+    ("build", crate::build::dispatch),
+    ("bridge", crate::bridge::dispatch),
 ];
 
 include!(concat!(env!("OUT_DIR"), "/catalog.rs"));

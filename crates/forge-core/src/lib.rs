@@ -18,7 +18,11 @@
 //! | Optical design | [`optics`] |
 //! | Mechanical CAD & 3D printing | [`cad`], [`print`] |
 //! | PCB layout & fab outputs | [`pcb`] |
-//! | Injection molding & manufacturing | [`molding`], [`mfg`] |
+//! | Injection molding & manufacturing | [`molding`], [`mfg`], [`build`] |
+//! | Mechanical strength & tolerances | [`structures`] |
+//! | Quantum information | [`quantum`] |
+//! | Prototype hardware & firmware | [`firmware`] |
+//! | Export to external tools, version history | [`bridge`] |
 //!
 //! All modules expose plain Rust functions plus a `dispatch` hook used by the
 //! JSON API in [`api`].
@@ -28,19 +32,24 @@ pub mod math;
 pub mod memo;
 pub mod project;
 
+pub mod bridge;
+pub mod build;
 pub mod cad;
 pub mod chip;
 pub mod circuit;
 pub mod control;
 pub mod dsp;
+pub mod firmware;
 pub mod mfg;
 pub mod molding;
 pub mod optics;
 pub mod pcb;
 pub mod power;
 pub mod print;
+pub mod quantum;
 pub mod rl;
 pub mod robotics;
+pub mod structures;
 pub mod systems;
 
 pub use project::{Metric, Project};

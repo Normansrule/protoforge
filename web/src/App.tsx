@@ -10,6 +10,9 @@ import { downloadText } from './components/ui';
 import Home from './pages/Home';
 import Systems from './pages/Systems';
 import Learn from './pages/Learn';
+import Toolchain from './pages/Toolchain';
+import Versions from './pages/Versions';
+import Docs from './pages/Docs';
 import type { Project } from './engine/types';
 
 const REPO_URL = 'https://github.com/Normansrule/protoforge';
@@ -69,6 +72,8 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
           <Icon name="systems" className="nav-icon" /> Systems Studio
           {ev.data && <span className="chip" style={{ marginLeft: 'auto', padding: '0 7px' }}>{ev.data.pass}/{ev.data.results.length}</span>}
         </NavLink>
+        <NavLink to="/versions" className="nav-link" onClick={onNavigate}><Icon name="versions" className="nav-icon" /> Versions</NavLink>
+        <NavLink to="/toolchain" className="nav-link" onClick={onNavigate}><Icon name="toolchain" className="nav-icon" /> Web toolchain</NavLink>
       </div>
       {GROUPS.map((g) => (
         <div className="nav-group" key={g}>
@@ -84,6 +89,7 @@ function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }
       <div className="nav-group">
         <div className="nav-group-title">Learn</div>
         <NavLink to="/learn" className="nav-link" onClick={onNavigate}><Icon name="learn" className="nav-icon" /> Guide & references</NavLink>
+        <NavLink to="/docs" className="nav-link" onClick={onNavigate}><Icon name="docs" className="nav-icon" /> Documentation</NavLink>
         <a className="nav-link" href={REPO_URL} target="_blank" rel="noreferrer"><Icon name="github" className="nav-icon" /> Source on GitHub</a>
       </div>
     </nav>
@@ -178,6 +184,10 @@ export default function App() {
                   <Route path="/" element={<Home />} />
                   <Route path="/systems" element={<Systems />} />
                   <Route path="/learn" element={<Learn />} />
+                  <Route path="/toolchain" element={<Toolchain />} />
+                  <Route path="/versions" element={<Versions />} />
+                  <Route path="/docs" element={<Docs />} />
+                  <Route path="/docs/:slug" element={<Docs />} />
                   {LABS.map((l) => (
                     <Route key={l.id} path={l.path} element={<l.component />} />
                   ))}
