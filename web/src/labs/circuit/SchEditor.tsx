@@ -87,6 +87,33 @@ function movePartsRubber(doc: SchDoc, ids: Set<string>, dx: number, dy: number):
   return { ...doc, parts, wires };
 }
 
+/** Replace a part and drag the wire ends that touched its old pins to the new pins (orthogonal elbow added). */
+function replacePartRubber(doc: SchDoc, next: SchPart): SchDoc {
+  const prev = doc.parts.find((p) => p.id === next.id);
+  if (!prev) return doc;
+  const oldPins: Pt[] = pinsOf(prev).map((q) => [q.x, q.y] as Pt);
+  const newPins: Pt[] = pinsOf(next).map((q) => [q.x, q.y] as Pt);
+  const parts = doc.parts.map((p) => (p.id === next.id ? next : p));
+  const wires = doc.wires.map((w) => {
+    let pts = w.pts.map((p) => [p[0], p[1]] as Pt);
+    let changed = false;
+    for (const end of [0, 1]) {
+      const k = end === 0 ? 0 : pts.length - 1;
+      const i = oldPins.findIndex((q) => same(pts[k], q));
+      if (i < 0 || !newPins[i] || same(pts[k], newPins[i])) continue;
+      const np = newPins[i];
+      const nbIdx = end === 0 ? 1 : pts.length - 2;
+      const nb = pts[nbIdx] ?? np;
+      const elbow: Pt = [np[0], nb[1]];
+      if (end === 0) pts = [np, ...(same(elbow, np) || same(elbow, nb) ? [] : [elbow]), ...pts.slice(1)];
+      else pts = [...pts.slice(0, -1), ...(same(elbow, np) || same(elbow, nb) ? [] : [elbow]), np];
+      changed = true;
+    }
+    return changed ? { pts: tidy(pts) } : w;
+  });
+  return { ...doc, parts, wires };
+}
+
 function nextName(doc: SchDoc, prefix: string): string {
   const used = new Set(doc.parts.map((p) => p.name.toUpperCase()));
   for (let k = 1; k < 999; k++) { const n = `${prefix}${k}`; if (!used.has(n.toUpperCase())) return n; }
@@ -465,8 +492,8 @@ export function SchematicEditor() {
   const rotateSel = () => {
     if (tool.t === 'place') { setTool({ ...tool, rot: (tool.rot + 1) % 4 }); return; }
     if (!selPart) return;
-    // rotate about the part centre, keeping attached wires (rubber-band via move of pins is not needed: pins change)
-    updatePart({ ...selPart, rot: (selPart.rot + 1) % 4 });
+    // rotate about the part centre and drag the attached wire ends to the new pin positions
+    commit(replacePartRubber(doc, { ...selPart, rot: (selPart.rot + 1) % 4 }));
   };
   const deleteSel = () => {
     if (sel?.type === 'part') commit({ ...doc, parts: doc.parts.filter((p) => p.id !== sel.id) });
@@ -485,7 +512,7 @@ export function SchematicEditor() {
       if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (k === 'r') { e.preventDefault(); rotateSel(); }
-      else if (k === 'f' && selPart && (selPart.kind === 'nmos' || selPart.kind === 'pmos')) updatePart({ ...selPart, flip: !selPart.flip });
+      else if (k === 'f' && selPart && (selPart.kind === 'nmos' || selPart.kind === 'pmos')) commit(replacePartRubber(doc, { ...selPart, flip: !selPart.flip }));
       else if (k === 'delete' || k === 'backspace') { if (sel) { e.preventDefault(); deleteSel(); } }
       else if (k === 'w') { setTool({ t: 'wire' }); setDraft(null); }
       else if (k === 'escape') { if (draft) { if (draft.length >= 2) finishWire(draft); else setDraft(null); } else setTool({ t: 'select' }); }
@@ -690,7 +717,7 @@ export function SchematicEditor() {
                   p={selPart}
                   onChange={updatePart}
                   onRotate={rotateSel}
-                  onFlip={() => updatePart({ ...selPart, flip: !selPart.flip })}
+                  onFlip={() => commit(replacePartRubber(doc, { ...selPart, flip: !selPart.flip }))}
                   onDelete={deleteSel}
                   info={partEls.get(selPart.id) ? <div className="small muted">pins → {partEls.get(selPart.id)!.pins.map((q, k) => `${q.name}: ${partEls.get(selPart.id)!.nets[k] ?? '?'}`).join(' · ')}</div> : null}
                 />

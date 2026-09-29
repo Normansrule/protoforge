@@ -10,7 +10,7 @@
 [![Pages](https://github.com/Normansrule/protoforge/actions/workflows/pages.yml/badge.svg)](https://github.com/Normansrule/protoforge/actions/workflows/pages.yml)
 ![Rust](https://img.shields.io/badge/engine-Rust%20→%20WebAssembly-dea584)
 ![React](https://img.shields.io/badge/UI-React%2019%20%2B%20TypeScript-61dafb)
-![Tests](https://img.shields.io/badge/tests-529%20passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-530%20passing-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 **[▶ Open the live app](https://normansrule.github.io/protoforge/)** · [Getting started](docs/getting-started.md) · [Architecture](docs/architecture.md) · [Systems Studio](docs/systems-studio.md) · [Web toolchain](docs/toolchain.md) · [Versions](docs/versions.md) · [References](docs/references.md)
@@ -320,7 +320,7 @@ Iris is glasses with a 640 × 400 micro-OLED display in the right eye, two micro
 | R-023 | Pick-and-place cycle per board | 29.6 s | ≤ 60 s | Robotics Lab |
 | R-024 | Learned power policy battery gain (goal) | +23.4 % | ≥ 5 % | RL Lab |
 | R-025 | Combiner clears the collimating lens | 0.78 mm | ≥ 0 mm | Optics Lab |
-| R-026 | Frame structural safety factor | 2.04 | ≥ 2 | Structures Lab |
+| R-026 | Frame structural safety factor (2 mm verification mesh) | 2.04 | ≥ 2 | Structures Lab |
 | R-027 | PCB fits the pod, worst-case tolerance stack | 0.97 mm | ≥ 0 mm | Structures Lab |
 | R-028 | Display focus error over tolerances | 0.09 D | ≤ 0.25 D | Structures Lab |
 | R-029 | Collimator RMS spot size | 19.4 µm | ≤ 26 µm | Optics Pro |
@@ -335,7 +335,7 @@ Requirements of kind *goal* are “should” targets: an open goal is reported (
 
 ## What the simulations caught
 
-The point of binding requirements to simulations is that the numbers argue back. Each fix below is recorded in the seeded version history, so you can compare the versions yourself.
+The point of binding requirements to simulations is that the numbers argue back. The battery-divider, optics-spacing, focus and stencil fixes below are recorded in the seeded version history, so you can compare the versions yourself in `#/versions`.
 
 **v0.3 → v0.4**
 - **An over-voltage on an input pin.** The Circuit Lab showed the original 1 MΩ / 1.2 MΩ battery-sense divider puts 2.29 V on the 1.8 V system-on-chip's analog input at a full cell. The divider became 1.5 MΩ / 1 MΩ (1.68 V).
@@ -386,7 +386,7 @@ cd web && npm ci && npm run dev    # http://localhost:5173
 **Checks:**
 
 ```bash
-cargo test --workspace             # 529 tests
+cargo test --workspace             # 530 tests
 cargo clippy --workspace --all-targets -- -D warnings
 (cd web && npm run build)          # TypeScript strict + production build
 ```
@@ -484,9 +484,9 @@ Protoforge is built to teach and to get a design to a credible first prototype q
 | Circuits | MNA, Newton–Raphson, trapezoidal transients, AC; matches hand calculations in tests | Level-1 MOSFETs, dense matrices, no subcircuits → **ngspice**, Xyce, KiCad's simulator |
 | PCB | Placement, maze routing, DRC, valid Gerber X2 / Excellon / KiCad files | Grid routing only; illustrative pinout; approximate land patterns → **KiCad** + FreeRouting |
 | Chips | Verilog simulated bit-exact against the Rust model | Cell counts and timing from a first-order model → **Yosys**, **OpenLane 2 / OpenROAD**, Tiny Tapeout |
-| Structures | Voxel hexahedral FEA, SIMP, textbook calculators, Monte Carlo stacks | Linear, isotropic, no contact; voxel stair-stepping; typical material data → **CalculiX**, FreeCAD FEM, Code_Aster, SimScale/Onshape Simulation |
+| Structures | Voxel hexahedral FEA, SIMP, textbook calculators, Monte Carlo stacks | Linear, isotropic, no contact; voxel stair-stepping — the requirement uses a coarse 2 mm mesh, and the lab's finer meshes read lower safety factors (≈1.5), so treat R-026 as marginal until a proper tetrahedral model or a physical test confirms it; typical material data → **CalculiX**, FreeCAD FEM, Code_Aster, SimScale/Onshape Simulation |
 | Optics | Exact sequential ray tracing, spot diagrams, geometric MTF | Rotationally symmetric surfaces, no tolerancing or stray light → rayoptics, Zemax OpticStudio |
-| CAD | Closed meshes, exact volumes, drafted walls, faceted STEP | Mesh modeller, not exact solids → **Onshape**, FreeCAD, build123d, CadQuery |
+| CAD | Exact volumes, drafted walls, faceted STEP | Mesh modeller, not exact solids; some parts are several closed shells touching face-to-face (slicers merge them but may report non-manifold edges) → **Onshape**, FreeCAD, build123d, CadQuery |
 | Printing | Working slicer and G-code | Rectilinear infill, no supports → **Bambu Studio**, OrcaSlicer, PrusaSlicer |
 | Firmware | Generated Zephyr/Arduino projects, resource budgets | Starting points — compile and test on hardware; stack sizes are stated assumptions |
 | Quantum | Exact state-vector and density-matrix simulation; asymptotic decoy-state key rates | No finite-key effects or device side channels → Qiskit, QuTiP, published QKD security proofs |

@@ -265,7 +265,14 @@ export function LensTab() {
             </label>
             <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
               <button className="btn small" onClick={() => choosePreset(presetId === 'custom' ? 'achromat_cop_pc' : presetId)}>Reset</button>
-              <button className={`btn small ${inUse ? '' : 'primary'}`} onClick={useForIris} disabled={inUse}>{inUse ? '✓ Iris uses this lens' : 'Use for Iris metrics'}</button>
+              <button
+                className={`btn small ${inUse ? '' : 'primary'}`}
+                onClick={useForIris}
+                disabled={inUse || presetId === 'ideal'}
+                title={presetId === 'ideal' ? 'The ideal thin lens is a reference, not a manufacturable lens — it cannot verify requirements' : undefined}
+              >
+                {inUse ? '✓ Iris uses this lens' : presetId === 'ideal' ? 'Reference only' : 'Use for Iris metrics'}
+              </button>
             </div>
             <div className="small muted" style={{ marginTop: 8 }}>
               The informational metrics <code>optics.rms_spot_um</code>, <code>optics.rms_spot_arcmin</code>, <code>optics.mtf_at_nyquist</code> and <code>optics.lateral_color_arcmin</code> use the lens chosen here (now: <b>{projectLens}</b>). The first-order metrics (field of view, pixels per degree, eyebox) stay paraxial.

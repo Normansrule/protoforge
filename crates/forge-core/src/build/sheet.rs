@@ -147,6 +147,13 @@ pub fn bend(i: &BendIn) -> Result<BendOut, String> {
     let min_flange = 4.0 * t;
     let checks = vec![
         (
+            format!(
+                "Both flanges ({:.1} / {:.1} mm) are longer than the outside setback {:.1} mm, so a straight section remains (sharp bends open the setback: tan(θ/2)·(R+T))",
+                i.flange1_mm, i.flange2_mm, ossb
+            ),
+            i.flange1_mm > ossb && i.flange2_mm > ossb && flat > 0.0,
+        ),
+        (
             format!("Inside radius {:.2} mm ≥ typical minimum {:.2} mm for {}", rr, min_r[0], mat.name),
             rr >= min_r[0] - 1e-9,
         ),
@@ -165,9 +172,9 @@ pub fn bend(i: &BendIn) -> Result<BendOut, String> {
         bend_allowance_mm: ba,
         outside_setback_mm: ossb,
         bend_deduction_mm: bd,
-        flat_length_mm: flat,
-        flat_straight1_mm: i.flange1_mm - ossb,
-        flat_straight2_mm: i.flange2_mm - ossb,
+        flat_length_mm: flat.max(0.0),
+        flat_straight1_mm: (i.flange1_mm - ossb).max(0.0),
+        flat_straight2_mm: (i.flange2_mm - ossb).max(0.0),
         min_radius_mm: min_r,
         min_flange_mm: min_flange,
         hole_to_bend_mm: 2.5 * t + rr,

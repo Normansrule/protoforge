@@ -43,6 +43,20 @@ fn load(path: Option<&String>) -> Result<Project, String> {
 }
 
 fn main() -> ExitCode {
+    // `protoforge package | head` closes stdout early: exit quietly instead of panicking
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let p = info.payload();
+        let msg = p
+            .downcast_ref::<String>()
+            .map(|s| s.as_str())
+            .or_else(|| p.downcast_ref::<&str>().copied())
+            .unwrap_or("");
+        if msg.contains("Broken pipe") {
+            std::process::exit(0);
+        }
+        default_hook(info);
+    }));
     let args: Vec<String> = std::env::args().skip(1).collect();
     let Some(cmd) = args.first() else { return usage() };
     let rest = &args[1..];
@@ -108,6 +122,7 @@ fn evaluate(rest: &[String]) -> Result<bool, String> {
     for (r, res) in p.requirements.iter().zip(&ev.results) {
         let mark = match res.status {
             Status::Pass => "PASS",
+            Status::Fail if r.kind == forge_core::project::ReqKind::Goal => "GOAL",
             Status::Fail => "FAIL",
             Status::Unverified => " -- ",
         };

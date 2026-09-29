@@ -38,7 +38,8 @@ function Aperture({ l, w, th, circular, t, ar }: { l: number; w: number; th: num
 
 export function StencilCalc() {
   const project = useProject((s) => s.project);
-  const [i, setI] = useState({ length_mm: 0.8, width_mm: 0.2, thickness_mm: 0.12, circular: false });
+  const projectStencil = Number((project.design.extra as Record<string, unknown>)?.stencil_thickness_mm ?? 0.12) || 0.12;
+  const [i, setI] = useState({ length_mm: 0.8, width_mm: 0.2, thickness_mm: projectStencil, circular: false });
   const r = useCompute<StencilOut>('build.stencil', i);
   const chk = useCompute<StencilCheck>('build.stencil_check', { project, thickness_mm: i.thickness_mm });
   const [playing, setPlaying] = usePlaying();

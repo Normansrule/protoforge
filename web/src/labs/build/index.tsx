@@ -43,7 +43,7 @@ export default function Lab() {
       <div className="grid grid-4">
         <Stat label="Compliance items" value={ci ? ci.value.toFixed(0) : '…'} note={ci?.note ?? 'for the project markets'} />
         <Stat label="PCB rules beyond fab tier" value={pv ? pv.value.toFixed(0) : '…'} tone={pv ? (pv.value === 0 ? 'pass' : 'fail') : undefined} note={pv?.note ?? ''} />
-        <Stat label="Smallest stencil area ratio" value={ar ? ar.value.toFixed(3) : '…'} tone={ar ? (ar.value >= 0.66 ? 'pass' : 'warn') : undefined} note={ar ? `${ar.value >= 0.66 ? '✓' : '!'} IPC-7525 wants ≥ 0.66` : ''} />
+        <Stat label="Smallest stencil area ratio" value={ar ? ar.value.toFixed(3) : metrics.size ? '—' : '…'} tone={ar ? (ar.value >= 0.66 ? 'pass' : 'warn') : undefined} note={ar ? `${ar.value >= 0.66 ? '✓' : '!'} IPC-7525 wants ≥ 0.66` : metrics.size ? 'no PCB in this project' : ''} />
         <Stat label="Frame material" value={project.design.frame.material} note={`prototype · ${project.design.manufacturing.molding_material} molded at volume`} />
       </div>
       <Tabs<Tab> tabs={TABS} value={tab} onChange={setTab} />

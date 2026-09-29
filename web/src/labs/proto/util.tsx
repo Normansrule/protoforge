@@ -14,25 +14,29 @@ export function Seg<T extends string | number>(props: { value: T; options: { val
   );
 }
 
-/** useState persisted to localStorage (per-viewer convenience only). */
+/** useState persisted to localStorage (per-viewer convenience only). Re-reads when `key` changes. */
 export function usePersistent<T>(key: string, initial: T): [T, (v: T) => void] {
-  const [v, setV] = useState<T>(() => {
+  const read = (k: string): T => {
     try {
-      const s = localStorage.getItem(key);
+      const s = localStorage.getItem(k);
       return s ? (JSON.parse(s) as T) : initial;
     } catch {
       return initial;
     }
-  });
+  };
+  const [state, setState] = useState<{ key: string; v: T }>(() => ({ key, v: read(key) }));
+  // a different key (e.g. another breadboard build) has its own saved value
+  const current = state.key === key ? state.v : read(key);
+  if (state.key !== key) setState({ key, v: current });
   const set = (nv: T) => {
-    setV(nv);
+    setState({ key, v: nv });
     try {
       localStorage.setItem(key, JSON.stringify(nv));
     } catch {
       /* storage unavailable */
     }
   };
-  return [v, set];
+  return [current, set];
 }
 
 export function wireColor(c: string): string {

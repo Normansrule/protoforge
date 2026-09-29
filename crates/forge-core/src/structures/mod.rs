@@ -187,7 +187,20 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         }),
         "structures.focus_stack" => handle(input, |i: FocusIn| {
             let p = i.project.unwrap_or_else(Project::iris);
-            tolerance::focus_stack(&p, &i.opts)
+            let mut opts = i.opts;
+            // the project's focus design (e.g. the v0.5 adjustable focus cell) applies unless the caller overrides it
+            if opts.adjust_step_mm.is_none() {
+                if let Some(proj) = p
+                    .design
+                    .extra
+                    .get("focus_stack")
+                    .and_then(|v| serde_json::from_value::<tolerance::FocusStackIn>(v.clone()).ok())
+                {
+                    opts.adjust_step_mm = proj.adjust_step_mm;
+                    opts.lock_shift_mm = proj.lock_shift_mm;
+                }
+            }
+            tolerance::focus_stack(&p, &opts)
         }),
         "structures.thermal" => handle(input, calc::thermal),
         "structures.stress_conc" => handle(input, calc::stress_conc),

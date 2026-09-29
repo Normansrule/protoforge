@@ -14,8 +14,8 @@ function Bend({ prog, i, o }: { prog: number; i: { thickness_mm: number; radius_
   const Ri = i.radius_mm * s;
   const th = ((i.angle_deg * Math.PI) / 180) * prog;
   const K = o.k_factor;
-  const a1 = o.flat_straight1_mm * s;
-  const a2 = o.flat_straight2_mm * s;
+  const a1 = Math.max(0, o.flat_straight1_mm * s);
+  const a2 = Math.max(0, o.flat_straight2_mm * s);
   // Build the formed centreline of each surface: straight a1 along +x, arc of radius r turning up by th, straight a2
   const path = (r: number) => {
     const x0 = 30, y0 = 150;
@@ -41,7 +41,7 @@ function Bend({ prog, i, o }: { prog: number; i: { thickness_mm: number; radius_
       <text x={30} y={20} className="bd-svg-small">formed: {(i.angle_deg * prog).toFixed(0)}° · dashed = neutral axis at K·T = {(K * i.thickness_mm).toFixed(2)} mm</text>
       {/* flat pattern */}
       <rect x={30} y={flatY} width={a1} height={Math.max(2, T)} fill="var(--series-1)" opacity={0.35} />
-      <rect x={30 + a1} y={flatY} width={o.bend_allowance_mm * s} height={Math.max(2, T)} fill="var(--warn)" opacity={0.6} />
+      <rect x={30 + a1} y={flatY} width={Math.max(0, o.bend_allowance_mm * s)} height={Math.max(2, T)} fill="var(--warn)" opacity={0.6} />
       <rect x={30 + a1 + o.bend_allowance_mm * s} y={flatY} width={a2} height={Math.max(2, T)} fill="var(--series-1)" opacity={0.35} />
       <text x={30} y={flatY - 6} className="bd-svg-small">flat pattern {o.flat_length_mm.toFixed(2)} mm — amber = bend allowance {o.bend_allowance_mm.toFixed(2)} mm</text>
     </svg>

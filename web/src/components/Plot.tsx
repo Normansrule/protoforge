@@ -57,7 +57,7 @@ export const seriesColor = (i: number) => `var(--series-${(i % 8) + 1})`;
 export function fmtNum(v: number): string {
   if (!isFinite(v)) return '—';
   const a = Math.abs(v);
-  if (a === 0) return '0';
+  if (a < 1e-12) return '0';
   if (a >= 1e9) return (v / 1e9).toFixed(a >= 1e10 ? 0 : 1) + 'G';
   if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
   if (a >= 1e4) return (v / 1e3).toFixed(a >= 1e5 ? 0 : 1) + 'k';

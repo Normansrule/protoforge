@@ -206,7 +206,7 @@ export default function Qrng() {
               subtitle="Click a stage to inspect its bits and NIST results"
               actions={stage && (
                 <div className="row" style={{ gap: 6 }}>
-                  <DownloadButton small filename={`qrng-${stage.id}.bin`} content={() => new Blob([hexToBytes(stage.hex) as BlobPart], { type: 'application/octet-stream' })} label=".bin" />
+                  {stage.hex.length > 0 ? <DownloadButton small filename={`qrng-${stage.id}.bin`} content={() => new Blob([hexToBytes(stage.hex) as BlobPart], { type: 'application/octet-stream' })} label=".bin" /> : <span className="muted small">no output bits</span>}
                   <DownloadButton small filename={`qrng-${stage.id}.txt`} content={() => hexToAscii(stage.hex)} label="ASCII 0/1" />
                   {o.source === 'diode' && <DownloadButton small filename="qrng-samples.csv" content={() => csv(['sample', 'mV', 'code'], o.analog_mv.map((v, k) => [k, v, o.codes[k]]))} label="samples.csv" />}
                 </div>

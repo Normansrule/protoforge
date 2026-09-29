@@ -93,7 +93,7 @@ export function ResinAnim({ t }: { t: number }) {
       <text x={180} y={206} textAnchor="middle" className="bd-svg-small">405 nm UV</text>
       {/* plate + hanging part */}
       <rect x={120} y={plateY - 12} width={120} height={12} fill="var(--surface-3)" stroke="var(--border-strong)" />
-      <rect x={176} y={20} width={8} height={plateY - 32} fill="var(--muted)" />
+      <rect x={176} y={20} width={8} height={Math.max(0, plateY - 32)} fill="var(--muted)" />
       {Array.from({ length: n }, (_, k) => <rect key={k} x={140} y={plateY + k * layerH} width={80} height={layerH - 0.8} fill="var(--series-5)" opacity={0.85} />)}
       <text x={250} y={plateY - 2} className="bd-svg-small">{cure ? 'curing layer' : lift > 0.05 ? 'peel / lift' : ''}</text>
     </Frame>

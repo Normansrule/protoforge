@@ -139,7 +139,11 @@ export const useHistory = create<HistoryState>((set, get) => {
     branchFrom: (id, name) => {
       const v = get().versions.find((x) => x.id === id);
       const clean = name.trim();
-      if (!v || !clean || get().branches.some((b) => b.name === clean)) return;
+      if (!v || !clean) return;
+      if (get().branches.some((b) => b.name === clean)) {
+        alert(`A branch called “${clean}” already exists — pick another name or switch to it.`);
+        return;
+      }
       useProject.getState().setProject(structuredClone(v.project));
       set({ branches: [...get().branches, { name: clean, from: id, created: Date.now() }], branch: clean, base: v.id });
       save();

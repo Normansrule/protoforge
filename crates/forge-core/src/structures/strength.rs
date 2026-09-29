@@ -582,7 +582,8 @@ fn region_name(part: &str, p: P3, l: &FrameLayout) -> (&'static str, bool) {
         return ("pod-to-arm junction (where the slim temple leaves the pod)", true);
     }
     if y > l.pod_rear_y {
-        return ("electronics pod wall", false);
+        let left = part.ends_with("_l") || part.contains("left");
+        return (if left { "battery pod wall" } else { "electronics pod wall" }, false);
     }
     if (y - l.ear_bend_y).abs() < 10.0 {
         return ("ear bend of the temple arm", false);

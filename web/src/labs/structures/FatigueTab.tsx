@@ -73,7 +73,14 @@ function HingeFatigue({ iris }: { iris: IrisOut | null }) {
           actions={r && <DownloadButton small filename="iris-hinge-fatigue.csv" label="blocks CSV" content={csv} />}
         >
           <ErrorBox error={error} />
-          {r && (
+          {r && !r.has_data && (
+            <div className="callout" style={{ borderLeftColor: 'var(--warn)' }}>
+              <h4>No fatigue data for this material</h4>
+              There is no S–N (stress–life) curve for this material in the library, so fatigue life can't be predicted. Pick a material with fatigue data
+              (e.g. PETG, PA12, PC or aluminium) or test coupons of your own.
+            </div>
+          )}
+          {r && r.has_data && (
             <>
               <div className="grid grid-4">
                 <Stat label="Miner damage D" value={fmt(r.damage, 3)} tone={r.damage <= 0.3 ? 'pass' : r.damage <= 1 ? 'warn' : 'fail'} note={`over ${years} years (aim ≤ 0.1–0.3)`} />
@@ -127,7 +134,7 @@ function HingeFatigue({ iris }: { iris: IrisOut | null }) {
                         <input type="number" value={+b.min_mpa.toFixed(3)} step={0.1} onChange={(e) => setBlock(i, { min_mpa: Number(e.target.value) })} aria-label={`${b.name} minimum stress`} />
                       </td>
                       <td>
-                        <input type="number" value={b.cycles_per_day} step={1} onChange={(e) => setBlock(i, { cycles_per_day: Number(e.target.value) })} aria-label={`${b.name} cycles per day`} />
+                        <input type="number" value={b.cycles_per_day} step={1} min={0} onChange={(e) => setBlock(i, { cycles_per_day: Math.max(0, Number(e.target.value) || 0) })} aria-label={`${b.name} cycles per day`} />
                       </td>
                       <td className="tnum">{isFinite(r.blocks[i]?.cycles_to_failure ?? Infinity) ? fmt(r.blocks[i].cycles_to_failure, 2) : '∞'}</td>
                       <td className="tnum">{fmt(r.blocks[i]?.damage ?? 0, 4)}</td>
