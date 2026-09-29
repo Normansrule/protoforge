@@ -111,7 +111,7 @@ export function Concepts({ onCompare }: { onCompare: (a: string, b: string) => v
               { label: 'INCOSE Systems Engineering Handbook, 5th ed., Wiley, 2023' },
             ]}
           >
-            Systems engineering names three classic baselines. The <b>functional baseline</b> freezes what the system must do (the system requirements — Iris's 25 requirements). The <b>allocated baseline</b> freezes how those requirements are split among subsystems and interfaces, with the analyses that show the split works. The <b>product baseline</b> freezes the build-to design: drawings, the board, the BOM and the manufacturing files. ISO 10007 and EIA-649 describe the same four activities — identification, change control, status accounting and audit — without prescribing a tool; this page is one lightweight way to do them for a student project. Clause-level requirements are in the standards themselves.
+            Systems engineering names three classic baselines. The <b>functional baseline</b> freezes what the system must do (the system requirements — Iris's requirement set). The <b>allocated baseline</b> freezes how those requirements are split among subsystems and interfaces, with the analyses that show the split works. The <b>product baseline</b> freezes the build-to design: drawings, the board, the BOM and the manufacturing files. ISO 10007 and EIA-649 describe the same four activities — identification, change control, status accounting and audit — without prescribing a tool; this page is one lightweight way to do them for a student project. Clause-level requirements are in the standards themselves.
           </Explainer>
         </Card>
         <Card title="The configuration-management loop" subtitle="What each part of this page is for">

@@ -639,6 +639,10 @@ pub const PRODUCERS: &[(&str, Producer)] = &[
     ("guides", produce_guides),
     ("cad", produce_cad),
     ("print", produce_print),
+    ("kicad", produce_kicad),
+    ("step", produce_step),
+    ("firmware", produce_firmware),
+    ("compliance", produce_compliance),
     ("verification", produce_verification),
     ("project", produce_project),
 ];
@@ -723,6 +727,58 @@ fn produce_print(p: &Project) -> Vec<PackageFile> {
             utf8(format!("print/{}.gcode", part.name), r.gcode)
         })
         .collect()
+}
+
+/// KiCad project of the routed board (opens in KiCad 7+ and in KiCanvas).
+fn produce_kicad(p: &Project) -> Vec<PackageFile> {
+    if !p.components.iter().any(|c| c.on_pcb) {
+        return vec![];
+    }
+    let b = crate::bridge::kicad::kicad_pcb(p);
+    let base = crate::bridge::kicad::base(p);
+    let mut out = vec![
+        utf8(format!("kicad/{}", b.filename), b.content),
+        utf8(format!("kicad/{base}.kicad_pro"), crate::bridge::kicad::kicad_pro(p)),
+        utf8(format!("kicad/{base}.net"), crate::bridge::kicad::kicad_netlist(p)),
+        utf8("kicad/fp-lib-table", crate::bridge::kicad::fp_lib_table()),
+    ];
+    for (name, content) in crate::bridge::kicad::footprint_library(p) {
+        out.push(utf8(format!("kicad/Protoforge.pretty/{name}"), content));
+    }
+    out
+}
+
+/// STEP (faceted B-rep) of the frame for Onshape / FreeCAD / molders, plus the parametric OpenSCAD source.
+fn produce_step(p: &Project) -> Vec<PackageFile> {
+    let ts = "2026-01-01T00:00:00";
+    let a = crate::bridge::step::step(p, crate::bridge::step::StepFrame::Assembly, ts);
+    let pr = crate::bridge::step::step(p, crate::bridge::step::StepFrame::Print, ts);
+    vec![
+        utf8(format!("cad/{}", a.filename), a.content),
+        utf8(format!("cad/print-orientation-{}", pr.filename), pr.content),
+        utf8("cad/frame.scad", crate::bridge::scad::openscad(p)),
+    ]
+}
+
+/// Generated firmware starting points (Zephyr for the nRF52840, Arduino for the XIAO breadboard).
+fn produce_firmware(p: &Project) -> Vec<PackageFile> {
+    let link = crate::firmware::ble::LinkParams::default();
+    let i = crate::firmware::modules::Inputs::from_project(p, &link);
+    let mut out = Vec::new();
+    for f in crate::firmware::targets::zephyr_project(&i) {
+        out.push(utf8(format!("firmware/zephyr/{}", f.path), f.content));
+    }
+    for f in crate::firmware::targets::xiao_project(&i) {
+        out.push(utf8(format!("firmware/xiao-arduino/{}", f.path), f.content));
+    }
+    out
+}
+
+/// Compliance plan (commonly applicable regulations; confirm with a test lab).
+fn produce_compliance(p: &Project) -> Vec<PackageFile> {
+    let o = crate::build::compliance::project_options(p);
+    let plan = crate::build::compliance::plan(p, &o);
+    vec![utf8("compliance/compliance-plan.md", crate::build::compliance::markdown(p, &plan))]
 }
 
 fn produce_molding(p: &Project) -> Vec<PackageFile> {
@@ -933,6 +989,14 @@ mod tests {
             "order-molding.md",
             "verification-report.md",
             "project.json",
+            ".kicad_pcb",
+            "Protoforge.pretty/QFN-48_6x6.kicad_mod",
+            ".step",
+            "frame.scad",
+            "firmware/zephyr/prj.conf",
+            "compliance-plan.md",
+            ".stl",
+            ".gcode",
         ] {
             assert!(has(s), "missing {s}");
         }

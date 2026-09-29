@@ -4,7 +4,7 @@ Mature open-source projects that do what each Protoforge lab teaches, at profess
 
 The same list appears on the **Guide & references** page (`#/learn`), generated from `web/src/pages/learn/repos.ts` (regenerate with `node --experimental-strip-types web/src/pages/learn/gen-docs.mjs`). GitHub `owner/name` is given where the project lives on GitHub; otherwise the official site.
 
-**Abbreviations:** API — application programming interface; BSIM — Berkeley short-channel insulated-gate field-effect transistor model; CAD — computer-aided design; DQN — deep Q-network; DRC — design rule check; DSN — Specctra design file; DSP — digital signal processing; EDA — electronic design automation; FIR — finite impulse response (filter); FPGA — field-programmable gate array; GDSII — Graphic Design System II; HDL — hardware description language; LQR — linear–quadratic regulator; LU — lower–upper (decomposition); MDP — Markov decision process; MIT — Massachusetts Institute of Technology; MNA — modified nodal analysis; PCB — printed circuit board; PDK — process design kit; PID — proportional–integral–derivative (controller); PPO — proximal policy optimisation; RL — reinforcement learning; ROS — Robot Operating System; RTL — register-transfer level; SAC — soft actor–critic; SKY130 — SkyWater 130 nm process; SPICE — Simulation Program with Integrated Circuit Emphasis; STEP — Standard for the Exchange of Product model data (ISO 10303).
+**Abbreviations:** API — application programming interface; BLE — Bluetooth Low Energy; BSIM — Berkeley short-channel insulated-gate field-effect transistor model; CAD — computer-aided design; DQN — deep Q-network; DRC — design rule check; DSN — Specctra design file; DSP — digital signal processing; EDA — electronic design automation; FIR — finite impulse response (filter); FPGA — field-programmable gate array; GDSII — Graphic Design System II; HDL — hardware description language; LQR — linear–quadratic regulator; LU — lower–upper (decomposition); MDP — Markov decision process; MIT — Massachusetts Institute of Technology; MNA — modified nodal analysis; OBJ — Wavefront OBJ; PCB — printed circuit board; PDK — process design kit; PID — proportional–integral–derivative (controller); PPO — proximal policy optimisation; RL — reinforcement learning; ROS — Robot Operating System; RTL — register-transfer level; SAC — soft actor–critic; SKY130 — SkyWater 130 nm process; SPICE — Simulation Program with Integrated Circuit Emphasis; STEP — Standard for the Exchange of Product model data (ISO 10303); STL — stereolithography (file format).
 
 ## Circuit simulation
 
@@ -110,3 +110,39 @@ The same list appears on the **Guide & references** page (`#/learn`), generated 
 | **React Three Fiber** | [`pmndrs/react-three-fiber`](https://github.com/pmndrs/react-three-fiber) | React renderer for three.js used by the CAD, PCB and Print viewers. |
 | **axum** | [`tokio-rs/axum`](https://github.com/tokio-rs/axum) | The Rust web framework behind forge-server. |
 | **wasm-bindgen** | — | Generates the JavaScript glue between the browser and the Rust engine. |
+
+## Structures & finite elements
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **CalculiX** | <http://www.calculix.de> | Open 3D finite element solver with an Abaqus-like input deck — run the Structures Lab load cases on a real tetrahedral mesh. |
+| **Code_Aster** | <https://code-aster.org> | EDF’s industrial finite element code: nonlinear materials, contact and fatigue beyond the linear voxel model. |
+| **Gmsh** | <https://gmsh.info> | Mesh generator with an OpenCASCADE kernel; reads the STEP export and makes proper tetrahedral meshes for CalculiX or Elmer. |
+
+## Quantum information
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **Qiskit** | [`Qiskit/qiskit`](https://github.com/Qiskit/qiskit) | IBM’s quantum SDK; the Quantum Lab exports runnable Qiskit scripts and OpenQASM for real hardware. |
+| **Quirk** | [`Strilanc/Quirk`](https://github.com/Strilanc/Quirk) | Drag-and-drop quantum circuit simulator in the browser; every composer circuit opens there with one link. |
+| **Cirq** | [`quantumlib/Cirq`](https://github.com/quantumlib/Cirq) | Google’s circuit framework — another way to cross-check state vectors and noise models. |
+| **QuTiP** | [`qutip/qutip`](https://github.com/qutip/qutip) | Open quantum systems in Python: master equations and noise models beyond the lab’s Kraus channels. |
+
+## Firmware & prototyping
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **Zephyr RTOS** | [`zephyrproject-rtos/zephyr`](https://github.com/zephyrproject-rtos/zephyr) | The real-time operating system the generated nRF52840 firmware targets: devicetree, Kconfig, Bluetooth host. |
+| **nRF Connect SDK** | [`nrfconnect/sdk-nrf`](https://github.com/nrfconnect/sdk-nrf) | Nordic’s Zephyr-based SDK with samples for BLE audio, power management and DFU on nRF52/nRF53. |
+| **Wokwi elements** | [`wokwi/wokwi-elements`](https://github.com/wokwi/wokwi-elements) | The parts behind the Wokwi simulator the ESP32-S3 breadboard export opens in (docs: docs.wokwi.com). |
+
+## Web tools for hand-off
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **KiCanvas** | [`theacodes/kicanvas`](https://github.com/theacodes/kicanvas) | Views KiCad boards and schematics in the browser — drop the exported .kicad_pcb on kicanvas.org. |
+| **CircuitJS (Falstad)** | [`sharpie7/circuitjs1`](https://github.com/sharpie7/circuitjs1) | The interactive circuit simulator behind the Falstad links the toolchain generates. |
+| **Online 3D Viewer** | [`kovacsv/Online3DViewer`](https://github.com/kovacsv/Online3DViewer) | Views STL/STEP/OBJ/3MF in the browser (3dviewer.net). |
+| **Ray Optics Simulation** | [`ricktu288/ray-optics`](https://github.com/ricktu288/ray-optics) | 2D geometric optics in the browser; imports the scene the Optics Lab exports. |
+| **OpenSCAD Playground** | [`openscad/openscad-playground`](https://github.com/openscad/openscad-playground) | OpenSCAD compiled to WebAssembly; runs the generated parametric frame.scad. |
+| **kiutils** | [`mvnmgrx/kiutils`](https://github.com/mvnmgrx/kiutils) | Python parser for KiCad files, used to verify the KiCad export independently. |

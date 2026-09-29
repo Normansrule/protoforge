@@ -121,4 +121,40 @@ export const REPOS: RepoGroup[] = [
       { name: 'wasm-bindgen', learn: 'Generates the JavaScript glue between the browser and the Rust engine.' },
     ],
   },
+  {
+    discipline: 'Structures & finite elements',
+    items: [
+      { name: 'CalculiX', url: 'http://www.calculix.de', lab: '/structures', learn: 'Open 3D finite element solver with an Abaqus-like input deck — run the Structures Lab load cases on a real tetrahedral mesh.' },
+      { name: 'Code_Aster', url: 'https://code-aster.org', lab: '/structures', learn: 'EDF’s industrial finite element code: nonlinear materials, contact and fatigue beyond the linear voxel model.' },
+      { name: 'Gmsh', url: 'https://gmsh.info', lab: '/structures', learn: 'Mesh generator with an OpenCASCADE kernel; reads the STEP export and makes proper tetrahedral meshes for CalculiX or Elmer.' },
+    ],
+  },
+  {
+    discipline: 'Quantum information',
+    items: [
+      { name: 'Qiskit', repo: 'Qiskit/qiskit', lab: '/quantum', learn: 'IBM’s quantum SDK; the Quantum Lab exports runnable Qiskit scripts and OpenQASM for real hardware.' },
+      { name: 'Quirk', repo: 'Strilanc/Quirk', lab: '/quantum', learn: 'Drag-and-drop quantum circuit simulator in the browser; every composer circuit opens there with one link.' },
+      { name: 'Cirq', repo: 'quantumlib/Cirq', lab: '/quantum', learn: 'Google’s circuit framework — another way to cross-check state vectors and noise models.' },
+      { name: 'QuTiP', repo: 'qutip/qutip', lab: '/quantum', learn: 'Open quantum systems in Python: master equations and noise models beyond the lab’s Kraus channels.' },
+    ],
+  },
+  {
+    discipline: 'Firmware & prototyping',
+    items: [
+      { name: 'Zephyr RTOS', repo: 'zephyrproject-rtos/zephyr', lab: '/proto', learn: 'The real-time operating system the generated nRF52840 firmware targets: devicetree, Kconfig, Bluetooth host.' },
+      { name: 'nRF Connect SDK', repo: 'nrfconnect/sdk-nrf', lab: '/proto', learn: 'Nordic’s Zephyr-based SDK with samples for BLE audio, power management and DFU on nRF52/nRF53.' },
+      { name: 'Wokwi elements', repo: 'wokwi/wokwi-elements', lab: '/proto', learn: 'The parts behind the Wokwi simulator the ESP32-S3 breadboard export opens in (docs: docs.wokwi.com).' },
+    ],
+  },
+  {
+    discipline: 'Web tools for hand-off',
+    items: [
+      { name: 'KiCanvas', repo: 'theacodes/kicanvas', lab: '/toolchain', learn: 'Views KiCad boards and schematics in the browser — drop the exported .kicad_pcb on kicanvas.org.' },
+      { name: 'CircuitJS (Falstad)', repo: 'sharpie7/circuitjs1', lab: '/toolchain', learn: 'The interactive circuit simulator behind the Falstad links the toolchain generates.' },
+      { name: 'Online 3D Viewer', repo: 'kovacsv/Online3DViewer', lab: '/toolchain', learn: 'Views STL/STEP/OBJ/3MF in the browser (3dviewer.net).' },
+      { name: 'Ray Optics Simulation', repo: 'ricktu288/ray-optics', lab: '/toolchain', learn: '2D geometric optics in the browser; imports the scene the Optics Lab exports.' },
+      { name: 'OpenSCAD Playground', repo: 'openscad/openscad-playground', lab: '/toolchain', learn: 'OpenSCAD compiled to WebAssembly; runs the generated parametric frame.scad.' },
+      { name: 'kiutils', repo: 'mvnmgrx/kiutils', lab: '/toolchain', learn: 'Python parser for KiCad files, used to verify the KiCad export independently.' },
+    ],
+  },
 ];
