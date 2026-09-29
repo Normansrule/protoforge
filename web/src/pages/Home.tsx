@@ -98,9 +98,9 @@ function Hero({ ev }: { ev: Computed<Evaluation> }) {
         </div>
         <div className="hm-stage-chips">
           {ev.data && (
-            <Link to="/systems" className={`hm-float ${ev.data.fail ? 'fail' : 'pass'}`}>
-              <b className="tnum">{ev.data.fail ? '✕' : '✓'} {ev.data.pass}/{ev.data.results.length}</b>
-              <span>requirements verified{ev.data.fail ? ` · ${ev.data.fail} failing` : ''}</span>
+            <Link to="/systems" className={`hm-float ${ev.data.fail - (ev.data.open_goals ?? 0) ? 'fail' : 'pass'}`}>
+              <b className="tnum">{ev.data.fail - (ev.data.open_goals ?? 0) ? '✕' : '✓'} {ev.data.pass}/{ev.data.results.length}</b>
+              <span>requirements verified{ev.data.fail - (ev.data.open_goals ?? 0) ? ` · ${ev.data.fail - (ev.data.open_goals ?? 0)} failing` : ''}{ev.data.open_goals ? ` · ${ev.data.open_goals} open goal` : ''}</span>
             </Link>
           )}
           {mass && (

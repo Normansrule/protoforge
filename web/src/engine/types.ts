@@ -72,4 +72,4 @@ export interface Project {
 export interface Metric { key: string; label: string; value: number; unit: string; source: string; note: string }
 export type Status = 'pass' | 'fail' | 'unverified';
 export interface ReqResult { id: string; status: Status; value: number | null; unit: string; margin: number | null; source: string | null; criterion: string }
-export interface Evaluation { metrics: Metric[]; results: ReqResult[]; pass: number; fail: number; unverified: number }
+export interface Evaluation { metrics: Metric[]; results: ReqResult[]; pass: number; fail: number; unverified: number; /** failing requirements of kind "goal" (included in fail) */ open_goals?: number }

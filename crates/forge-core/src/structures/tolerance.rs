@@ -671,6 +671,12 @@ pub struct FocusStackIn {
     /// Allowed focus error, diopters (±).
     pub allowable_d: f64,
     pub samples: usize,
+    /// Focus adjustment set at assembly (threaded lens cell or shims): its
+    /// resolution in mm. When present the adjustment absorbs the whole chain
+    /// and only ±(step/2 + lock-in shift) remains.
+    pub adjust_step_mm: Option<f64>,
+    /// Shift when the adjustment is locked (thread-lock / adhesive cure), ±mm.
+    pub lock_shift_mm: f64,
 }
 
 impl Default for FocusStackIn {
@@ -683,6 +689,8 @@ impl Default for FocusStackIn {
             bond_tol_mm: 0.03,
             allowable_d: 0.25,
             samples: 20_000,
+            adjust_step_mm: None,
+            lock_shift_mm: 0.01,
         }
     }
 }
@@ -733,53 +741,70 @@ pub fn focus_stack(p: &crate::project::Project, i: &FocusStackIn) -> Result<Focu
     let molded = i.process == "molded";
     let housing_tol = i.housing_tol_mm.unwrap_or(if molded { 0.03 } else { 0.10 });
     let (glass, lens_pp, bond) = (0.5, 1.5, 0.10);
-    let dims = vec![
-        Dim {
-            name: "Housing: lens seat → display seat".into(),
-            nominal: d - glass + lens_pp - bond,
-            plus: housing_tol,
-            minus: housing_tol,
-            dir: 1.0,
-            dist: "normal".into(),
-            sigmas: 3.0,
-            note: if molded {
-                "Molded housing: a few hundredths of a millimetre is achievable on a short, well-controlled feature (check the molder)."
-                    .into()
-            } else {
-                "Printed housing: ±0.1 mm typical after calibration on a short feature; resin (SLA) printers do better.".into()
-            },
-        },
-        Dim {
-            name: "Display: pixel plane below the seat face (cover glass + adhesive)".into(),
-            nominal: glass,
-            plus: i.glass_tol_mm,
-            minus: i.glass_tol_mm,
-            dir: 1.0,
-            dist: "normal".into(),
-            sigmas: 3.0,
-            note: "Assumed 0.5 mm; take the real value and tolerance from the display module drawing.".into(),
-        },
-        Dim {
-            name: "Lens: principal plane ahead of its seat".into(),
-            nominal: lens_pp,
-            plus: i.lens_tol_mm,
-            minus: i.lens_tol_mm,
-            dir: -1.0,
-            dist: "normal".into(),
-            sigmas: 3.0,
-            note: "Assumed 1.5 mm; the lens drawing gives the flange-to-principal-plane distance.".into(),
-        },
-        Dim {
-            name: "Adhesive tape bond line under the display".into(),
-            nominal: bond,
-            plus: i.bond_tol_mm,
-            minus: i.bond_tol_mm,
+    let adjusted = i.adjust_step_mm.filter(|s| *s > 0.0);
+    let dims = if let Some(step) = adjusted {
+        vec![Dim {
+            name: "Focus set at assembly (adjustable lens cell), residual".into(),
+            nominal: d,
+            plus: step / 2.0 + i.lock_shift_mm,
+            minus: step / 2.0 + i.lock_shift_mm,
             dir: 1.0,
             dist: "uniform".into(),
             sigmas: 3.0,
-            note: "Pressure-sensitive tape thickness varies with compression — uniform distribution.".into(),
-        },
-    ];
+            note: format!(
+                "The lens cell is turned (or shimmed) until the image is sharp, which absorbs the housing, display and lens tolerances; what remains is half the {step:.3} mm adjustment step plus a ±{:.3} mm shift when it is locked.",
+                i.lock_shift_mm
+            ),
+        }]
+    } else {
+        vec![
+            Dim {
+                name: "Housing: lens seat → display seat".into(),
+                nominal: d - glass + lens_pp - bond,
+                plus: housing_tol,
+                minus: housing_tol,
+                dir: 1.0,
+                dist: "normal".into(),
+                sigmas: 3.0,
+                note: if molded {
+                    "Molded housing: a few hundredths of a millimetre is achievable on a short, well-controlled feature (check the molder)."
+                        .into()
+                } else {
+                    "Printed housing: ±0.1 mm typical after calibration on a short feature; resin (SLA) printers do better.".into()
+                },
+            },
+            Dim {
+                name: "Display: pixel plane below the seat face (cover glass + adhesive)".into(),
+                nominal: glass,
+                plus: i.glass_tol_mm,
+                minus: i.glass_tol_mm,
+                dir: 1.0,
+                dist: "normal".into(),
+                sigmas: 3.0,
+                note: "Assumed 0.5 mm; take the real value and tolerance from the display module drawing.".into(),
+            },
+            Dim {
+                name: "Lens: principal plane ahead of its seat".into(),
+                nominal: lens_pp,
+                plus: i.lens_tol_mm,
+                minus: i.lens_tol_mm,
+                dir: -1.0,
+                dist: "normal".into(),
+                sigmas: 3.0,
+                note: "Assumed 1.5 mm; the lens drawing gives the flange-to-principal-plane distance.".into(),
+            },
+            Dim {
+                name: "Adhesive tape bond line under the display".into(),
+                nominal: bond,
+                plus: i.bond_tol_mm,
+                minus: i.bond_tol_mm,
+                dir: 1.0,
+                dist: "uniform".into(),
+                sigmas: 3.0,
+                note: "Pressure-sensitive tape thickness varies with compression — uniform distribution.".into(),
+            },
+        ]
+    };
     let a = i.allowable_d.abs().max(1e-3);
     let lower = 1000.0 / (1000.0 / d + a);
     let upper = if 1000.0 / d - a > 0.0 {
@@ -897,6 +922,29 @@ mod tests {
         assert!((o.mc_sigma - s).abs() < 0.02 * s, "{} vs {s}", o.mc_sigma);
         assert!(o.yield_pct > 99.99);
         assert!((norm_cdf(1.0) - 0.841_344_7).abs() < 1e-6);
+    }
+
+    #[test]
+    fn focus_adjustment_absorbs_the_chain() {
+        let p = crate::project::Project::iris();
+        let fixed = focus_stack(&p, &FocusStackIn::default()).unwrap();
+        let adj = focus_stack(
+            &p,
+            &FocusStackIn {
+                adjust_step_mm: Some(0.05),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        // residual ±(0.025 + 0.01) mm × 1000/d² D/mm
+        let d = p.design.optics.display_to_lens_mm;
+        let expect = 0.035 * 1000.0 / (d * d);
+        assert!(
+            (adj.worst_diopters - expect).abs() < 0.02 * expect.max(0.05) + 1e-3,
+            "{} vs {expect}",
+            adj.worst_diopters
+        );
+        assert!(adj.worst_diopters < fixed.worst_diopters);
     }
 
     #[test]

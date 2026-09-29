@@ -4,7 +4,7 @@ The consolidated bibliography of Protoforge, gathered from every lab guide (`doc
 
 Links are given only where a source is freely available online. The labs that cite each work are listed in brackets.
 
-**Abbreviations:** AFCRC — Air Force Cambridge Research Center; AIAG — Automotive Industry Action Group; AIEE — American Institute of Electrical Engineers; ASME — American Society of Mechanical Engineers; ASTM — ASTM International (formerly American Society for Testing and Materials); BOM — bill of materials; CAD — computer-aided design; CIE — Computers and Information in Engineering; CMOS — complementary metal–oxide–semiconductor; CMU — Carnegie Mellon University; CPL — component placement list; DSP — digital signal processing; DVT — design validation test; EQ — equaliser; ERL — Electronics Research Laboratory; EVT — engineering validation test; FFT — fast Fourier transform; FMEA — failure mode and effects analysis; FPGA — field-programmable gate array; ICIP — International Conference on Image Processing; ICORR — International Conference on Rehabilitation Robotics; IDETC — International Design Engineering Technical Conferences; IEEE — Institute of Electrical and Electronics Engineers; IMU — inertial measurement unit; INCOSE — International Council on Systems Engineering; IPC — IPC (formerly Institute for Printed Circuits); IRE — Institute of Radio Engineers; ISCAS — International Symposium on Circuits and Systems; ISO — International Organization for Standardization; MARG — magnetic, angular rate and gravity; MIT — Massachusetts Institute of Technology; MNA — modified nodal analysis; NASA — National Aeronautics and Space Administration; PCB — printed circuit board; PID — proportional–integral–derivative (controller); PPO — proximal policy optimisation; PVT — production validation test; RL — reinforcement learning; SARSA — state–action–reward–state–action; SIAM — Society for Industrial and Applied Mathematics; SPICE — Simulation Program with Integrated Circuit Emphasis; VDA — Verband der Automobilindustrie (German Association of the Automotive Industry); VLSI — very-large-scale integration; W3C — World Wide Web Consortium.
+**Abbreviations:** AFCRC — Air Force Cambridge Research Center; AIAG — Automotive Industry Action Group; AIEE — American Institute of Electrical Engineers; ASME — American Society of Mechanical Engineers; ASTM — ASTM International (formerly American Society for Testing and Materials); BOM — bill of materials; CAD — computer-aided design; CIE — Computers and Information in Engineering; CMOS — complementary metal–oxide–semiconductor; CMU — Carnegie Mellon University; CNC — computer numerical control; CPL — component placement list; DSP — digital signal processing; DVT — design validation test; EQ — equaliser; ERL — Electronics Research Laboratory; EVT — engineering validation test; FFT — fast Fourier transform; FMEA — failure mode and effects analysis; FPGA — field-programmable gate array; ICIP — International Conference on Image Processing; ICORR — International Conference on Rehabilitation Robotics; IDETC — International Design Engineering Technical Conferences; IEEE — Institute of Electrical and Electronics Engineers; IMU — inertial measurement unit; INCOSE — International Council on Systems Engineering; IPC — IPC (formerly Institute for Printed Circuits); IRE — Institute of Radio Engineers; ISCAS — International Symposium on Circuits and Systems; ISO — International Organization for Standardization; MARG — magnetic, angular rate and gravity; MIT — Massachusetts Institute of Technology; MNA — modified nodal analysis; NASA — National Aeronautics and Space Administration; PCB — printed circuit board; PID — proportional–integral–derivative (controller); PPO — proximal policy optimisation; PVT — production validation test; RL — reinforcement learning; SARSA — state–action–reward–state–action; SIAM — Society for Industrial and Applied Mathematics; SPICE — Simulation Program with Integrated Circuit Emphasis; VDA — Verband der Automobilindustrie (German Association of the Automotive Industry); VLSI — very-large-scale integration; W3C — World Wide Web Consortium.
 
 ## Systems engineering
 
@@ -141,6 +141,122 @@ Links are given only where a source is freely available online. The labs that ci
 92. G. Boothroyd, P. Dewhurst, W. Knight, *Product Design for Manufacture and Assembly*, 3rd ed., CRC Press, 2010. [Manufacturing Hub]
 93. T. P. Wright, “Factors affecting the cost of airplanes”, *Journal of the Aeronautical Sciences* 3, 1936. [Manufacturing Hub]
 94. A. “bunnie” Huang, *The Hardware Hacker*, No Starch Press, 2017 (EVT/DVT/PVT build stages). [Manufacturing Hub]
+
+## Structures & mechanics
+
+95. O. C. Zienkiewicz & R. L. Taylor, *The Finite Element Method*, 7th ed., 2013. [Structures Lab]
+96. T. J. R. Hughes, *The Finite Element Method: Linear Static and Dynamic Finite Element Analysis*, Dover, 2000. [Structures Lab]
+97. K.-J. Bathe, *Finite Element Procedures*, 2nd ed., 2014. [Structures Lab]
+98. E. L. Wilson, R. L. Taylor, W. P. Doherty & J. Ghaboussi, "Incompatible displacement models", 1973. [Structures Lab]
+99. J. R. Shewchuk, "An Introduction to the Conjugate Gradient Method Without the Agonizing Pain", CMU, 1994. [Structures Lab]
+100. W. L. Briggs, V. E. Henson & S. F. McCormick, *A Multigrid Tutorial*, 2nd ed., SIAM, 2000. [Structures Lab]
+101. E. Andreassen, A. Clausen, M. Schevenels, B. S. Lazarov & O. Sigmund, "Efficient topology optimization in MATLAB using 88 lines of code", *Struct. Multidisc. Optim.* 43, 2011. [Structures Lab]
+102. O. Sigmund, "A 99 line topology optimization code written in Matlab", *Struct. Multidisc. Optim.* 21, 2001. [Structures Lab]
+103. M. P. Bendsøe & O. Sigmund, *Topology Optimization: Theory, Methods and Applications*, Springer, 2003. [Structures Lab]
+104. W. C. Young & R. G. Budynas, *Roark's Formulas for Stress and Strain*, 7th ed., 2002. [Structures Lab]
+105. R. G. Budynas & J. K. Nisbett, *Shigley's Mechanical Engineering Design*, 10th ed. [Structures Lab]
+106. Bayer MaterialScience (Covestro), *Snap-Fit Joints for Plastics — A Design Guide*. [Structures Lab]
+107. W. D. Pilkey & D. F. Pilkey, *Peterson's Stress Concentration Factors*, 3rd ed., 2008. [Structures Lab]
+108. S. Timoshenko, "Analysis of bi-metal thermostats", *J. Opt. Soc. Am.* 11, 1925. [Structures Lab]
+109. O. H. Basquin, 1910; M. A. Miner, "Cumulative damage in fatigue", *J. Appl. Mech.* 12, 1945. [Structures Lab]
+110. ISO 286-1 / ISO 286-2 (limits and fits); ISO 12870 (spectacle frames — the load cases are inspired by, not an implementation of, its tests). [Structures Lab]
+111. J. R. Davis (ed.), ASM handbooks — typical material values. [Structures Lab]
+
+## Quantum information
+
+112. M. A. Nielsen & I. L. Chuang, *Quantum Computation and Quantum Information*, 10th anniversary ed., Cambridge University Press, 2010. [Quantum Lab]
+113. J. Preskill, Caltech Ph219 lecture notes, http://theory.caltech.edu/~preskill/ph219/ <http://theory.caltech.edu/~preskill/ph219/> [Quantum Lab]
+114. C. H. Bennett & G. Brassard, "Quantum cryptography: Public key distribution and coin tossing", Proc. IEEE Int. Conf. Computers, Systems and Signal Processing, 1984. [Quantum Lab]
+115. A. K. Ekert, "Quantum cryptography based on Bell's theorem", Phys. Rev. Lett. 67, 661, 1991. [Quantum Lab]
+116. J. F. Clauser, M. A. Horne, A. Shimony & R. A. Holt, "Proposed experiment to test local hidden-variable theories", Phys. Rev. Lett. 23, 880, 1969. [Quantum Lab]
+117. C. H. Bennett, G. Brassard, C. Crépeau, R. Jozsa, A. Peres & W. K. Wootters, "Teleporting an unknown quantum state via dual classical and Einstein–Podolsky–Rosen channels", Phys. Rev. Lett. 70, 1895, 1993. [Quantum Lab]
+118. C. H. Bennett & S. J. Wiesner, "Communication via one- and two-particle operators on Einstein–Podolsky–Rosen states", Phys. Rev. Lett. 69, 2881, 1992. [Quantum Lab]
+119. M. Żukowski, A. Zeilinger, M. A. Horne & A. K. Ekert, "'Event-ready-detectors' Bell experiment via entanglement swapping", Phys. Rev. Lett. 71, 4287, 1993. [Quantum Lab]
+120. L. K. Grover, "A fast quantum mechanical algorithm for database search", Proc. 28th ACM STOC, 1996. [Quantum Lab]
+121. P. W. Shor, "Algorithms for quantum computation: discrete logarithms and factoring", FOCS 1994; SIAM J. Comput. 26, 1484, 1997. [Quantum Lab]
+122. D. Deutsch & R. Jozsa, "Rapid solution of problems by quantum computation", Proc. R. Soc. Lond. A 439, 553, 1992. [Quantum Lab]
+123. E. Bernstein & U. Vazirani, "Quantum complexity theory", SIAM J. Comput. 26, 1411, 1997. [Quantum Lab]
+124. W. K. Wootters, "Entanglement of formation of an arbitrary state of two qubits", Phys. Rev. Lett. 80, 2245, 1998. [Quantum Lab]
+125. W. K. Wootters & W. H. Zurek, "A single quantum cannot be cloned", Nature 299, 802, 1982. [Quantum Lab]
+126. P. W. Shor & J. Preskill, "Simple proof of security of the BB84 quantum key distribution protocol", Phys. Rev. Lett. 85, 441, 2000. [Quantum Lab]
+127. H.-K. Lo, X. Ma & K. Chen, "Decoy state quantum key distribution", Phys. Rev. Lett. 94, 230504, 2005. [Quantum Lab]
+128. D. Gottesman, H.-K. Lo, N. Lütkenhaus & J. Preskill, "Security of quantum key distribution with imperfect devices", Quantum Inf. Comput. 4, 325, 2004. [Quantum Lab]
+129. S. Pirandola, R. Laurenza, C. Ottaviani & L. Banchi, "Fundamental limits of repeaterless quantum communications", Nat. Commun. 8, 15043, 2017. [Quantum Lab]
+130. N. Gisin, G. Ribordy, W. Tittel & H. Zbinden, "Quantum cryptography", Rev. Mod. Phys. 74, 145, 2002. [Quantum Lab]
+131. M. Herrero-Collantes & J. C. Garcia-Escartin, "Quantum random number generators", Rev. Mod. Phys. 89, 015004, 2017. [Quantum Lab]
+132. X. Ma, F. Xu, H. Xu, X. Tan, B. Qi & H.-K. Lo, "Postprocessing for quantum random-number generators: Entropy evaluation and randomness extraction", Phys. Rev. A 87, 062327, 2013. [Quantum Lab]
+133. A. Rukhin et al., NIST SP 800-22 Rev. 1a, *A Statistical Test Suite for Random and Pseudorandom Number Generators for Cryptographic Applications*, 2010. [Quantum Lab]
+134. M. S. Turan et al., NIST SP 800-90B, *Recommendation for the Entropy Sources Used for Random Bit Generation*, 2018. [Quantum Lab]
+135. A. W. Cross, L. S. Bishop, J. A. Smolin & J. M. Gambetta, "Open Quantum Assembly Language", arXiv:1707.03429, 2017. [Quantum Lab]
+136. A. W. Cross, A. Javadi-Abhari, T. Alexander, N. de Beaudrap, L. S. Bishop, S. Heidel, C. A. Ryan, P. Sivarajah, J. Smolin, J. M. Gambetta & B. R. Johnson, "OpenQASM 3: A broader and deeper quantum assembly language", ACM Trans. Quantum Comput. 3, 12, 2022 (arXiv:2104.14722). [Quantum Lab]
+137. V. Scarani, H. Bechmann-Pasquinucci, N. J. Cerf, M. Dušek, N. Lütkenhaus & M. Peev, "The security of practical quantum key distribution", Rev. Mod. Phys. 81, 1301, 2009. [Quantum Lab]
+138. C. Gidney, Quirk, https://algassert.com/quirk (source: github.com/Strilanc/Quirk). <https://algassert.com/quirk> [Quantum Lab]
+139. Qiskit, https://github.com/Qiskit/qiskit · Cirq, https://github.com/quantumlib/Cirq · QuTiP, https://qutip.org <https://github.com/Qiskit/qiskit> [Quantum Lab]
+140. W. H. Press, S. A. Teukolsky, W. T. Vetterling & B. P. Flannery, *Numerical Recipes*, 3rd ed., Cambridge, 2007 (incomplete gamma function). [Quantum Lab]
+
+## Prototype hardware & firmware
+
+141. Nordic Semiconductor, *nRF52840 Product Specification* (docs.nordicsemi.com) [Prototype & Firmware]
+142. Bluetooth SIG, *Bluetooth Core Specification* v5.x and Assigned Numbers (bluetooth.com/specifications/assigned-numbers) [Prototype & Firmware]
+143. Zephyr Project documentation (docs.zephyrproject.org) [Prototype & Firmware]
+144. Nordic Semiconductor, *nRF52840 DK hardware user guide* [Prototype & Firmware]
+145. Seeed Studio wiki, XIAO nRF52840 Sense (wiki.seeedstudio.com) [Prototype & Firmware]
+146. Wokwi documentation (docs.wokwi.com) [Prototype & Firmware]
+147. Espressif Systems, *ESP32-S3 Series Datasheet* [Prototype & Firmware]
+148. Arduino documentation (docs.arduino.cc) [Prototype & Firmware]
+149. P. Leach, M. Mealling, R. Salz, RFC 4122 (UUIDs), IETF 2005 [Prototype & Firmware]
+150. NIST FIPS 180-4, *Secure Hash Standard* [Prototype & Firmware]
+151. Solomon Systech, *SSD1306 datasheet* [Prototype & Firmware]
+152. PlatformIO documentation (docs.platformio.org) [Prototype & Firmware]
+153. U8g2 (github.com/olikraus/u8g2), Adafruit GFX Library (github.com/adafruit/Adafruit-GFX-Library) [Prototype & Firmware]
+154. E. White, *Making Embedded Systems*, 2nd ed., O'Reilly 2024 [Prototype & Firmware]
+155. J. J. Labrosse, *MicroC/OS-II: The Real-Time Kernel*, 2nd ed., CMP Books 2002 [Prototype & Firmware]
+156. R. G. Lyons, *Understanding Digital Signal Processing*, 3rd ed., Prentice Hall 2010 [Prototype & Firmware]
+157. C. Gomez, J. Oller, J. Paradells, "Overview and evaluation of Bluetooth Low Energy", *Sensors* 12(9), 2012 [Prototype & Firmware]
+158. IMA, "Recommended Practices for Enhancing Digital Audio Compatibility in Multimedia Systems", rev. 3.00, 1992 [Prototype & Firmware]
+159. J. E. Bresenham, *IBM Systems Journal* 4(1), 1965 [Prototype & Firmware]
+160. open glasses references: Brilliant Labs (github.com/brilliantlabsAR), OpenGlass (github.com/BasedHardware/OpenGlass). [Prototype & Firmware]
+
+## Building & compliance
+
+161. E. Oberg et al., *Machinery's Handbook* (Industrial Press). [Build Guide]
+162. S. Kalpakjian, S. R. Schmid, *Manufacturing Engineering and Technology* (Pearson) — specific energy in cutting. [Build Guide]
+163. Sandvik Coromant, Harvey Tool and Kennametal published milling formulas and chip-thinning guidance (vendor technical guides). [Build Guide]
+164. IPC-7525 *Stencil design guidelines*; IPC/JEDEC J-STD-020 (moisture/reflow sensitivity classification); IPC-A-610 *Acceptability of electronic assemblies*; IPC-2221 *Generic standard on printed board design*; IPC-6012 *Qualification and performance specification for rigid printed boards*; IPC-A-600 *Acceptability of printed boards*. [Build Guide]
+165. ISO/ASTM 52900 *Additive manufacturing — general principles and vocabulary*. [Build Guide]
+166. I. Gibson, D. Rosen, B. Stucker, *Additive Manufacturing Technologies* (3rd ed., Springer, 2021). [Build Guide]
+167. P. F. Jacobs, *Rapid Prototyping & Manufacturing: Fundamentals of Stereolithography* (Society of Manufacturing Engineers, 1992). [Build Guide]
+168. W. M. Steen, J. Mazumder, *Laser Material Processing* (4th ed., Springer, 2010). [Build Guide]
+169. D. V. Rosato, M. G. Rosato, *Injection Molding Handbook* (3rd ed., 2000). [Build Guide]
+170. DIN 6935 *Cold bending of flat rolled steel products*. [Build Guide]
+171. G. Boothroyd, P. Dewhurst, W. Knight, *Product Design for Manufacture and Assembly* (3rd ed., 2010); M. F. Ashby, *Materials Selection in Mechanical Design*. [Build Guide]
+172. F. P. Incropera, D. P. DeWitt, *Fundamentals of Heat and Mass Transfer* (lumped capacitance). [Build Guide]
+173. Protolabs and Xometry design guides for CNC machining, sheet metal, 3D printing and injection molding (vendor design guides). [Build Guide]
+174. Prusa Knowledge Base (), Bambu Lab Wiki (), UltiMaker material guides — vendor material guides. <https://help.prusa3d.com> [Build Guide]
+175. FCC 47 CFR Part 15 (); EU Radio Equipment Directive 2014/53/EU (); RoHS 2011/65/EU (); REACH Regulation (EC) No 1907/2006; WEEE Directive 2012/19/EU; Batteries Regulation (EU) 2023/1542; PPE Regulation (EU) 2016/425. <https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15> [Build Guide]
+176. UN *Manual of Tests and Criteria*, section 38.3; IEC 62368-1; IEC 62133-2; IEC 62471; ISO 12870; ISO 12312-1; Bluetooth SIG Qualification Program (). <https://www.bluetooth.com> [Build Guide]
+
+## Configuration management & tool hand-off
+
+177. ISO 10007:2017, *Quality management — Guidelines for configuration management*. [Versions]
+178. SAE/EIA-649, *Configuration Management Standard* (check the current revision). [Versions]
+179. NASA, *NASA Systems Engineering Handbook*, NASA/SP-2016-6105 Rev 2 (2016) — configuration management process and baselines. [Versions]
+180. INCOSE, *Systems Engineering Handbook*, 5th ed., Wiley, 2023. [Versions]
+181. S. Chacon and B. Straub, *Pro Git*, 2nd ed., Apress, 2014 — ch. 3, Git Branching (basic merging, three-way merge) <https://git-scm.com/book/en/v2> [Versions]
+182. V. Driessen, “A successful Git branching model”, 2010 — <https://nvie.com/posts/a-successful-git-branching-model/> [Versions]
+183. Onshape Learning Center — versions, workspaces, branching and merging <https://learn.onshape.com> [Versions]
+184. G. Fowler, L. C. Noll, K.-P. Vo, *FNV hash* (Fowler–Noll–Vo), IETF draft `draft-eastlake-fnv`. [Versions]
+185. KiCad developers, *File formats* (board, footprint, S-expression) — <https://dev-docs.kicad.org/en/file-formats/> [Web toolchain]
+186. ISO 10303-21:2016, *Industrial automation systems and integration — Product data representation and exchange — Part 21: Clear text encoding of the exchange structure*; ISO 10303-42 (geometry and topology); ISO 10303-214 (automotive design); ISO 10303-242 (managed model-based 3D engineering). [Web toolchain]
+187. OpenSCAD User Manual —; documentation index; OpenSCAD Playground source <https://en.wikibooks.org/wiki/OpenSCAD_User_Manual> [Web toolchain]
+188. Thea Flowers, KiCanvas —, <https://kicanvas.org> [Web toolchain]
+189. Yi-Ting Tu, Ray Optics Simulation —, <https://phydemo.app/ray-optics/> [Web toolchain]
+190. T. A. Welch, “A technique for high-performance data compression”, *IEEE Computer* 17(6), 1984 (the LZW method lz-string builds on) [Web toolchain]
+191. Viktor Kovacs, Online 3D Viewer —, <https://3dviewer.net> [Web toolchain]
+192. pieroxy, lz-string — <https://github.com/pieroxy/lz-string> [Web toolchain]
+193. P. Falstad and I. Sharp, CircuitJS —, <https://www.falstad.com/circuit/> [Web toolchain]
+194. Onshape Learning Center — <https://learn.onshape.com> [Web toolchain]
+195. IPC-2221, *Generic Standard on Printed Board Design* (net-class widths) [Web toolchain]
 
 ## Learning resources (English)
 

@@ -347,6 +347,6 @@ mod tests {
         let s = crate::api::call_value("bridge.summary", &serde_json::json!({ "project": p })).unwrap();
         assert_eq!(s["hash"].as_str().unwrap().len(), 16);
         let h = crate::api::call_value("bridge.example_history", &Value::Null).unwrap();
-        assert_eq!(h.as_array().unwrap().len(), 3);
+        assert_eq!(h.as_array().unwrap().len(), 4);
     }
 }

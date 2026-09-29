@@ -18,6 +18,10 @@ fn main() {
         ("pcb", forge_core::pcb::metrics),
         ("molding", forge_core::molding::metrics),
         ("mfg", forge_core::mfg::metrics),
+        ("structures", forge_core::structures::metrics),
+        ("quantum", forge_core::quantum::metrics),
+        ("firmware", forge_core::firmware::metrics),
+        ("build", forge_core::build::metrics),
     ];
     for pass in ["cold", "warm"] {
         let mut tot = 0.0;

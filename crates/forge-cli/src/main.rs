@@ -120,8 +120,25 @@ fn evaluate(rest: &[String]) -> Result<bool, String> {
             res.criterion
         );
     }
-    println!("\n{} pass · {} fail · {} unverified", ev.pass, ev.fail, ev.unverified);
-    Ok(ev.fail == 0)
+    // "goal" requirements are stretch targets ("should"): an open goal is
+    // reported but does not fail the build; a binding requirement does.
+    let failed_goals = p
+        .requirements
+        .iter()
+        .zip(&ev.results)
+        .filter(|(r, res)| res.status == Status::Fail && r.kind == forge_core::project::ReqKind::Goal)
+        .count();
+    let binding_fails = ev.fail - failed_goals;
+    println!(
+        "\n{} pass · {} fail ({} binding, {} open goal{}) · {} unverified",
+        ev.pass,
+        ev.fail,
+        binding_fails,
+        failed_goals,
+        if failed_goals == 1 { "" } else { "s" },
+        ev.unverified
+    );
+    Ok(binding_fails == 0)
 }
 
 fn truncate(s: &str, n: usize) -> String {

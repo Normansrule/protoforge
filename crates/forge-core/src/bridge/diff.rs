@@ -634,7 +634,30 @@ pub struct ExampleVersion {
 /// branch, compare and merge tools something to work on; its description
 /// states only the change — the labs report what it does when it is compared.
 pub fn iris_history() -> Vec<ExampleVersion> {
-    let v4 = Project::iris();
+    let v5 = Project::iris();
+    // v0.4: before the round of mechanical / firmware / manufacturing analyses
+    let mut v4 = v5.clone();
+    v4.meta.version = "0.4.0".into();
+    let v05_reqs = [
+        "R-026", "R-027", "R-028", "R-029", "R-030", "R-031", "R-032", "R-033", "R-034", "R-035",
+    ];
+    v4.requirements.retain(|r| !v05_reqs.contains(&r.id.as_str()));
+    v4.components.retain(|c| c.refdes != "OPT2");
+    v4.design.extra.remove("focus_stack");
+    v4.design.extra.insert("stencil_thickness_mm".into(), serde_json::json!(0.12));
+    let metric = |p: &Project, key: &str| {
+        let mut m = crate::structures::metrics(p);
+        m.extend(crate::build::metrics(p));
+        m.into_iter().find(|x| x.key == key).map(|x| x.value).unwrap_or(f64::NAN)
+    };
+    let (f4, f5) = (
+        metric(&v4, "structures.focus_error_worst_d"),
+        metric(&v5, "structures.focus_error_worst_d"),
+    );
+    let (s4, s5) = (
+        metric(&v4, "build.stencil_min_area_ratio"),
+        metric(&v5, "build.stencil_min_area_ratio"),
+    );
     let mut v3 = v4.clone();
     v3.meta.version = "0.3.0".into();
     v3.design.optics.lens_to_combiner_mm = 8.0;
@@ -709,6 +732,16 @@ pub fn iris_history() -> Vec<ExampleVersion> {
                 baseline: None,
                 project: big,
             }
+        },
+        ExampleVersion {
+            name: "Iris v0.5 — strength, firmware and factory checks".into(),
+            description: format!(
+                "Ten requirements added from the new Structures, Prototype & Firmware, Build and Optics Pro analyses. The Structures Lab found the printed optics housing alone gives a ±{f4:.2} D focus error against ±0.25 D, so a threaded focus cell set at assembly was added ({f5:.2} D); the Build Guide found the 0.12 mm stencil's area ratio at {s4:.3}, right on the IPC-7525 limit, so the stencil became 0.10 mm ({s5:.2}). One goal stays open: lateral colour of the moulded achromat (R-030)."
+            ),
+            branch: "main".into(),
+            parent: Some(1),
+            baseline: Some("Product baseline (candidate)".into()),
+            project: v5,
         },
     ]
 }
@@ -798,6 +831,20 @@ mod tests {
         assert!(d.sections[1].items.iter().any(|i| i.key == "BT1" && i.kind == "changed"));
         // R-001 keeps passing but most of its mass margin is gone — the review says so
         assert!(d.headline.iter().any(|h| h.starts_with("R-001: margin shrank")), "{:?}", d.headline);
+    }
+
+    #[test]
+    fn v05_fixes_focus_and_stencil() {
+        let h = iris_history();
+        assert_eq!(h[3].parent, Some(1));
+        let d = diff(&h[1].project, &h[3].project);
+        let focus = d
+            .metrics
+            .iter()
+            .find(|m| m.key == "structures.focus_error_worst_d")
+            .expect("focus moved");
+        assert!(focus.old.unwrap() > 0.25 && focus.new.unwrap() <= 0.25, "{focus:?}");
+        assert!(h[3].description.contains("0.10 mm"));
     }
 
     #[test]

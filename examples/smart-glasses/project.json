@@ -3,7 +3,7 @@
     "id": "iris",
     "name": "Iris Smart Glasses",
     "codename": "IRIS",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "tagline": "Open-source monocular heads-up display glasses, built from scratch",
     "description": "Iris is a reference product for Protoforge: lightweight glasses with a 640x400 micro-OLED heads-up display in the right eye, two-microphone voice capture, head tracking, a capacitive touch strip and a Bluetooth Low Energy (BLE) link to a phone. Every number in this file feeds a simulation somewhere in the workbench.",
     "author": "Aleksander Norman"
@@ -11,12 +11,33 @@
   "concept": {
     "problem": "Glancing at a phone for directions, captions, notes or notifications pulls attention away from the world. Existing smart glasses are closed, expensive and impossible to learn from.",
     "vision": "An all-day, sub-50 g pair of glasses that shows small, glanceable information in the corner of your vision, hears your voice clearly, and whose every design decision - circuit, optic, chip, frame and factory - is open and reproducible.",
-    "users": ["Students and makers learning hardware", "Commuters wanting heads-up navigation", "People who benefit from live captions", "Engineers prototyping wearable ideas"],
+    "users": [
+      "Students and makers learning hardware",
+      "Commuters wanting heads-up navigation",
+      "People who benefit from live captions",
+      "Engineers prototyping wearable ideas"
+    ],
     "use_cases": [
-      { "id": "UC-1", "title": "Turn-by-turn walking directions", "narrative": "The phone streams the next maneuver over BLE; Iris shows an arrow and distance, redrawing only when it changes." },
-      { "id": "UC-2", "title": "Live captions", "narrative": "Iris captures speech with its two-microphone beamformer, streams audio to the phone for transcription and shows the returned captions." },
-      { "id": "UC-3", "title": "Glanceable notifications", "narrative": "A tap on the temple wakes the display, a swipe dismisses; head-tilt gestures scroll." },
-      { "id": "UC-4", "title": "Teleprompter / speaker notes", "narrative": "Notes scroll at a pace set by head nods or taps during a presentation." }
+      {
+        "id": "UC-1",
+        "title": "Turn-by-turn walking directions",
+        "narrative": "The phone streams the next maneuver over BLE; Iris shows an arrow and distance, redrawing only when it changes."
+      },
+      {
+        "id": "UC-2",
+        "title": "Live captions",
+        "narrative": "Iris captures speech with its two-microphone beamformer, streams audio to the phone for transcription and shows the returned captions."
+      },
+      {
+        "id": "UC-3",
+        "title": "Glanceable notifications",
+        "narrative": "A tap on the temple wakes the display, a swipe dismisses; head-tilt gestures scroll."
+      },
+      {
+        "id": "UC-4",
+        "title": "Teleprompter / speaker notes",
+        "narrative": "Notes scroll at a pace set by head nods or taps during a presentation."
+      }
     ],
     "constraints": [
       "Total mass at most 50 g, balanced between left and right temples",
@@ -26,169 +47,1951 @@
     ]
   },
   "needs": [
-    { "id": "N-1", "text": "Wear it all day without noticing the weight", "stakeholder": "User", "priority": 1 },
-    { "id": "N-2", "text": "Last a full working day on one charge", "stakeholder": "User", "priority": 1 },
-    { "id": "N-3", "text": "Read text in the display comfortably at a glance", "stakeholder": "User", "priority": 1 },
-    { "id": "N-4", "text": "Be understood by voice in a noisy street", "stakeholder": "User", "priority": 2 },
-    { "id": "N-5", "text": "Never feel hot against the skin", "stakeholder": "User / Safety", "priority": 1 },
-    { "id": "N-6", "text": "Content stays stable when the head moves", "stakeholder": "User", "priority": 2 },
-    { "id": "N-7", "text": "Can be built by one engineer, then manufactured in volume", "stakeholder": "Maker / Business", "priority": 1 },
-    { "id": "N-8", "text": "Retail price accessible to students", "stakeholder": "Business", "priority": 2 }
+    {
+      "id": "N-1",
+      "text": "Wear it all day without noticing the weight",
+      "stakeholder": "User",
+      "priority": 1
+    },
+    {
+      "id": "N-2",
+      "text": "Last a full working day on one charge",
+      "stakeholder": "User",
+      "priority": 1
+    },
+    {
+      "id": "N-3",
+      "text": "Read text in the display comfortably at a glance",
+      "stakeholder": "User",
+      "priority": 1
+    },
+    {
+      "id": "N-4",
+      "text": "Be understood by voice in a noisy street",
+      "stakeholder": "User",
+      "priority": 2
+    },
+    {
+      "id": "N-5",
+      "text": "Never feel hot against the skin",
+      "stakeholder": "User / Safety",
+      "priority": 1
+    },
+    {
+      "id": "N-6",
+      "text": "Content stays stable when the head moves",
+      "stakeholder": "User",
+      "priority": 2
+    },
+    {
+      "id": "N-7",
+      "text": "Can be built by one engineer, then manufactured in volume",
+      "stakeholder": "Maker / Business",
+      "priority": 1
+    },
+    {
+      "id": "N-8",
+      "text": "Retail price accessible to students",
+      "stakeholder": "Business",
+      "priority": 2
+    }
   ],
   "requirements": [
-    { "id": "R-001", "text": "Total wearable mass shall be at most 50 g.", "rationale": "Mainstream smart glasses land near 50 g; ordinary frames are 20-35 g.", "kind": "performance", "derives_from": ["N-1"], "allocated_to": ["SYS-FRM", "SYS-PWR", "SYS-OPT"], "verification": { "method": "analysis", "metric": "mass.total_g", "cmp": "le", "target": 50, "unit": "g" } },
-    { "id": "R-002", "text": "Battery life in the reference mixed-use profile shall be at least 8 h.", "rationale": "A working day with the display used about a third of the time.", "kind": "performance", "derives_from": ["N-2"], "allocated_to": ["SYS-PWR", "SYS-SW"], "verification": { "method": "analysis", "metric": "power.battery_life_h", "cmp": "ge", "target": 8, "unit": "h" } },
-    { "id": "R-003", "text": "Average system power in the reference profile shall be at most 80 mW.", "rationale": "Derived from R-002 with a 180 mAh cell and margin.", "kind": "performance", "derives_from": ["N-2"], "allocated_to": ["SYS-PWR", "SYS-CMP", "SYS-OPT"], "verification": { "method": "analysis", "metric": "power.avg_power_mw", "cmp": "le", "target": 80, "unit": "mW" } },
-    { "id": "R-004", "text": "Horizontal field of view of the virtual display shall be at least 20 degrees.", "rationale": "Enough for two lines of 20 characters.", "kind": "performance", "derives_from": ["N-3"], "allocated_to": ["SYS-OPT"], "verification": { "method": "analysis", "metric": "optics.hfov_deg", "cmp": "ge", "target": 20, "unit": "deg" } },
-    { "id": "R-005", "text": "Angular resolution shall be at least 25 pixels per degree.", "rationale": "Small text stays legible; 60 ppd is roughly retinal.", "kind": "performance", "derives_from": ["N-3"], "allocated_to": ["SYS-OPT"], "verification": { "method": "analysis", "metric": "optics.ppd", "cmp": "ge", "target": 25, "unit": "px/deg" } },
-    { "id": "R-006", "text": "The virtual image shall appear between 1 m and 3 m from the eye.", "rationale": "Reduces refocusing between the display and the world.", "kind": "performance", "derives_from": ["N-3"], "allocated_to": ["SYS-OPT"], "verification": { "method": "analysis", "metric": "optics.virtual_image_m", "cmp": "between", "target": 1, "target_hi": 3, "unit": "m" } },
-    { "id": "R-007", "text": "The eyebox shall be at least 5 mm wide.", "rationale": "Tolerates frame slip and different faces without losing the image.", "kind": "performance", "derives_from": ["N-3"], "allocated_to": ["SYS-OPT", "SYS-FRM"], "verification": { "method": "analysis", "metric": "optics.eyebox_mm", "cmp": "ge", "target": 5, "unit": "mm" } },
-    { "id": "R-008", "text": "Skin-contact surfaces shall stay at or below 41 C at 30 C ambient with the display on continuously.", "rationale": "Conservative margin under common 43 C limits for prolonged skin contact.", "kind": "safety", "derives_from": ["N-5"], "allocated_to": ["SYS-PWR", "SYS-FRM"], "verification": { "method": "analysis", "metric": "thermal.max_skin_c", "cmp": "le", "target": 41, "unit": "C" } },
-    { "id": "R-009", "text": "Microphone array directivity index at 1 kHz shall be at least 4 dB.", "rationale": "Rejects diffuse street noise relative to the wearer's voice.", "kind": "performance", "derives_from": ["N-4"], "allocated_to": ["SYS-AUD"], "verification": { "method": "analysis", "metric": "dsp.mic_di_db", "cmp": "ge", "target": 4, "unit": "dB" } },
-    { "id": "R-010", "text": "PDM decimation filter stopband attenuation shall be at least 60 dB.", "rationale": "Keeps aliased ultrasonic noise below the microphone noise floor.", "kind": "performance", "derives_from": ["N-4"], "allocated_to": ["SYS-AUD", "SYS-ASIC"], "verification": { "method": "analysis", "metric": "dsp.decim_stopband_db", "cmp": "ge", "target": 60, "unit": "dB" } },
-    { "id": "R-011", "text": "Head-orientation estimate error shall be at most 2 degrees RMS during normal head motion.", "rationale": "Head-locked or world-locked content must not visibly swim.", "kind": "performance", "derives_from": ["N-6"], "allocated_to": ["SYS-SNS"], "verification": { "method": "analysis", "metric": "control.head_rms_err_deg", "cmp": "le", "target": 2, "unit": "deg" } },
-    { "id": "R-012", "text": "The 1.8 V rail shall droop by at most 50 mV on a display turn-on load step.", "rationale": "Protects the BLE SoC brown-out threshold.", "kind": "performance", "derives_from": ["N-2"], "allocated_to": ["SYS-PWR", "SYS-PCB"], "verification": { "method": "analysis", "metric": "circuit.rail_droop_mv", "cmp": "le", "target": 50, "unit": "mV" } },
-    { "id": "R-013", "text": "Buck converter output ripple shall be at most 30 mV peak-to-peak.", "rationale": "Keeps the radio and IMU noise floor clean.", "kind": "performance", "derives_from": ["N-2"], "allocated_to": ["SYS-PWR"], "verification": { "method": "analysis", "metric": "circuit.buck_ripple_mv", "cmp": "le", "target": 30, "unit": "mV" } },
-    { "id": "R-014", "text": "Battery-sense divider current shall be at most 2 uA.", "rationale": "An always-on divider must not drain the cell in storage.", "kind": "performance", "derives_from": ["N-2"], "allocated_to": ["SYS-PWR"], "verification": { "method": "analysis", "metric": "circuit.vbat_divider_ua", "cmp": "le", "target": 2, "unit": "uA" } },
-    { "id": "R-015", "text": "The IRIS-DSP co-processor shall close timing at 50 MHz (critical path at most 20 ns).", "rationale": "Fixed by the PDM clock plan.", "kind": "performance", "derives_from": ["N-4"], "allocated_to": ["SYS-ASIC"], "verification": { "method": "analysis", "metric": "chip.critical_path_ns", "cmp": "le", "target": 20, "unit": "ns" } },
-    { "id": "R-016", "text": "The IRIS-DSP co-processor shall fit in a 3000 standard-cell budget.", "rationale": "Small enough for a shared-shuttle or FPGA prototype.", "kind": "manufacturing", "derives_from": ["N-7"], "allocated_to": ["SYS-ASIC"], "verification": { "method": "analysis", "metric": "chip.est_cells", "cmp": "le", "target": 3000, "unit": "cells" } },
-    { "id": "R-017", "text": "All PCB nets shall be routed with zero design-rule violations.", "rationale": "Board is ready to send to a fab.", "kind": "manufacturing", "derives_from": ["N-7"], "allocated_to": ["SYS-PCB"], "verification": { "method": "analysis", "metric": "pcb.routed_pct", "cmp": "ge", "target": 100, "unit": "%" } },
-    { "id": "R-018", "text": "Design-rule check shall report zero violations.", "rationale": "Clearance and width rules match the fab's standard capability.", "kind": "manufacturing", "derives_from": ["N-7"], "allocated_to": ["SYS-PCB"], "verification": { "method": "analysis", "metric": "pcb.drc_violations", "cmp": "le", "target": 0, "unit": "count" } },
-    { "id": "R-019", "text": "The PCB shall fit inside the right-temple pod with at least 1 mm margin.", "rationale": "Mechanical-electrical interface.", "kind": "interface", "derives_from": ["N-1", "N-7"], "allocated_to": ["SYS-PCB", "SYS-FRM"], "verification": { "method": "analysis", "metric": "fit.pcb_pod_margin_mm", "cmp": "ge", "target": 1, "unit": "mm" } },
-    { "id": "R-020", "text": "Molded frame walls shall have at least 1 degree of draft.", "rationale": "Allows clean ejection from the mold.", "kind": "manufacturing", "derives_from": ["N-7"], "allocated_to": ["SYS-FRM", "SYS-MFG"], "verification": { "method": "analysis", "metric": "molding.min_draft_deg", "cmp": "ge", "target": 1, "unit": "deg" } },
-    { "id": "R-021", "text": "A full prototype frame set shall print in at most 8 h on a hobby FDM printer.", "rationale": "One overnight print per design iteration.", "kind": "manufacturing", "derives_from": ["N-7"], "allocated_to": ["SYS-FRM"], "verification": { "method": "analysis", "metric": "print.total_time_h", "cmp": "le", "target": 8, "unit": "h" } },
-    { "id": "R-022", "text": "Unit cost at 1,000 units shall be at most 120 USD.", "rationale": "Supports a student-accessible retail price.", "kind": "cost", "derives_from": ["N-8"], "allocated_to": ["SYS-MFG"], "verification": { "method": "analysis", "metric": "mfg.unit_cost_usd", "cmp": "le", "target": 120, "unit": "USD" } },
-    { "id": "R-023", "text": "Automated pick-and-place of the main board shall take at most 60 s per board.", "rationale": "Keeps assembly cost low at volume.", "kind": "manufacturing", "derives_from": ["N-7", "N-8"], "allocated_to": ["SYS-MFG"], "verification": { "method": "analysis", "metric": "robotics.pnp_cycle_s", "cmp": "le", "target": 60, "unit": "s" } },
-    { "id": "R-024", "text": "A learned power policy should extend battery life by at least 5 % over the fixed policy.", "rationale": "Stretch goal: adaptive display/radio duty cycling.", "kind": "goal", "derives_from": ["N-2"], "allocated_to": ["SYS-SW"], "verification": { "method": "analysis", "metric": "rl.policy_life_gain_pct", "cmp": "ge", "target": 5, "unit": "%" } },
-    { "id": "R-025", "text": "The combiner shall clear the collimating lens by at least 0 mm (no interference).", "rationale": "Found by the Optics Lab in v0.3: an 18 mm lens 8 mm from a 45 degree combiner makes the parts intersect.", "kind": "interface", "derives_from": ["N-3", "N-7"], "allocated_to": ["SYS-OPT", "SYS-FRM"], "verification": { "method": "analysis", "metric": "optics.combiner_clearance_mm", "cmp": "ge", "target": 0, "unit": "mm" } }
+    {
+      "id": "R-001",
+      "text": "Total wearable mass shall be at most 50 g.",
+      "rationale": "Mainstream smart glasses land near 50 g; ordinary frames are 20-35 g.",
+      "kind": "performance",
+      "derives_from": [
+        "N-1"
+      ],
+      "allocated_to": [
+        "SYS-FRM",
+        "SYS-PWR",
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "mass.total_g",
+        "cmp": "le",
+        "target": 50,
+        "unit": "g"
+      }
+    },
+    {
+      "id": "R-002",
+      "text": "Battery life in the reference mixed-use profile shall be at least 8 h.",
+      "rationale": "A working day with the display used about a third of the time.",
+      "kind": "performance",
+      "derives_from": [
+        "N-2"
+      ],
+      "allocated_to": [
+        "SYS-PWR",
+        "SYS-SW"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "power.battery_life_h",
+        "cmp": "ge",
+        "target": 8,
+        "unit": "h"
+      }
+    },
+    {
+      "id": "R-003",
+      "text": "Average system power in the reference profile shall be at most 80 mW.",
+      "rationale": "Derived from R-002 with a 180 mAh cell and margin.",
+      "kind": "performance",
+      "derives_from": [
+        "N-2"
+      ],
+      "allocated_to": [
+        "SYS-PWR",
+        "SYS-CMP",
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "power.avg_power_mw",
+        "cmp": "le",
+        "target": 80,
+        "unit": "mW"
+      }
+    },
+    {
+      "id": "R-004",
+      "text": "Horizontal field of view of the virtual display shall be at least 20 degrees.",
+      "rationale": "Enough for two lines of 20 characters.",
+      "kind": "performance",
+      "derives_from": [
+        "N-3"
+      ],
+      "allocated_to": [
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "optics.hfov_deg",
+        "cmp": "ge",
+        "target": 20,
+        "unit": "deg"
+      }
+    },
+    {
+      "id": "R-005",
+      "text": "Angular resolution shall be at least 25 pixels per degree.",
+      "rationale": "Small text stays legible; 60 ppd is roughly retinal.",
+      "kind": "performance",
+      "derives_from": [
+        "N-3"
+      ],
+      "allocated_to": [
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "optics.ppd",
+        "cmp": "ge",
+        "target": 25,
+        "unit": "px/deg"
+      }
+    },
+    {
+      "id": "R-006",
+      "text": "The virtual image shall appear between 1 m and 3 m from the eye.",
+      "rationale": "Reduces refocusing between the display and the world.",
+      "kind": "performance",
+      "derives_from": [
+        "N-3"
+      ],
+      "allocated_to": [
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "optics.virtual_image_m",
+        "cmp": "between",
+        "target": 1,
+        "target_hi": 3,
+        "unit": "m"
+      }
+    },
+    {
+      "id": "R-007",
+      "text": "The eyebox shall be at least 5 mm wide.",
+      "rationale": "Tolerates frame slip and different faces without losing the image.",
+      "kind": "performance",
+      "derives_from": [
+        "N-3"
+      ],
+      "allocated_to": [
+        "SYS-OPT",
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "optics.eyebox_mm",
+        "cmp": "ge",
+        "target": 5,
+        "unit": "mm"
+      }
+    },
+    {
+      "id": "R-008",
+      "text": "Skin-contact surfaces shall stay at or below 41 C at 30 C ambient with the display on continuously.",
+      "rationale": "Conservative margin under common 43 C limits for prolonged skin contact.",
+      "kind": "safety",
+      "derives_from": [
+        "N-5"
+      ],
+      "allocated_to": [
+        "SYS-PWR",
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "thermal.max_skin_c",
+        "cmp": "le",
+        "target": 41,
+        "unit": "C"
+      }
+    },
+    {
+      "id": "R-009",
+      "text": "Microphone array directivity index at 1 kHz shall be at least 4 dB.",
+      "rationale": "Rejects diffuse street noise relative to the wearer's voice.",
+      "kind": "performance",
+      "derives_from": [
+        "N-4"
+      ],
+      "allocated_to": [
+        "SYS-AUD"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "dsp.mic_di_db",
+        "cmp": "ge",
+        "target": 4,
+        "unit": "dB"
+      }
+    },
+    {
+      "id": "R-010",
+      "text": "PDM decimation filter stopband attenuation shall be at least 60 dB.",
+      "rationale": "Keeps aliased ultrasonic noise below the microphone noise floor.",
+      "kind": "performance",
+      "derives_from": [
+        "N-4"
+      ],
+      "allocated_to": [
+        "SYS-AUD",
+        "SYS-ASIC"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "dsp.decim_stopband_db",
+        "cmp": "ge",
+        "target": 60,
+        "unit": "dB"
+      }
+    },
+    {
+      "id": "R-011",
+      "text": "Head-orientation estimate error shall be at most 2 degrees RMS during normal head motion.",
+      "rationale": "Head-locked or world-locked content must not visibly swim.",
+      "kind": "performance",
+      "derives_from": [
+        "N-6"
+      ],
+      "allocated_to": [
+        "SYS-SNS"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "control.head_rms_err_deg",
+        "cmp": "le",
+        "target": 2,
+        "unit": "deg"
+      }
+    },
+    {
+      "id": "R-012",
+      "text": "The 1.8 V rail shall droop by at most 50 mV on a display turn-on load step.",
+      "rationale": "Protects the BLE SoC brown-out threshold.",
+      "kind": "performance",
+      "derives_from": [
+        "N-2"
+      ],
+      "allocated_to": [
+        "SYS-PWR",
+        "SYS-PCB"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "circuit.rail_droop_mv",
+        "cmp": "le",
+        "target": 50,
+        "unit": "mV"
+      }
+    },
+    {
+      "id": "R-013",
+      "text": "Buck converter output ripple shall be at most 30 mV peak-to-peak.",
+      "rationale": "Keeps the radio and IMU noise floor clean.",
+      "kind": "performance",
+      "derives_from": [
+        "N-2"
+      ],
+      "allocated_to": [
+        "SYS-PWR"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "circuit.buck_ripple_mv",
+        "cmp": "le",
+        "target": 30,
+        "unit": "mV"
+      }
+    },
+    {
+      "id": "R-014",
+      "text": "Battery-sense divider current shall be at most 2 uA.",
+      "rationale": "An always-on divider must not drain the cell in storage.",
+      "kind": "performance",
+      "derives_from": [
+        "N-2"
+      ],
+      "allocated_to": [
+        "SYS-PWR"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "circuit.vbat_divider_ua",
+        "cmp": "le",
+        "target": 2,
+        "unit": "uA"
+      }
+    },
+    {
+      "id": "R-015",
+      "text": "The IRIS-DSP co-processor shall close timing at 50 MHz (critical path at most 20 ns).",
+      "rationale": "Fixed by the PDM clock plan.",
+      "kind": "performance",
+      "derives_from": [
+        "N-4"
+      ],
+      "allocated_to": [
+        "SYS-ASIC"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "chip.critical_path_ns",
+        "cmp": "le",
+        "target": 20,
+        "unit": "ns"
+      }
+    },
+    {
+      "id": "R-016",
+      "text": "The IRIS-DSP co-processor shall fit in a 3000 standard-cell budget.",
+      "rationale": "Small enough for a shared-shuttle or FPGA prototype.",
+      "kind": "manufacturing",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-ASIC"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "chip.est_cells",
+        "cmp": "le",
+        "target": 3000,
+        "unit": "cells"
+      }
+    },
+    {
+      "id": "R-017",
+      "text": "All PCB nets shall be routed with zero design-rule violations.",
+      "rationale": "Board is ready to send to a fab.",
+      "kind": "manufacturing",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-PCB"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "pcb.routed_pct",
+        "cmp": "ge",
+        "target": 100,
+        "unit": "%"
+      }
+    },
+    {
+      "id": "R-018",
+      "text": "Design-rule check shall report zero violations.",
+      "rationale": "Clearance and width rules match the fab's standard capability.",
+      "kind": "manufacturing",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-PCB"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "pcb.drc_violations",
+        "cmp": "le",
+        "target": 0,
+        "unit": "count"
+      }
+    },
+    {
+      "id": "R-019",
+      "text": "The PCB shall fit inside the right-temple pod with at least 1 mm margin.",
+      "rationale": "Mechanical-electrical interface.",
+      "kind": "interface",
+      "derives_from": [
+        "N-1",
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-PCB",
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "fit.pcb_pod_margin_mm",
+        "cmp": "ge",
+        "target": 1,
+        "unit": "mm"
+      }
+    },
+    {
+      "id": "R-020",
+      "text": "Molded frame walls shall have at least 1 degree of draft.",
+      "rationale": "Allows clean ejection from the mold.",
+      "kind": "manufacturing",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-FRM",
+        "SYS-MFG"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "molding.min_draft_deg",
+        "cmp": "ge",
+        "target": 1,
+        "unit": "deg"
+      }
+    },
+    {
+      "id": "R-021",
+      "text": "A full prototype frame set shall print in at most 8 h on a hobby FDM printer.",
+      "rationale": "One overnight print per design iteration.",
+      "kind": "manufacturing",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "print.total_time_h",
+        "cmp": "le",
+        "target": 8,
+        "unit": "h"
+      }
+    },
+    {
+      "id": "R-022",
+      "text": "Unit cost at 1,000 units shall be at most 120 USD.",
+      "rationale": "Supports a student-accessible retail price.",
+      "kind": "cost",
+      "derives_from": [
+        "N-8"
+      ],
+      "allocated_to": [
+        "SYS-MFG"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "mfg.unit_cost_usd",
+        "cmp": "le",
+        "target": 120,
+        "unit": "USD"
+      }
+    },
+    {
+      "id": "R-023",
+      "text": "Automated pick-and-place of the main board shall take at most 60 s per board.",
+      "rationale": "Keeps assembly cost low at volume.",
+      "kind": "manufacturing",
+      "derives_from": [
+        "N-7",
+        "N-8"
+      ],
+      "allocated_to": [
+        "SYS-MFG"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "robotics.pnp_cycle_s",
+        "cmp": "le",
+        "target": 60,
+        "unit": "s"
+      }
+    },
+    {
+      "id": "R-024",
+      "text": "A learned power policy should extend battery life by at least 5 % over the fixed policy.",
+      "rationale": "Stretch goal: adaptive display/radio duty cycling.",
+      "kind": "goal",
+      "derives_from": [
+        "N-2"
+      ],
+      "allocated_to": [
+        "SYS-SW"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "rl.policy_life_gain_pct",
+        "cmp": "ge",
+        "target": 5,
+        "unit": "%"
+      }
+    },
+    {
+      "id": "R-025",
+      "text": "The combiner shall clear the collimating lens by at least 0 mm (no interference).",
+      "rationale": "Found by the Optics Lab in v0.3: an 18 mm lens 8 mm from a 45 degree combiner makes the parts intersect.",
+      "kind": "interface",
+      "derives_from": [
+        "N-3",
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-OPT",
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "optics.combiner_clearance_mm",
+        "cmp": "ge",
+        "target": 0,
+        "unit": "mm"
+      }
+    },
+    {
+      "id": "R-026",
+      "text": "The frame shall have a structural safety factor of at least 2 under the wear load cases (5 N temple spread, 10 N bridge bend).",
+      "rationale": "Frames are flexed every time they are put on; a factor of 2 on yield covers material scatter in printed PETG.",
+      "kind": "safety",
+      "derives_from": [
+        "N-1",
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "structures.min_safety_factor",
+        "cmp": "ge",
+        "target": 2,
+        "unit": "x"
+      }
+    },
+    {
+      "id": "R-027",
+      "text": "The PCB shall fit the pod in the worst-case tolerance stack, including cold shrink.",
+      "rationale": "Nominal fit (R-019) is not enough; every part in the stack has a tolerance.",
+      "kind": "interface",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-PCB",
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "structures.pod_fit_worst_mm",
+        "cmp": "ge",
+        "target": 0,
+        "unit": "mm"
+      }
+    },
+    {
+      "id": "R-028",
+      "text": "The display focus error shall stay within ±0.25 D over manufacturing tolerances.",
+      "rationale": "Found by the Structures Lab in v0.4: a printed housing alone gives ±0.60 D, so v0.5 adds a threaded focus cell set at assembly.",
+      "kind": "performance",
+      "derives_from": [
+        "N-3",
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-OPT",
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "structures.focus_error_worst_d",
+        "cmp": "le",
+        "target": 0.25,
+        "unit": "D"
+      }
+    },
+    {
+      "id": "R-029",
+      "text": "The collimator RMS spot size shall be at most 26 µm (two display pixels) over the full field.",
+      "rationale": "Keeps small text sharp to the corners.",
+      "kind": "performance",
+      "derives_from": [
+        "N-3"
+      ],
+      "allocated_to": [
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "optics.rms_spot_um",
+        "cmp": "le",
+        "target": 26,
+        "unit": "um"
+      }
+    },
+    {
+      "id": "R-030",
+      "text": "Lateral colour should be at most 4.5 arcmin (two pixels) at the edge of the field.",
+      "rationale": "Open goal: the moulded COP + PC achromat reaches 5.8 arcmin; the optimiser traded colour for sharpness.",
+      "kind": "goal",
+      "derives_from": [
+        "N-3"
+      ],
+      "allocated_to": [
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "optics.lateral_color_arcmin",
+        "cmp": "le",
+        "target": 4.5,
+        "unit": "arcmin"
+      }
+    },
+    {
+      "id": "R-031",
+      "text": "Firmware RAM use shall leave at least 25 % of the SoC's RAM free.",
+      "rationale": "Headroom for stack growth and features.",
+      "kind": "performance",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-SW",
+        "SYS-CMP"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "firmware.ram_margin_pct",
+        "cmp": "ge",
+        "target": 25,
+        "unit": "%"
+      }
+    },
+    {
+      "id": "R-032",
+      "text": "Firmware flash use shall leave at least 20 % of the image budget free (two update slots).",
+      "rationale": "Over-the-air updates need two image slots.",
+      "kind": "performance",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-SW",
+        "SYS-CMP"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "firmware.flash_margin_pct",
+        "cmp": "ge",
+        "target": 20,
+        "unit": "%"
+      }
+    },
+    {
+      "id": "R-033",
+      "text": "Glasses-side caption latency (audio frame + Bluetooth round trip) shall be at most 100 ms.",
+      "rationale": "Leaves most of a 400 ms end-to-end budget for speech recognition on the phone.",
+      "kind": "performance",
+      "derives_from": [
+        "N-4"
+      ],
+      "allocated_to": [
+        "SYS-SW",
+        "SYS-CMP",
+        "SYS-AUD"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "firmware.caption_latency_ms",
+        "cmp": "le",
+        "target": 100,
+        "unit": "ms"
+      }
+    },
+    {
+      "id": "R-034",
+      "text": "The PCB shall be manufacturable on a standard-tier fab service (zero capability violations).",
+      "rationale": "Keeps board cost and lead time low.",
+      "kind": "manufacturing",
+      "derives_from": [
+        "N-7",
+        "N-8"
+      ],
+      "allocated_to": [
+        "SYS-PCB"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "build.pcb_capability_violations",
+        "cmp": "le",
+        "target": 0,
+        "unit": "count"
+      }
+    },
+    {
+      "id": "R-035",
+      "text": "The solder-paste stencil area ratio shall be at least 0.66 on every pad.",
+      "rationale": "IPC-7525 area-ratio rule for reliable paste release; v0.5 moves to a 0.10 mm stencil (0.12 mm was 0.667, no margin).",
+      "kind": "manufacturing",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-PCB",
+        "SYS-MFG"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "build.stencil_min_area_ratio",
+        "cmp": "ge",
+        "target": 0.66,
+        "unit": "ratio"
+      }
+    }
   ],
   "subsystems": [
-    { "id": "SYS-OPT", "name": "Display & optics", "domain": "optical", "lab": "optics", "description": "Micro-OLED, collimating lens and a 45 degree partially-reflective combiner in the right lens.", "functions": ["Form virtual image", "Combine display with world view"] },
-    { "id": "SYS-PWR", "name": "Power", "domain": "electrical", "lab": "power", "description": "LiPo cell in the left temple, USB-C charging, high-efficiency buck to 1.8 V, battery sensing.", "functions": ["Store energy", "Charge", "Regulate rails", "Report state of charge"] },
-    { "id": "SYS-CMP", "name": "Compute & radio", "domain": "electrical", "lab": "circuit", "description": "BLE system-on-chip running firmware, talking to the phone app.", "functions": ["Run firmware", "BLE link", "Drive display"] },
-    { "id": "SYS-AUD", "name": "Voice capture", "domain": "acoustic", "lab": "dsp", "description": "Two PDM MEMS microphones in an endfire pair along the right temple with a differential beamformer.", "functions": ["Capture speech", "Suppress noise"] },
-    { "id": "SYS-SNS", "name": "Sensing & head tracking", "domain": "software", "lab": "control", "description": "6-axis IMU fused with a complementary filter; capacitive touch strip on the temple.", "functions": ["Estimate head orientation", "Detect gestures"] },
-    { "id": "SYS-ASIC", "name": "IRIS-DSP co-processor", "domain": "silicon", "lab": "chip", "description": "Optional custom digital block: PDM decimation FIR and touch-gesture state machine, prototyped on FPGA, taped out on a shared shuttle.", "functions": ["Decimate PDM audio", "Recognise gestures"] },
-    { "id": "SYS-PCB", "name": "Main PCB", "domain": "electrical", "lab": "pcb", "description": "58 x 10 mm 2-layer board in the right-temple pod.", "functions": ["Interconnect electronics"] },
-    { "id": "SYS-FRM", "name": "Frame & enclosures", "domain": "mechanical", "lab": "cad", "description": "Parametric front, temples and pods; 3D-printed for prototypes, injection-molded for volume.", "functions": ["Hold lenses and optics", "House electronics", "Fit the face"] },
-    { "id": "SYS-SW", "name": "Firmware & power policy", "domain": "software", "lab": "rl", "description": "Display/radio scheduling, learned power policy, gesture handling.", "functions": ["Schedule power states", "Handle UI events"] },
-    { "id": "SYS-MFG", "name": "Manufacturing & assembly", "domain": "manufacturing", "lab": "mfg", "description": "PCB assembly service, molded frame, final assembly and test.", "functions": ["Source parts", "Assemble", "Test"] }
+    {
+      "id": "SYS-OPT",
+      "name": "Display & optics",
+      "domain": "optical",
+      "lab": "optics",
+      "description": "Micro-OLED, collimating lens and a 45 degree partially-reflective combiner in the right lens.",
+      "functions": [
+        "Form virtual image",
+        "Combine display with world view"
+      ]
+    },
+    {
+      "id": "SYS-PWR",
+      "name": "Power",
+      "domain": "electrical",
+      "lab": "power",
+      "description": "LiPo cell in the left temple, USB-C charging, high-efficiency buck to 1.8 V, battery sensing.",
+      "functions": [
+        "Store energy",
+        "Charge",
+        "Regulate rails",
+        "Report state of charge"
+      ]
+    },
+    {
+      "id": "SYS-CMP",
+      "name": "Compute & radio",
+      "domain": "electrical",
+      "lab": "circuit",
+      "description": "BLE system-on-chip running firmware, talking to the phone app.",
+      "functions": [
+        "Run firmware",
+        "BLE link",
+        "Drive display"
+      ]
+    },
+    {
+      "id": "SYS-AUD",
+      "name": "Voice capture",
+      "domain": "acoustic",
+      "lab": "dsp",
+      "description": "Two PDM MEMS microphones in an endfire pair along the right temple with a differential beamformer.",
+      "functions": [
+        "Capture speech",
+        "Suppress noise"
+      ]
+    },
+    {
+      "id": "SYS-SNS",
+      "name": "Sensing & head tracking",
+      "domain": "software",
+      "lab": "control",
+      "description": "6-axis IMU fused with a complementary filter; capacitive touch strip on the temple.",
+      "functions": [
+        "Estimate head orientation",
+        "Detect gestures"
+      ]
+    },
+    {
+      "id": "SYS-ASIC",
+      "name": "IRIS-DSP co-processor",
+      "domain": "silicon",
+      "lab": "chip",
+      "description": "Optional custom digital block: PDM decimation FIR and touch-gesture state machine, prototyped on FPGA, taped out on a shared shuttle.",
+      "functions": [
+        "Decimate PDM audio",
+        "Recognise gestures"
+      ]
+    },
+    {
+      "id": "SYS-PCB",
+      "name": "Main PCB",
+      "domain": "electrical",
+      "lab": "pcb",
+      "description": "58 x 10 mm 2-layer board in the right-temple pod.",
+      "functions": [
+        "Interconnect electronics"
+      ]
+    },
+    {
+      "id": "SYS-FRM",
+      "name": "Frame & enclosures",
+      "domain": "mechanical",
+      "lab": "cad",
+      "description": "Parametric front, temples and pods; 3D-printed for prototypes, injection-molded for volume.",
+      "functions": [
+        "Hold lenses and optics",
+        "House electronics",
+        "Fit the face"
+      ]
+    },
+    {
+      "id": "SYS-SW",
+      "name": "Firmware & power policy",
+      "domain": "software",
+      "lab": "rl",
+      "description": "Display/radio scheduling, learned power policy, gesture handling.",
+      "functions": [
+        "Schedule power states",
+        "Handle UI events"
+      ]
+    },
+    {
+      "id": "SYS-MFG",
+      "name": "Manufacturing & assembly",
+      "domain": "manufacturing",
+      "lab": "mfg",
+      "description": "PCB assembly service, molded frame, final assembly and test.",
+      "functions": [
+        "Source parts",
+        "Assemble",
+        "Test"
+      ]
+    }
   ],
   "interfaces": [
-    { "id": "IF-01", "from": "SYS-CMP", "to": "SYS-OPT", "kind": "SPI", "description": "Display command/pixel link over a 24-pin FPC through the hinge." },
-    { "id": "IF-02", "from": "SYS-AUD", "to": "SYS-CMP", "kind": "PDM", "description": "Two microphones share a PDM clock, left/right on one data line." },
-    { "id": "IF-03", "from": "SYS-SNS", "to": "SYS-CMP", "kind": "I2C", "description": "IMU and touch controller on a 400 kHz I2C bus." },
-    { "id": "IF-04", "from": "SYS-PWR", "to": "SYS-CMP", "kind": "POWER", "description": "1.8 V core rail from the buck; VBAT sense to an ADC pin." },
-    { "id": "IF-05", "from": "SYS-PWR", "to": "SYS-OPT", "kind": "POWER", "description": "3.3 V display rail enabled by a GPIO load switch." },
-    { "id": "IF-06", "from": "SYS-CMP", "to": "SYS-SW", "kind": "BLE", "description": "Phone app link (GATT service)." },
-    { "id": "IF-07", "from": "SYS-PCB", "to": "SYS-FRM", "kind": "MECH", "description": "Board slides into pod rails; USB-C aligned to rear opening." },
-    { "id": "IF-08", "from": "SYS-OPT", "to": "SYS-FRM", "kind": "MECH", "description": "Optics module screws to the right rim; combiner sits in front of the right lens." },
-    { "id": "IF-09", "from": "SYS-PWR", "to": "SYS-FRM", "kind": "THERMAL", "description": "Heat from the pod spreads into the temple shell and the air." },
-    { "id": "IF-10", "from": "SYS-ASIC", "to": "SYS-CMP", "kind": "SPI", "description": "Co-processor streams 16 kHz PCM frames and gesture events." }
+    {
+      "id": "IF-01",
+      "from": "SYS-CMP",
+      "to": "SYS-OPT",
+      "kind": "SPI",
+      "description": "Display command/pixel link over a 24-pin FPC through the hinge."
+    },
+    {
+      "id": "IF-02",
+      "from": "SYS-AUD",
+      "to": "SYS-CMP",
+      "kind": "PDM",
+      "description": "Two microphones share a PDM clock, left/right on one data line."
+    },
+    {
+      "id": "IF-03",
+      "from": "SYS-SNS",
+      "to": "SYS-CMP",
+      "kind": "I2C",
+      "description": "IMU and touch controller on a 400 kHz I2C bus."
+    },
+    {
+      "id": "IF-04",
+      "from": "SYS-PWR",
+      "to": "SYS-CMP",
+      "kind": "POWER",
+      "description": "1.8 V core rail from the buck; VBAT sense to an ADC pin."
+    },
+    {
+      "id": "IF-05",
+      "from": "SYS-PWR",
+      "to": "SYS-OPT",
+      "kind": "POWER",
+      "description": "3.3 V display rail enabled by a GPIO load switch."
+    },
+    {
+      "id": "IF-06",
+      "from": "SYS-CMP",
+      "to": "SYS-SW",
+      "kind": "BLE",
+      "description": "Phone app link (GATT service)."
+    },
+    {
+      "id": "IF-07",
+      "from": "SYS-PCB",
+      "to": "SYS-FRM",
+      "kind": "MECH",
+      "description": "Board slides into pod rails; USB-C aligned to rear opening."
+    },
+    {
+      "id": "IF-08",
+      "from": "SYS-OPT",
+      "to": "SYS-FRM",
+      "kind": "MECH",
+      "description": "Optics module screws to the right rim; combiner sits in front of the right lens."
+    },
+    {
+      "id": "IF-09",
+      "from": "SYS-PWR",
+      "to": "SYS-FRM",
+      "kind": "THERMAL",
+      "description": "Heat from the pod spreads into the temple shell and the air."
+    },
+    {
+      "id": "IF-10",
+      "from": "SYS-ASIC",
+      "to": "SYS-CMP",
+      "kind": "SPI",
+      "description": "Co-processor streams 16 kHz PCM frames and gesture events."
+    }
   ],
   "components": [
-    { "refdes": "U1", "name": "BLE system-on-chip", "part_class": "Cortex-M4F BLE 5 SoC, 1 MB flash", "example_part": "nRF52840-class", "subsystem": "SYS-CMP", "qty": 1, "unit_cost_usd": 3.6, "mass_g": 0.1, "power": { "active_mw": 21, "sleep_mw": 0.006, "duty": 0.25 }, "footprint": "QFN-48_6x6", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "U2", "name": "Micro-OLED display + driver", "part_class": "0.39 in 640x400 micro-OLED module", "example_part": "0.39in micro-OLED (verify supplier)", "subsystem": "SYS-OPT", "qty": 1, "unit_cost_usd": 35, "mass_g": 1.5, "power": { "active_mw": 140, "sleep_mw": 0.05, "duty": 0.3 }, "footprint": "", "on_pcb": false, "location": "front_right" },
-    { "refdes": "U3", "name": "6-axis IMU", "part_class": "Accelerometer + gyroscope, I2C", "example_part": "BMI270-class", "subsystem": "SYS-SNS", "qty": 1, "unit_cost_usd": 2.4, "mass_g": 0.02, "power": { "active_mw": 0.9, "sleep_mw": 0.01, "duty": 1.0 }, "footprint": "LGA-14_3x2.5", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "MK1", "name": "PDM MEMS microphone (front)", "part_class": "Bottom-port digital MEMS mic", "example_part": "PDM MEMS mic, 64 dB SNR class", "subsystem": "SYS-AUD", "qty": 1, "unit_cost_usd": 0.8, "mass_g": 0.02, "power": { "active_mw": 0.9, "sleep_mw": 0.02, "duty": 0.25 }, "footprint": "MIC_LGA_3.5x2.65", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "MK2", "name": "PDM MEMS microphone (rear)", "part_class": "Bottom-port digital MEMS mic", "example_part": "PDM MEMS mic, 64 dB SNR class", "subsystem": "SYS-AUD", "qty": 1, "unit_cost_usd": 0.8, "mass_g": 0.02, "power": { "active_mw": 0.9, "sleep_mw": 0.02, "duty": 0.25 }, "footprint": "MIC_LGA_3.5x2.65", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "U4", "name": "Li-ion linear charger", "part_class": "Single-cell CC/CV charger, 100 mA", "example_part": "BQ25100-class", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.7, "mass_g": 0.01, "power": { "active_mw": 0, "sleep_mw": 0.004, "duty": 0 }, "footprint": "SOT-23-5", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "U5", "name": "Buck converter 1.8 V", "part_class": "Nano-power synchronous buck", "example_part": "TPS62840-class", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.9, "mass_g": 0.01, "power": { "active_mw": 0, "sleep_mw": 0, "duty": 0 }, "footprint": "DFN-6_2x2", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "U6", "name": "Serial NOR flash 16 MB", "part_class": "QSPI NOR flash", "example_part": "128 Mbit QSPI NOR", "subsystem": "SYS-CMP", "qty": 1, "unit_cost_usd": 0.6, "mass_g": 0.02, "power": { "active_mw": 18, "sleep_mw": 0.002, "duty": 0.03 }, "footprint": "USON-8_2x3", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "U7", "name": "Capacitive touch controller", "part_class": "1-channel self-capacitance sensor", "example_part": "AT42QT1011-class", "subsystem": "SYS-SNS", "qty": 1, "unit_cost_usd": 0.6, "mass_g": 0.01, "power": { "active_mw": 0.05, "sleep_mw": 0.05, "duty": 1.0 }, "footprint": "SOT-23-6", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "U8", "name": "Display load switch", "part_class": "P-channel load switch", "example_part": "TPS22916-class", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.35, "mass_g": 0.01, "power": { "active_mw": 0, "sleep_mw": 0, "duty": 0 }, "footprint": "SOT-23-5", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "L1", "name": "Buck inductor 2.2 uH", "part_class": "Shielded power inductor", "example_part": "2.2 uH 0805 molded", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.12, "mass_g": 0.03, "power": { "active_mw": 0, "sleep_mw": 0, "duty": 0 }, "footprint": "0805", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "C1", "name": "Buck input cap 4.7 uF", "part_class": "X5R MLCC", "example_part": "4.7 uF 10 V 0402", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.02, "mass_g": 0.002, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "C2", "name": "Buck output cap 10 uF", "part_class": "X5R MLCC", "example_part": "10 uF 6.3 V 0402", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.03, "mass_g": 0.002, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "C3", "name": "SoC decoupling 100 nF", "part_class": "X7R MLCC", "example_part": "100 nF 0402", "subsystem": "SYS-CMP", "qty": 1, "unit_cost_usd": 0.01, "mass_g": 0.002, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "C4", "name": "IMU decoupling 100 nF", "part_class": "X7R MLCC", "example_part": "100 nF 0402", "subsystem": "SYS-SNS", "qty": 1, "unit_cost_usd": 0.01, "mass_g": 0.002, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "C5", "name": "Charger cap 1 uF", "part_class": "X5R MLCC", "example_part": "1 uF 0402", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.01, "mass_g": 0.002, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "C6", "name": "Sense filter cap 100 nF", "part_class": "X7R MLCC", "example_part": "100 nF 0402", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.01, "mass_g": 0.002, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "R1", "name": "VBAT divider top 1.5 M", "part_class": "Thick film 1 %", "example_part": "1.5 M 0402", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.005, "mass_g": 0.001, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "R2", "name": "VBAT divider bottom 1 M", "part_class": "Thick film 1 %", "example_part": "1 M 0402", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.005, "mass_g": 0.001, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "R3", "name": "I2C SCL pull-up 4.7 k", "part_class": "Thick film 1 %", "example_part": "4.7 k 0402", "subsystem": "SYS-SNS", "qty": 1, "unit_cost_usd": 0.005, "mass_g": 0.001, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "R4", "name": "I2C SDA pull-up 4.7 k", "part_class": "Thick film 1 %", "example_part": "4.7 k 0402", "subsystem": "SYS-SNS", "qty": 1, "unit_cost_usd": 0.005, "mass_g": 0.001, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "R5", "name": "Charge current set 10 k", "part_class": "Thick film 1 %", "example_part": "10 k 0402", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.005, "mass_g": 0.001, "footprint": "0402", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "AE1", "name": "2.4 GHz chip antenna", "part_class": "Ceramic chip antenna", "example_part": "2.4 GHz 3216 chip antenna", "subsystem": "SYS-CMP", "qty": 1, "unit_cost_usd": 0.25, "mass_g": 0.02, "footprint": "ANT_3216", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "J1", "name": "USB-C receptacle (power only)", "part_class": "USB Type-C 16-pin SMD", "example_part": "USB-C 16P mid-mount", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.3, "mass_g": 0.6, "footprint": "USB-C_16P", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "J2", "name": "Display FPC connector 24-pin", "part_class": "0.5 mm pitch FPC, bottom contact", "example_part": "24-pin 0.5 mm FPC", "subsystem": "SYS-CMP", "qty": 1, "unit_cost_usd": 0.25, "mass_g": 0.1, "footprint": "FPC-24_0.5", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "J3", "name": "Battery connector", "part_class": "1.0 mm pitch 2-pin wire-to-board", "example_part": "JST SH 2-pin", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 0.1, "mass_g": 0.05, "footprint": "JST-SH-2", "on_pcb": true, "location": "right_pod" },
-    { "refdes": "BT1", "name": "LiPo cell 180 mAh", "part_class": "3.7 V pouch cell with protection", "example_part": "3.7 V 180 mAh LiPo, ~4 g", "subsystem": "SYS-PWR", "qty": 1, "unit_cost_usd": 3.0, "mass_g": 4.0, "footprint": "", "on_pcb": false, "location": "left_pod" },
-    { "refdes": "OPT1", "name": "Collimating lens + combiner", "part_class": "Acrylic asphere + 30 % reflective beam-splitter", "example_part": "f = 20 mm, 18 mm clear aperture", "subsystem": "SYS-OPT", "qty": 1, "unit_cost_usd": 8.0, "mass_g": 3.5, "footprint": "", "on_pcb": false, "location": "front_right" },
-    { "refdes": "LN1", "name": "Demo lenses (pair)", "part_class": "Polycarbonate plano lenses", "example_part": "Plano PC blanks, edged to shape", "subsystem": "SYS-FRM", "qty": 2, "unit_cost_usd": 1.5, "mass_g": 2.5, "footprint": "", "on_pcb": false, "location": "front" },
-    { "refdes": "HW1", "name": "Hinge screws + spring hinge", "part_class": "M1.4 screws, 5-barrel hinge", "example_part": "Eyewear hinge kit", "subsystem": "SYS-FRM", "qty": 2, "unit_cost_usd": 0.4, "mass_g": 0.3, "footprint": "", "on_pcb": false, "location": "front" },
-    { "refdes": "PCB1", "name": "Main PCB (bare)", "part_class": "2-layer FR-4, 0.8 mm", "example_part": "58 x 10 mm", "subsystem": "SYS-PCB", "qty": 1, "unit_cost_usd": 0.5, "mass_g": 0.9, "footprint": "", "on_pcb": false, "location": "right_pod" },
-    { "refdes": "FPC1", "name": "Hinge flex cable", "part_class": "24-way 0.5 mm FFC through hinge", "example_part": "24P 0.5 mm FFC, 60 mm", "subsystem": "SYS-CMP", "qty": 1, "unit_cost_usd": 0.4, "mass_g": 0.2, "footprint": "", "on_pcb": false, "location": "front_right" }
+    {
+      "refdes": "U1",
+      "name": "BLE system-on-chip",
+      "part_class": "Cortex-M4F BLE 5 SoC, 1 MB flash",
+      "example_part": "nRF52840-class",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 3.6,
+      "mass_g": 0.1,
+      "power": {
+        "active_mw": 21,
+        "sleep_mw": 0.006,
+        "duty": 0.25
+      },
+      "footprint": "QFN-48_6x6",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "U2",
+      "name": "Micro-OLED display + driver",
+      "part_class": "0.39 in 640x400 micro-OLED module",
+      "example_part": "0.39in micro-OLED (verify supplier)",
+      "subsystem": "SYS-OPT",
+      "qty": 1,
+      "unit_cost_usd": 35,
+      "mass_g": 1.5,
+      "power": {
+        "active_mw": 140,
+        "sleep_mw": 0.05,
+        "duty": 0.3
+      },
+      "footprint": "",
+      "on_pcb": false,
+      "location": "front_right"
+    },
+    {
+      "refdes": "U3",
+      "name": "6-axis IMU",
+      "part_class": "Accelerometer + gyroscope, I2C",
+      "example_part": "BMI270-class",
+      "subsystem": "SYS-SNS",
+      "qty": 1,
+      "unit_cost_usd": 2.4,
+      "mass_g": 0.02,
+      "power": {
+        "active_mw": 0.9,
+        "sleep_mw": 0.01,
+        "duty": 1.0
+      },
+      "footprint": "LGA-14_3x2.5",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "MK1",
+      "name": "PDM MEMS microphone (front)",
+      "part_class": "Bottom-port digital MEMS mic",
+      "example_part": "PDM MEMS mic, 64 dB SNR class",
+      "subsystem": "SYS-AUD",
+      "qty": 1,
+      "unit_cost_usd": 0.8,
+      "mass_g": 0.02,
+      "power": {
+        "active_mw": 0.9,
+        "sleep_mw": 0.02,
+        "duty": 0.25
+      },
+      "footprint": "MIC_LGA_3.5x2.65",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "MK2",
+      "name": "PDM MEMS microphone (rear)",
+      "part_class": "Bottom-port digital MEMS mic",
+      "example_part": "PDM MEMS mic, 64 dB SNR class",
+      "subsystem": "SYS-AUD",
+      "qty": 1,
+      "unit_cost_usd": 0.8,
+      "mass_g": 0.02,
+      "power": {
+        "active_mw": 0.9,
+        "sleep_mw": 0.02,
+        "duty": 0.25
+      },
+      "footprint": "MIC_LGA_3.5x2.65",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "U4",
+      "name": "Li-ion linear charger",
+      "part_class": "Single-cell CC/CV charger, 100 mA",
+      "example_part": "BQ25100-class",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.7,
+      "mass_g": 0.01,
+      "power": {
+        "active_mw": 0,
+        "sleep_mw": 0.004,
+        "duty": 0
+      },
+      "footprint": "SOT-23-5",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "U5",
+      "name": "Buck converter 1.8 V",
+      "part_class": "Nano-power synchronous buck",
+      "example_part": "TPS62840-class",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.9,
+      "mass_g": 0.01,
+      "power": {
+        "active_mw": 0,
+        "sleep_mw": 0,
+        "duty": 0
+      },
+      "footprint": "DFN-6_2x2",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "U6",
+      "name": "Serial NOR flash 16 MB",
+      "part_class": "QSPI NOR flash",
+      "example_part": "128 Mbit QSPI NOR",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.6,
+      "mass_g": 0.02,
+      "power": {
+        "active_mw": 18,
+        "sleep_mw": 0.002,
+        "duty": 0.03
+      },
+      "footprint": "USON-8_2x3",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "U7",
+      "name": "Capacitive touch controller",
+      "part_class": "1-channel self-capacitance sensor",
+      "example_part": "AT42QT1011-class",
+      "subsystem": "SYS-SNS",
+      "qty": 1,
+      "unit_cost_usd": 0.6,
+      "mass_g": 0.01,
+      "power": {
+        "active_mw": 0.05,
+        "sleep_mw": 0.05,
+        "duty": 1.0
+      },
+      "footprint": "SOT-23-6",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "U8",
+      "name": "Display load switch",
+      "part_class": "P-channel load switch",
+      "example_part": "TPS22916-class",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.35,
+      "mass_g": 0.01,
+      "power": {
+        "active_mw": 0,
+        "sleep_mw": 0,
+        "duty": 0
+      },
+      "footprint": "SOT-23-5",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "L1",
+      "name": "Buck inductor 2.2 uH",
+      "part_class": "Shielded power inductor",
+      "example_part": "2.2 uH 0805 molded",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.12,
+      "mass_g": 0.03,
+      "power": {
+        "active_mw": 0,
+        "sleep_mw": 0,
+        "duty": 0
+      },
+      "footprint": "0805",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "C1",
+      "name": "Buck input cap 4.7 uF",
+      "part_class": "X5R MLCC",
+      "example_part": "4.7 uF 10 V 0402",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.02,
+      "mass_g": 0.002,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "C2",
+      "name": "Buck output cap 10 uF",
+      "part_class": "X5R MLCC",
+      "example_part": "10 uF 6.3 V 0402",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.03,
+      "mass_g": 0.002,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "C3",
+      "name": "SoC decoupling 100 nF",
+      "part_class": "X7R MLCC",
+      "example_part": "100 nF 0402",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.01,
+      "mass_g": 0.002,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "C4",
+      "name": "IMU decoupling 100 nF",
+      "part_class": "X7R MLCC",
+      "example_part": "100 nF 0402",
+      "subsystem": "SYS-SNS",
+      "qty": 1,
+      "unit_cost_usd": 0.01,
+      "mass_g": 0.002,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "C5",
+      "name": "Charger cap 1 uF",
+      "part_class": "X5R MLCC",
+      "example_part": "1 uF 0402",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.01,
+      "mass_g": 0.002,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "C6",
+      "name": "Sense filter cap 100 nF",
+      "part_class": "X7R MLCC",
+      "example_part": "100 nF 0402",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.01,
+      "mass_g": 0.002,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "R1",
+      "name": "VBAT divider top 1.5 M",
+      "part_class": "Thick film 1 %",
+      "example_part": "1.5 M 0402",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.005,
+      "mass_g": 0.001,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "R2",
+      "name": "VBAT divider bottom 1 M",
+      "part_class": "Thick film 1 %",
+      "example_part": "1 M 0402",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.005,
+      "mass_g": 0.001,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "R3",
+      "name": "I2C SCL pull-up 4.7 k",
+      "part_class": "Thick film 1 %",
+      "example_part": "4.7 k 0402",
+      "subsystem": "SYS-SNS",
+      "qty": 1,
+      "unit_cost_usd": 0.005,
+      "mass_g": 0.001,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "R4",
+      "name": "I2C SDA pull-up 4.7 k",
+      "part_class": "Thick film 1 %",
+      "example_part": "4.7 k 0402",
+      "subsystem": "SYS-SNS",
+      "qty": 1,
+      "unit_cost_usd": 0.005,
+      "mass_g": 0.001,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "R5",
+      "name": "Charge current set 10 k",
+      "part_class": "Thick film 1 %",
+      "example_part": "10 k 0402",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.005,
+      "mass_g": 0.001,
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "AE1",
+      "name": "2.4 GHz chip antenna",
+      "part_class": "Ceramic chip antenna",
+      "example_part": "2.4 GHz 3216 chip antenna",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.25,
+      "mass_g": 0.02,
+      "footprint": "ANT_3216",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "J1",
+      "name": "USB-C receptacle (power only)",
+      "part_class": "USB Type-C 16-pin SMD",
+      "example_part": "USB-C 16P mid-mount",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.3,
+      "mass_g": 0.6,
+      "footprint": "USB-C_16P",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "J2",
+      "name": "Display FPC connector 24-pin",
+      "part_class": "0.5 mm pitch FPC, bottom contact",
+      "example_part": "24-pin 0.5 mm FPC",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.25,
+      "mass_g": 0.1,
+      "footprint": "FPC-24_0.5",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "J3",
+      "name": "Battery connector",
+      "part_class": "1.0 mm pitch 2-pin wire-to-board",
+      "example_part": "JST SH 2-pin",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.1,
+      "mass_g": 0.05,
+      "footprint": "JST-SH-2",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "BT1",
+      "name": "LiPo cell 180 mAh",
+      "part_class": "3.7 V pouch cell with protection",
+      "example_part": "3.7 V 180 mAh LiPo, ~4 g",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 3.0,
+      "mass_g": 4.0,
+      "footprint": "",
+      "on_pcb": false,
+      "location": "left_pod"
+    },
+    {
+      "refdes": "OPT1",
+      "name": "Collimating lens + combiner",
+      "part_class": "Acrylic asphere + 30 % reflective beam-splitter",
+      "example_part": "f = 20 mm, 18 mm clear aperture",
+      "subsystem": "SYS-OPT",
+      "qty": 1,
+      "unit_cost_usd": 8.0,
+      "mass_g": 3.5,
+      "footprint": "",
+      "on_pcb": false,
+      "location": "front_right"
+    },
+    {
+      "refdes": "LN1",
+      "name": "Demo lenses (pair)",
+      "part_class": "Polycarbonate plano lenses",
+      "example_part": "Plano PC blanks, edged to shape",
+      "subsystem": "SYS-FRM",
+      "qty": 2,
+      "unit_cost_usd": 1.5,
+      "mass_g": 2.5,
+      "footprint": "",
+      "on_pcb": false,
+      "location": "front"
+    },
+    {
+      "refdes": "HW1",
+      "name": "Hinge screws + spring hinge",
+      "part_class": "M1.4 screws, 5-barrel hinge",
+      "example_part": "Eyewear hinge kit",
+      "subsystem": "SYS-FRM",
+      "qty": 2,
+      "unit_cost_usd": 0.4,
+      "mass_g": 0.3,
+      "footprint": "",
+      "on_pcb": false,
+      "location": "front"
+    },
+    {
+      "refdes": "PCB1",
+      "name": "Main PCB (bare)",
+      "part_class": "2-layer FR-4, 0.8 mm",
+      "example_part": "58 x 10 mm",
+      "subsystem": "SYS-PCB",
+      "qty": 1,
+      "unit_cost_usd": 0.5,
+      "mass_g": 0.9,
+      "footprint": "",
+      "on_pcb": false,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "FPC1",
+      "name": "Hinge flex cable",
+      "part_class": "24-way 0.5 mm FFC through hinge",
+      "example_part": "24P 0.5 mm FFC, 60 mm",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.4,
+      "mass_g": 0.2,
+      "footprint": "",
+      "on_pcb": false,
+      "location": "front_right"
+    },
+    {
+      "refdes": "OPT2",
+      "name": "Threaded focus cell + lock ring",
+      "part_class": "Fine-pitch threaded lens cell, set with a focus jig and locked with adhesive",
+      "example_part": "0.25 mm pitch thread (72° turn = 0.05 mm)",
+      "subsystem": "SYS-OPT",
+      "qty": 1,
+      "unit_cost_usd": 0.8,
+      "mass_g": 0.3,
+      "power": {
+        "active_mw": 0,
+        "sleep_mw": 0,
+        "duty": 0
+      },
+      "footprint": "",
+      "on_pcb": false,
+      "location": "front_right"
+    }
   ],
   "trades": [
     {
-      "id": "T-1", "title": "Processor / radio", "decision": "nRF52840-class BLE SoC",
-      "criteria": [ { "name": "Average power", "weight": 0.35 }, { "name": "Wireless fit", "weight": 0.2 }, { "name": "Package size", "weight": 0.2 }, { "name": "Ecosystem", "weight": 0.15 }, { "name": "Cost", "weight": 0.1 } ],
+      "id": "T-1",
+      "title": "Processor / radio",
+      "decision": "nRF52840-class BLE SoC",
+      "criteria": [
+        {
+          "name": "Average power",
+          "weight": 0.35
+        },
+        {
+          "name": "Wireless fit",
+          "weight": 0.2
+        },
+        {
+          "name": "Package size",
+          "weight": 0.2
+        },
+        {
+          "name": "Ecosystem",
+          "weight": 0.15
+        },
+        {
+          "name": "Cost",
+          "weight": 0.1
+        }
+      ],
       "options": [
-        { "name": "nRF52840-class BLE SoC", "scores": [9, 8, 8, 9, 8], "notes": "Low power BLE, mature SDKs (Zephyr), used by open glasses projects." },
-        { "name": "ESP32-S3-class Wi-Fi + BLE", "scores": [4, 9, 6, 9, 9], "notes": "Camera and Wi-Fi friendly but much higher average power." },
-        { "name": "STM32WB-class BLE MCU", "scores": [8, 7, 7, 7, 8], "notes": "Good power, smaller hobby ecosystem." }
+        {
+          "name": "nRF52840-class BLE SoC",
+          "scores": [
+            9,
+            8,
+            8,
+            9,
+            8
+          ],
+          "notes": "Low power BLE, mature SDKs (Zephyr), used by open glasses projects."
+        },
+        {
+          "name": "ESP32-S3-class Wi-Fi + BLE",
+          "scores": [
+            4,
+            9,
+            6,
+            9,
+            9
+          ],
+          "notes": "Camera and Wi-Fi friendly but much higher average power."
+        },
+        {
+          "name": "STM32WB-class BLE MCU",
+          "scores": [
+            8,
+            7,
+            7,
+            7,
+            8
+          ],
+          "notes": "Good power, smaller hobby ecosystem."
+        }
       ]
     },
     {
-      "id": "T-2", "title": "Display technology", "decision": "Micro-OLED",
-      "criteria": [ { "name": "Contrast", "weight": 0.25 }, { "name": "Power at typical content", "weight": 0.3 }, { "name": "Brightness", "weight": 0.2 }, { "name": "Availability to makers", "weight": 0.25 } ],
+      "id": "T-2",
+      "title": "Display technology",
+      "decision": "Micro-OLED",
+      "criteria": [
+        {
+          "name": "Contrast",
+          "weight": 0.25
+        },
+        {
+          "name": "Power at typical content",
+          "weight": 0.3
+        },
+        {
+          "name": "Brightness",
+          "weight": 0.2
+        },
+        {
+          "name": "Availability to makers",
+          "weight": 0.25
+        }
+      ],
       "options": [
-        { "name": "Micro-OLED", "scores": [10, 8, 6, 7], "notes": "Emissive, black pixels cost nothing." },
-        { "name": "LCoS + LED", "scores": [6, 5, 9, 6], "notes": "Bright, but illumination power is constant." },
-        { "name": "MicroLED", "scores": [10, 9, 10, 2], "notes": "Best in class, hard to buy in small quantities." }
+        {
+          "name": "Micro-OLED",
+          "scores": [
+            10,
+            8,
+            6,
+            7
+          ],
+          "notes": "Emissive, black pixels cost nothing."
+        },
+        {
+          "name": "LCoS + LED",
+          "scores": [
+            6,
+            5,
+            9,
+            6
+          ],
+          "notes": "Bright, but illumination power is constant."
+        },
+        {
+          "name": "MicroLED",
+          "scores": [
+            10,
+            9,
+            10,
+            2
+          ],
+          "notes": "Best in class, hard to buy in small quantities."
+        }
       ]
     },
     {
-      "id": "T-3", "title": "Battery capacity", "decision": "180 mAh",
-      "criteria": [ { "name": "Battery life", "weight": 0.45 }, { "name": "Mass", "weight": 0.35 }, { "name": "Fits temple", "weight": 0.2 } ],
+      "id": "T-3",
+      "title": "Battery capacity",
+      "decision": "180 mAh",
+      "criteria": [
+        {
+          "name": "Battery life",
+          "weight": 0.45
+        },
+        {
+          "name": "Mass",
+          "weight": 0.35
+        },
+        {
+          "name": "Fits temple",
+          "weight": 0.2
+        }
+      ],
       "options": [
-        { "name": "120 mAh", "scores": [5, 9, 10], "notes": "" },
-        { "name": "180 mAh", "scores": [8, 7, 8], "notes": "" },
-        { "name": "300 mAh", "scores": [10, 4, 4], "notes": "" }
+        {
+          "name": "120 mAh",
+          "scores": [
+            5,
+            9,
+            10
+          ],
+          "notes": ""
+        },
+        {
+          "name": "180 mAh",
+          "scores": [
+            8,
+            7,
+            8
+          ],
+          "notes": ""
+        },
+        {
+          "name": "300 mAh",
+          "scores": [
+            10,
+            4,
+            4
+          ],
+          "notes": ""
+        }
       ]
     },
     {
-      "id": "T-4", "title": "Volume frame process", "decision": "Injection-molded PC",
-      "criteria": [ { "name": "Unit cost at 1k", "weight": 0.4 }, { "name": "Surface finish", "weight": 0.25 }, { "name": "Up-front cost", "weight": 0.2 }, { "name": "Lead time", "weight": 0.15 } ],
+      "id": "T-4",
+      "title": "Volume frame process",
+      "decision": "Injection-molded PC",
+      "criteria": [
+        {
+          "name": "Unit cost at 1k",
+          "weight": 0.4
+        },
+        {
+          "name": "Surface finish",
+          "weight": 0.25
+        },
+        {
+          "name": "Up-front cost",
+          "weight": 0.2
+        },
+        {
+          "name": "Lead time",
+          "weight": 0.15
+        }
+      ],
       "options": [
-        { "name": "FDM printing (PETG)", "scores": [3, 3, 10, 10], "notes": "Great for iteration." },
-        { "name": "MJF nylon printing", "scores": [5, 6, 10, 8], "notes": "Service bureau, no tooling." },
-        { "name": "Injection-molded PC", "scores": [10, 9, 3, 4], "notes": "Aluminium tool for the first 1k-10k parts." }
+        {
+          "name": "FDM printing (PETG)",
+          "scores": [
+            3,
+            3,
+            10,
+            10
+          ],
+          "notes": "Great for iteration."
+        },
+        {
+          "name": "MJF nylon printing",
+          "scores": [
+            5,
+            6,
+            10,
+            8
+          ],
+          "notes": "Service bureau, no tooling."
+        },
+        {
+          "name": "Injection-molded PC",
+          "scores": [
+            10,
+            9,
+            3,
+            4
+          ],
+          "notes": "Aluminium tool for the first 1k-10k parts."
+        }
       ]
     }
   ],
   "risks": [
-    { "id": "F-1", "item": "LiPo cell", "failure_mode": "Swelling or thermal runaway", "effect": "Burn hazard near the head", "cause": "Over-charge, puncture, heat", "severity": 10, "occurrence": 2, "detection": 4, "mitigation": "Cell with protection circuit, charger with thermistor input, 4.2 V CV limit, crush-resistant pod." },
-    { "id": "F-2", "item": "Hinge flex cable", "failure_mode": "Conductor fatigue", "effect": "Display dropouts", "cause": "Repeated folding", "severity": 6, "occurrence": 5, "detection": 5, "mitigation": "Large bend radius, strain relief, 20k-cycle fold test in DVT." },
-    { "id": "F-3", "item": "Right pod", "failure_mode": "Surface too hot", "effect": "Discomfort, unsafe skin contact", "cause": "Continuous display use in hot weather", "severity": 7, "occurrence": 3, "detection": 3, "mitigation": "Thermal model in the Power lab, firmware thermal throttling at 39 C board temperature." },
-    { "id": "F-4", "item": "Optics module", "failure_mode": "Misalignment", "effect": "Blurry or clipped image", "cause": "Assembly tolerance, drop", "severity": 6, "occurrence": 4, "detection": 3, "mitigation": "Kinematic mount with alignment pins, 5 mm eyebox margin." },
-    { "id": "F-5", "item": "Microphones", "failure_mode": "Port blocked by sweat or dust", "effect": "Voice capture degrades", "cause": "Environment", "severity": 4, "occurrence": 4, "detection": 6, "mitigation": "Acoustic mesh, port on the lower edge, self-test comparing the two mic levels." },
-    { "id": "F-6", "item": "BLE link", "failure_mode": "Dropouts when the phone is in a pocket", "effect": "Stale navigation content", "cause": "Body shadowing at 2.4 GHz", "severity": 5, "occurrence": 5, "detection": 4, "mitigation": "Antenna at the outer edge of the pod, keep-out zone, range test." },
-    { "id": "F-7", "item": "Frame front", "failure_mode": "Crack at the bridge", "effect": "Product breaks", "cause": "Drop, thin section", "severity": 6, "occurrence": 3, "detection": 4, "mitigation": "Minimum 5 mm rim, fillets, PC material for volume." },
-    { "id": "F-8", "item": "Supply chain", "failure_mode": "Micro-OLED end-of-life", "effect": "Redesign of optics", "cause": "Single-source display", "severity": 7, "occurrence": 4, "detection": 2, "mitigation": "Qualify a second display with the same FPC pinout; keep optics parametric." }
+    {
+      "id": "F-1",
+      "item": "LiPo cell",
+      "failure_mode": "Swelling or thermal runaway",
+      "effect": "Burn hazard near the head",
+      "cause": "Over-charge, puncture, heat",
+      "severity": 10,
+      "occurrence": 2,
+      "detection": 4,
+      "mitigation": "Cell with protection circuit, charger with thermistor input, 4.2 V CV limit, crush-resistant pod."
+    },
+    {
+      "id": "F-2",
+      "item": "Hinge flex cable",
+      "failure_mode": "Conductor fatigue",
+      "effect": "Display dropouts",
+      "cause": "Repeated folding",
+      "severity": 6,
+      "occurrence": 5,
+      "detection": 5,
+      "mitigation": "Large bend radius, strain relief, 20k-cycle fold test in DVT."
+    },
+    {
+      "id": "F-3",
+      "item": "Right pod",
+      "failure_mode": "Surface too hot",
+      "effect": "Discomfort, unsafe skin contact",
+      "cause": "Continuous display use in hot weather",
+      "severity": 7,
+      "occurrence": 3,
+      "detection": 3,
+      "mitigation": "Thermal model in the Power lab, firmware thermal throttling at 39 C board temperature."
+    },
+    {
+      "id": "F-4",
+      "item": "Optics module",
+      "failure_mode": "Misalignment",
+      "effect": "Blurry or clipped image",
+      "cause": "Assembly tolerance, drop",
+      "severity": 6,
+      "occurrence": 4,
+      "detection": 3,
+      "mitigation": "Kinematic mount with alignment pins, 5 mm eyebox margin."
+    },
+    {
+      "id": "F-5",
+      "item": "Microphones",
+      "failure_mode": "Port blocked by sweat or dust",
+      "effect": "Voice capture degrades",
+      "cause": "Environment",
+      "severity": 4,
+      "occurrence": 4,
+      "detection": 6,
+      "mitigation": "Acoustic mesh, port on the lower edge, self-test comparing the two mic levels."
+    },
+    {
+      "id": "F-6",
+      "item": "BLE link",
+      "failure_mode": "Dropouts when the phone is in a pocket",
+      "effect": "Stale navigation content",
+      "cause": "Body shadowing at 2.4 GHz",
+      "severity": 5,
+      "occurrence": 5,
+      "detection": 4,
+      "mitigation": "Antenna at the outer edge of the pod, keep-out zone, range test."
+    },
+    {
+      "id": "F-7",
+      "item": "Frame front",
+      "failure_mode": "Crack at the bridge",
+      "effect": "Product breaks",
+      "cause": "Drop, thin section",
+      "severity": 6,
+      "occurrence": 3,
+      "detection": 4,
+      "mitigation": "Minimum 5 mm rim, fillets, PC material for volume."
+    },
+    {
+      "id": "F-8",
+      "item": "Supply chain",
+      "failure_mode": "Micro-OLED end-of-life",
+      "effect": "Redesign of optics",
+      "cause": "Single-source display",
+      "severity": 7,
+      "occurrence": 4,
+      "detection": 2,
+      "mitigation": "Qualify a second display with the same FPC pinout; keep optics parametric."
+    }
   ],
   "milestones": [
-    { "id": "M-0", "title": "Concept review", "stage": "Concept", "deliverables": ["Needs", "Use cases", "Trade studies"], "exit_criteria": ["Top trades decided"] },
-    { "id": "M-1", "title": "Requirements review", "stage": "Requirements", "deliverables": ["Verified requirement set", "Architecture"], "exit_criteria": ["Every requirement has a metric and an owner"] },
-    { "id": "M-2", "title": "Preliminary design", "stage": "Design", "deliverables": ["Simulations passing", "CAD v1", "Schematic"], "exit_criteria": ["All analysis requirements green"] },
-    { "id": "M-3", "title": "EVT: engineering validation", "stage": "Prototype", "deliverables": ["3D-printed frames", "Assembled PCBs"], "exit_criteria": ["Functional prototype worn for 1 day"] },
-    { "id": "M-4", "title": "DVT: design validation", "stage": "Validation", "deliverables": ["Soft-tooled parts", "Drop, fold, thermal tests"], "exit_criteria": ["Tests pass", "Pre-compliance scan"] },
-    { "id": "M-5", "title": "PVT: production validation", "stage": "Production", "deliverables": ["Hard tool", "Line fixtures", "First 100 units"], "exit_criteria": ["Yield above 95 %"] }
+    {
+      "id": "M-0",
+      "title": "Concept review",
+      "stage": "Concept",
+      "deliverables": [
+        "Needs",
+        "Use cases",
+        "Trade studies"
+      ],
+      "exit_criteria": [
+        "Top trades decided"
+      ]
+    },
+    {
+      "id": "M-1",
+      "title": "Requirements review",
+      "stage": "Requirements",
+      "deliverables": [
+        "Verified requirement set",
+        "Architecture"
+      ],
+      "exit_criteria": [
+        "Every requirement has a metric and an owner"
+      ]
+    },
+    {
+      "id": "M-2",
+      "title": "Preliminary design",
+      "stage": "Design",
+      "deliverables": [
+        "Simulations passing",
+        "CAD v1",
+        "Schematic"
+      ],
+      "exit_criteria": [
+        "All analysis requirements green"
+      ]
+    },
+    {
+      "id": "M-3",
+      "title": "EVT: engineering validation",
+      "stage": "Prototype",
+      "deliverables": [
+        "3D-printed frames",
+        "Assembled PCBs"
+      ],
+      "exit_criteria": [
+        "Functional prototype worn for 1 day"
+      ]
+    },
+    {
+      "id": "M-4",
+      "title": "DVT: design validation",
+      "stage": "Validation",
+      "deliverables": [
+        "Soft-tooled parts",
+        "Drop, fold, thermal tests"
+      ],
+      "exit_criteria": [
+        "Tests pass",
+        "Pre-compliance scan"
+      ]
+    },
+    {
+      "id": "M-5",
+      "title": "PVT: production validation",
+      "stage": "Production",
+      "deliverables": [
+        "Hard tool",
+        "Line fixtures",
+        "First 100 units"
+      ],
+      "exit_criteria": [
+        "Yield above 95 %"
+      ]
+    }
   ],
   "design": {
-    "frame": { "lens_width_mm": 50, "lens_height_mm": 38, "bridge_mm": 18, "temple_length_mm": 145, "front_thickness_mm": 5, "rim_width_mm": 5, "lens_shape_exponent": 3, "temple_width_mm": 4, "temple_height_mm": 8, "pod_length_mm": 64, "pod_width_mm": 11, "pod_height_mm": 14, "battery_pod_length_mm": 40, "wall_mm": 1.2, "draft_deg": 1.5, "pantoscopic_tilt_deg": 8, "material": "PETG", "density_g_cm3": 1.27 },
-    "battery": { "chemistry": "LiPo", "capacity_mah": 180, "nominal_v": 3.7, "full_v": 4.2, "cutoff_v": 3.3, "internal_resistance_ohm": 0.35, "mass_g": 4.0, "usable_fraction": 0.85 },
-    "power_rails": { "core_v": 1.8, "buck_efficiency": 0.9, "display_rail_v": 3.3, "quiescent_ua": 5 },
-    "optics": { "display_width_mm": 8.4, "display_height_mm": 5.25, "px_w": 640, "px_h": 400, "lens_focal_mm": 20, "lens_diameter_mm": 18, "display_to_lens_mm": 19.7, "lens_to_combiner_mm": 11, "eye_relief_mm": 18, "combiner_reflectance": 0.3, "display_luminance_nits": 3000 },
-    "audio": { "mic_count": 2, "mic_spacing_mm": 14, "sample_rate_hz": 16000, "pdm_clock_hz": 1024000, "decimation": 64, "fir_taps": 31, "voice_band_lo_hz": 100, "voice_band_hi_hz": 4000 },
-    "imu": { "rate_hz": 200, "gyro_noise_dps_rthz": 0.008, "gyro_bias_dps": 0.5, "accel_noise_mg_rthz": 0.16, "fusion_alpha": 0.98 },
-    "pcb": { "width_mm": 58, "height_mm": 10, "layers": 2, "thickness_mm": 0.8, "min_trace_mm": 0.15, "min_clearance_mm": 0.15, "via_drill_mm": 0.3, "via_pad_mm": 0.6, "grid_mm": 0.25 },
-    "thermal": { "ambient_c": 30, "r_pod_ambient_c_per_w": 55, "r_board_pod_c_per_w": 20, "c_pod_j_per_c": 6, "c_board_j_per_c": 1.5, "skin_limit_c": 41 },
-    "manufacturing": { "quantities": [1, 10, 100, 1000, 10000], "target_quantity": 1000, "molding_material": "PC", "cavities": 1, "mold_steel": "P20", "assembly_minutes": 12, "labor_rate_usd_h": 30 },
-    "print": { "nozzle_mm": 0.4, "layer_height_mm": 0.2, "line_width_mm": 0.45, "perimeters": 3, "infill_pct": 25, "print_speed_mm_s": 60, "travel_speed_mm_s": 150, "filament_diameter_mm": 1.75, "nozzle_temp_c": 240, "bed_temp_c": 80 },
-    "chip": { "clock_mhz": 50, "coeff_bits": 12, "data_bits": 16, "gate_delay_ns": 0.25, "cell_budget": 3000 },
+    "frame": {
+      "lens_width_mm": 50,
+      "lens_height_mm": 38,
+      "bridge_mm": 18,
+      "temple_length_mm": 145,
+      "front_thickness_mm": 5,
+      "rim_width_mm": 5,
+      "lens_shape_exponent": 3,
+      "temple_width_mm": 4,
+      "temple_height_mm": 8,
+      "pod_length_mm": 64,
+      "pod_width_mm": 11,
+      "pod_height_mm": 14,
+      "battery_pod_length_mm": 40,
+      "wall_mm": 1.2,
+      "draft_deg": 1.5,
+      "pantoscopic_tilt_deg": 8,
+      "material": "PETG",
+      "density_g_cm3": 1.27
+    },
+    "battery": {
+      "chemistry": "LiPo",
+      "capacity_mah": 180,
+      "nominal_v": 3.7,
+      "full_v": 4.2,
+      "cutoff_v": 3.3,
+      "internal_resistance_ohm": 0.35,
+      "mass_g": 4.0,
+      "usable_fraction": 0.85
+    },
+    "power_rails": {
+      "core_v": 1.8,
+      "buck_efficiency": 0.9,
+      "display_rail_v": 3.3,
+      "quiescent_ua": 5
+    },
+    "optics": {
+      "display_width_mm": 8.4,
+      "display_height_mm": 5.25,
+      "px_w": 640,
+      "px_h": 400,
+      "lens_focal_mm": 20,
+      "lens_diameter_mm": 18,
+      "display_to_lens_mm": 19.7,
+      "lens_to_combiner_mm": 11,
+      "eye_relief_mm": 18,
+      "combiner_reflectance": 0.3,
+      "display_luminance_nits": 3000
+    },
+    "audio": {
+      "mic_count": 2,
+      "mic_spacing_mm": 14,
+      "sample_rate_hz": 16000,
+      "pdm_clock_hz": 1024000,
+      "decimation": 64,
+      "fir_taps": 31,
+      "voice_band_lo_hz": 100,
+      "voice_band_hi_hz": 4000
+    },
+    "imu": {
+      "rate_hz": 200,
+      "gyro_noise_dps_rthz": 0.008,
+      "gyro_bias_dps": 0.5,
+      "accel_noise_mg_rthz": 0.16,
+      "fusion_alpha": 0.98
+    },
+    "pcb": {
+      "width_mm": 58,
+      "height_mm": 10,
+      "layers": 2,
+      "thickness_mm": 0.8,
+      "min_trace_mm": 0.15,
+      "min_clearance_mm": 0.15,
+      "via_drill_mm": 0.3,
+      "via_pad_mm": 0.6,
+      "grid_mm": 0.25
+    },
+    "thermal": {
+      "ambient_c": 30,
+      "r_pod_ambient_c_per_w": 55,
+      "r_board_pod_c_per_w": 20,
+      "c_pod_j_per_c": 6,
+      "c_board_j_per_c": 1.5,
+      "skin_limit_c": 41
+    },
+    "manufacturing": {
+      "quantities": [
+        1,
+        10,
+        100,
+        1000,
+        10000
+      ],
+      "target_quantity": 1000,
+      "molding_material": "PC",
+      "cavities": 1,
+      "mold_steel": "P20",
+      "assembly_minutes": 12,
+      "labor_rate_usd_h": 30
+    },
+    "print": {
+      "nozzle_mm": 0.4,
+      "layer_height_mm": 0.2,
+      "line_width_mm": 0.45,
+      "perimeters": 3,
+      "infill_pct": 25,
+      "print_speed_mm_s": 60,
+      "travel_speed_mm_s": 150,
+      "filament_diameter_mm": 1.75,
+      "nozzle_temp_c": 240,
+      "bed_temp_c": 80
+    },
+    "chip": {
+      "clock_mhz": 50,
+      "coeff_bits": 12,
+      "data_bits": 16,
+      "gate_delay_ns": 0.25,
+      "cell_budget": 3000
+    },
     "circuits": [],
-    "extra": {}
+    "extra": {
+      "focus_stack": {
+        "adjust_step_mm": 0.05,
+        "lock_shift_mm": 0.01
+      },
+      "stencil_thickness_mm": 0.1,
+      "markets": [
+        "US",
+        "EU"
+      ],
+      "pcb_tier": "standard",
+      "optics_lens": "achromat_cop_pc",
+      "chip_fir_arch": "mac"
+    }
   }
 }

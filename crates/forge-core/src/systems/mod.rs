@@ -161,8 +161,13 @@ pub struct Evaluation {
     pub metrics: Vec<Metric>,
     pub results: Vec<ReqResult>,
     pub pass: usize,
+    /// Failing requirements, including open goals.
     pub fail: usize,
     pub unverified: usize,
+    /// Failing requirements of kind `goal` ("should" stretch targets) — shown
+    /// as open goals rather than as binding failures.
+    #[serde(default)]
+    pub open_goals: usize,
 }
 
 fn criterion_text(v: &crate::project::Verification) -> String {
@@ -244,12 +249,19 @@ pub fn evaluate_with(p: &Project, metrics: Vec<Metric>) -> Evaluation {
     let pass = results.iter().filter(|r| r.status == Status::Pass).count();
     let fail = results.iter().filter(|r| r.status == Status::Fail).count();
     let unverified = results.len() - pass - fail;
+    let open_goals = p
+        .requirements
+        .iter()
+        .zip(&results)
+        .filter(|(r, res)| r.kind == ReqKind::Goal && res.status == Status::Fail)
+        .count();
     Evaluation {
         metrics,
         results,
         pass,
         fail,
         unverified,
+        open_goals,
     }
 }
 

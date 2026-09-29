@@ -326,7 +326,14 @@ pub fn analyze(p: &Project, fid: Fidelity) -> Result<IrisOut, String> {
     );
     // ---- stack-ups
     out.pod = tolerance::pod_stack(p, &PodStackIn::default())?;
-    out.focus = tolerance::focus_stack(p, &FocusStackIn::default())?;
+    // the project may describe its focus design in design.extra.focus_stack
+    let focus_in: FocusStackIn = p
+        .design
+        .extra
+        .get("focus_stack")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    out.focus = tolerance::focus_stack(p, &focus_in)?;
     // ---- modes of the right temple (the spread model's grid)
     let l = &core.layout;
     let added: f64 = p

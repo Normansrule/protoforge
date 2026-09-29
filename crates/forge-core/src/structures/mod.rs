@@ -451,6 +451,7 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
         &p.design.print,
         &p.design.manufacturing.molding_material,
         comps,
+        p.design.extra.get("focus_stack"),
     ));
     crate::memo::memo(&METRICS, key, || metrics_uncached(p))
 }

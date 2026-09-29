@@ -114,7 +114,8 @@ function TopBar({ onMenu }: { onMenu: () => void }) {
       {ev.data && (
         <div className="row hide-sm" style={{ marginLeft: 8 }}>
           <span className="chip pass">✓ {ev.data.pass}</span>
-          {ev.data.fail > 0 && <span className="chip fail">✕ {ev.data.fail}</span>}
+          {ev.data.fail - (ev.data.open_goals ?? 0) > 0 && <span className="chip fail">✕ {ev.data.fail - (ev.data.open_goals ?? 0)}</span>}
+          {(ev.data.open_goals ?? 0) > 0 && <span className="chip warn" title="stretch goals not yet met">! {ev.data.open_goals} open goal{ev.data.open_goals === 1 ? '' : 's'}</span>}
           {ev.data.unverified > 0 && <span className="chip">○ {ev.data.unverified}</span>}
         </div>
       )}
