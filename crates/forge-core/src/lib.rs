@@ -50,6 +50,12 @@ pub mod quantum;
 pub mod rl;
 pub mod robotics;
 pub mod structures;
+pub mod rf;
+pub mod fluids;
+pub mod mechanisms;
+pub mod ergonomics;
+pub mod reliability;
+pub mod program;
 pub mod systems;
 
 pub use project::{Metric, Project};

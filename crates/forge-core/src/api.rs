@@ -39,6 +39,12 @@ pub const DISPATCHERS: &[(&str, Dispatcher)] = &[
     ("quantum", crate::quantum::dispatch),
     ("firmware", crate::firmware::dispatch),
     ("build", crate::build::dispatch),
+    ("rf", crate::rf::dispatch),
+    ("fluids", crate::fluids::dispatch),
+    ("mechanisms", crate::mechanisms::dispatch),
+    ("ergonomics", crate::ergonomics::dispatch),
+    ("reliability", crate::reliability::dispatch),
+    ("program", crate::program::dispatch),
     ("bridge", crate::bridge::dispatch),
 ];
 

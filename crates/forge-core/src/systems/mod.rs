@@ -61,6 +61,12 @@ pub fn all_metrics(p: &Project) -> Vec<Metric> {
     m.extend(crate::quantum::metrics(p));
     m.extend(crate::firmware::metrics(p));
     m.extend(crate::build::metrics(p));
+    m.extend(crate::program::metrics(p));
+    m.extend(crate::reliability::metrics(p));
+    m.extend(crate::ergonomics::metrics(p));
+    m.extend(crate::mechanisms::metrics(p));
+    m.extend(crate::fluids::metrics(p));
+    m.extend(crate::rf::metrics(p));
     m.extend(system_metrics(p, &m));
     m
 }
