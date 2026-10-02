@@ -275,6 +275,8 @@ const STEP_TOP_Y: u32 = 11;
 const BEND: u32 = 8;
 const VIA_COST: u32 = 70;
 const RELAX_PENALTY: u32 = 400;
+/// Pad access stubs reach at most this many grid steps (see `access_as`).
+const ACCESS_REACH_STEPS: usize = 3;
 const DIRS: [(i64, i64); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 
 fn combine(s: &mut u16, net: u16) {
@@ -868,11 +870,23 @@ impl<'a> Router<'a> {
     }
 
     /// Entry points for pad `pi` when it is (or becomes) part of `net`.
+    ///
+    /// Stubs are kept short (three grid steps): long diagonal stubs sneak
+    /// past neighbouring pads, cross each other and are invisible to the
+    /// negotiation's grid-based history, which then cannot converge. Only a
+    /// pad with no entry that close falls back to a 1 mm reach.
     fn access_as(&self, pi: usize, mode: Mode, net: u16) -> Vec<Access> {
+        let short = self.access_within(pi, mode, net, ACCESS_REACH_STEPS as f64 * self.g);
+        if !short.is_empty() {
+            return short;
+        }
+        self.access_within(pi, mode, net, 1.0)
+    }
+
+    fn access_within(&self, pi: usize, mode: Mode, net: u16, reach: f64) -> Vec<Access> {
         let pd = &self.b.pads[pi];
         let sh = pd.shape_geom();
         let bb = sh.bbox();
-        let reach = 1.0;
         let g = self.g;
         let arr = if mode == Mode::Relaxed { &self.l_trk } else { &self.trk };
         let mut out = Vec::new();
@@ -1815,6 +1829,154 @@ impl<'a> Router<'a> {
             }
             _ => false,
         }
+    }
+
+    /// Join a stranded ground group to the main one by rip-up and re-route:
+    /// find the cheapest bridge that ignores other nets' (unlocked) copper,
+    /// rip the nets on it, commit the bridge strictly and re-route the ripped
+    /// nets. Kept only if every ripped net routes again; otherwise the copper
+    /// is restored. `src`/`tgt` are grid nodes of the two groups, `pads` the
+    /// group's surface pads (entered through their access stubs).
+    pub fn ground_bridge_repair(&mut self, src: &[usize], pads: &[usize], tgt: &[usize]) -> bool {
+        let gnd = self.b.gnd;
+        let mk_sources = |rt: &Router, mode: Mode| -> Vec<Access> {
+            let arr = if mode == Mode::Relaxed { &rt.l_trk } else { &rt.trk };
+            let mut v: Vec<Access> = src
+                .iter()
+                .filter(|&&n| ok(arr[n], gnd))
+                .map(|&node| Access { node, cost: 0, stub: None })
+                .collect();
+            for &pi in pads {
+                v.extend(rt.access(pi, mode));
+            }
+            v
+        };
+        let srcs = mk_sources(self, Mode::Relaxed);
+        let targets: HashMap<usize, Option<Stub>> = tgt.iter().filter(|&&n| ok(self.l_trk[n], gnd)).map(|&n| (n, None)).collect();
+        let Some(path) = self.search(gnd, &srcs, &targets, Mode::Relaxed, true, true, None) else {
+            return false;
+        };
+        // nets whose unlocked copper lies on the relaxed bridge: within track
+        // clearance of each step, within via clearance of each layer change
+        let mut blockers: Vec<u16> = Vec::new();
+        let mut ids = Vec::new();
+        for k in 0..path.len() {
+            let node = path[k];
+            let layer = node / self.n;
+            let (x, y) = self.xy(node % self.n);
+            let next = path.get(k + 1).copied();
+            let is_via = next.map(|m| m % self.n == node % self.n).unwrap_or(false);
+            let (nx_, ny_) = match next {
+                Some(m) if !is_via => self.xy(m % self.n),
+                _ => (x, y),
+            };
+            self.d_hash.query([x - 1.0, y - 1.0, x + 1.0, y + 1.0], &mut ids);
+            for &i in &ids {
+                if self.is_locked_obj(i) {
+                    continue;
+                }
+                let o = &self.dobjs[i];
+                if o.net == gnd || blockers.contains(&o.net) {
+                    continue;
+                }
+                let hit = if is_via {
+                    o.shape.dist_point(x, y) < self.r_via - EPS
+                } else {
+                    (if layer == 0 { o.top } else { o.bot }) && o.shape.dist_seg(x, y, nx_, ny_) < self.r_trk - EPS
+                };
+                if hit {
+                    blockers.push(o.net);
+                }
+            }
+        }
+        // the access stub the bridge starts from may cross other copper too
+        if let Some(a) = srcs.iter().filter(|a| a.node == path[0]).min_by_key(|a| a.cost) {
+            if let Some(st) = a.stub {
+                let layer = path[0] / self.n;
+                let bb = [
+                    st.x0.min(st.x1) - 1.0,
+                    st.y0.min(st.y1) - 1.0,
+                    st.x0.max(st.x1) + 1.0,
+                    st.y0.max(st.y1) + 1.0,
+                ];
+                self.d_hash.query(bb, &mut ids);
+                for &i in &ids {
+                    if self.is_locked_obj(i) {
+                        continue;
+                    }
+                    let o = &self.dobjs[i];
+                    let on = if layer == 0 { o.top } else { o.bot };
+                    if on && o.net != gnd && o.shape.dist_seg(st.x0, st.y0, st.x1, st.y1) < self.r_trk && !blockers.contains(&o.net) {
+                        blockers.push(o.net);
+                    }
+                }
+            }
+        }
+        if blockers.len() > 4 {
+            return false;
+        }
+        let snap = (self.tracks.clone(), self.vias.clone(), self.claim.clone(), self.status.clone());
+        let mut ok_all = false;
+        // two sequences: bridge first (it gets the contested channel), or the
+        // ripped nets first with the bridge squeezing through what is left
+        for bridge_first in [true, false] {
+            for &bl in &blockers {
+                self.rip_up(bl);
+            }
+            self.rebuild();
+            let mut sts = Vec::new();
+            let mut good = true;
+            for step in 0..2 {
+                if (step == 0) == bridge_first {
+                    let srcs = mk_sources(self, Mode::Normal);
+                    let targets: HashMap<usize, Option<Stub>> = tgt.iter().filter(|&&n| ok(self.trk[n], gnd)).map(|&n| (n, None)).collect();
+                    match self.search(gnd, &srcs, &targets, Mode::Normal, true, true, None) {
+                        Some(path) => {
+                            let first = path[0];
+                            if let Some(a) = srcs.iter().filter(|a| a.node == first).min_by_key(|a| a.cost) {
+                                if let Some(st) = a.stub {
+                                    self.commit_stub(gnd, (first / self.n) as u8, st);
+                                }
+                            }
+                            if path.len() >= 2 {
+                                self.commit_path(gnd, &path);
+                            }
+                        }
+                        None => good = false,
+                    }
+                } else {
+                    for &bl in &blockers {
+                        let st = self.route_net(bl);
+                        if !st.failed_pins.is_empty() {
+                            good = false;
+                            break;
+                        }
+                        sts.push(st);
+                    }
+                }
+                if !good {
+                    break;
+                }
+            }
+            if good {
+                for st in sts {
+                    if let Some(x) = self.status.iter_mut().find(|x| x.net == st.net) {
+                        let r = x.ripups + 1;
+                        *x = st;
+                        x.ripups = r;
+                    }
+                }
+                self.ripups_total += blockers.len() as u32;
+                ok_all = true;
+                break;
+            }
+            self.tracks = snap.0.clone();
+            self.vias = snap.1.clone();
+            self.claim = snap.2.clone();
+            self.status = snap.3.clone();
+            self.rebuild();
+        }
+        ok_all
     }
 
     /// Grid nodes that belong to a pad (access points without stubs are
