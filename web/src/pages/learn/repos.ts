@@ -157,4 +157,55 @@ export const REPOS: RepoGroup[] = [
       { name: 'kiutils', repo: 'mvnmgrx/kiutils', lab: '/toolchain', learn: 'Python parser for KiCad files, used to verify the KiCad export independently.' },
     ],
   },
+  {
+    discipline: "RF & antennas",
+    items: [
+      { name: "openEMS", repo: "thliebig/openEMS", lab: "/rf", learn: "3-D FDTD of the real chip antenna, board and head — the step after the lab's 2-D solver." },
+      { name: "Meep", repo: "NanoComp/meep", lab: "/rf", learn: "FDTD with PML, dispersive materials and near-to-far-field transforms (Python and Scheme)." },
+      { name: "scikit-rf", repo: "scikit-rf/scikit-rf", lab: "/rf", learn: "Load the lab's exported .s1p (or your VNA data): Smith charts, de-embedding, matching." },
+      { name: "GNU Radio", repo: "gnuradio/gnuradio", lab: "/rf", learn: "Software-defined radio blocks — prototype the Bluetooth LE PHY and measure a real link." },
+    ],
+  },
+  {
+    discipline: "Heat transfer & fluids",
+    items: [
+      { name: "Elmer FEM", repo: "ElmerCSC/elmerfem", lab: "/fluids", learn: "Multiphysics finite elements: heat transfer with radiation on real CAD meshes." },
+      { name: "FluidX3D", repo: "ProjectPhysX/FluidX3D", lab: "/fluids", learn: "GPU lattice-Boltzmann in 3-D — the wind tunnel's method at full scale." },
+      { name: "OpenFOAM", url: "https://openfoam.org", lab: "/fluids", learn: "chtMultiRegionFoam conjugate heat transfer: air flow and solid conduction together." },
+    ],
+  },
+  {
+    discipline: "Mechanisms",
+    items: [
+      { name: "Pyslvs-UI", repo: "KmolYuan/Pyslvs-UI", lab: "/mechanisms", learn: "Planar linkage simulation and synthesis, including multi-loop and evolutionary path synthesis." },
+      { name: "BOSL2 gears", repo: "BelfrySCAD/BOSL2", lab: "/mechanisms", learn: "OpenSCAD spur, ring, rack, bevel and worm gears with profile shift." },
+      { name: "FreeCAD Gears", repo: "looooo/freecad.gears", lab: "/mechanisms", learn: "Parametric involute and cycloid gears inside FreeCAD." },
+      { name: "SolveSpace", repo: "solvespace/solvespace", lab: "/mechanisms", learn: "Constraint-based CAD that animates linkages and exports DXF." },
+    ],
+  },
+  {
+    discipline: "Human factors",
+    items: [
+      { name: "ANSUR II public data (Probably Overthinking It)", repo: "AllenDowney/ProbablyOverthinkingIt", lab: "/ergonomics", learn: "The raw ANSUR II measurement files behind the lab's head-breadth and pupil-distance statistics; extend the lab to any other body dimension." },
+    ],
+  },
+  {
+    discipline: "Reliability & test",
+    items: [
+      { name: "reliability", repo: "MatthewReid854/reliability", lab: "/reliability", learn: "Python fitters, accelerated life testing and probability plots — cross-check the Weibull fits." },
+      { name: "lifelines", repo: "CamDavidsonPilon/lifelines", lab: "/reliability", learn: "Survival analysis for field returns with covariates." },
+      { name: "SurPyval", repo: "derrynknife/SurPyval", lab: "/reliability", learn: "Arbitrary censoring and truncation in life data." },
+    ],
+  },
+  {
+    discipline: "Program management",
+    items: [
+      { name: "GanttProject", repo: "bardsoftware/ganttproject", lab: "/program", learn: "Desktop Gantt/PERT and resource load; imports the lab's CSV export." },
+      { name: "OpenProject", repo: "opf/openproject", lab: "/program", learn: "Team-scale web project management with Gantt charts and baselines." },
+      { name: "frappe/gantt", repo: "frappe/gantt", lab: "/program", learn: "A small SVG Gantt library; the lab adds float, critical path, Monte Carlo and earned value." },
+      { name: "Mermaid", repo: "mermaid-js/mermaid", lab: "/program", learn: "Renders the lab's gantt export directly on GitHub." },
+      { name: "TaskJuggler", repo: "taskjuggler/TaskJuggler", lab: "/program", learn: "Scheduling with resource levelling." },
+      { name: "MPXJ", repo: "joniles/mpxj", lab: "/program", learn: "Move plans into Microsoft Project or Primavera formats." },
+    ],
+  },
 ];

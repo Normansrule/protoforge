@@ -4,7 +4,7 @@ Mature open-source projects that do what each Protoforge lab teaches, at profess
 
 The same list appears on the **Guide & references** page (`#/learn`), generated from `web/src/pages/learn/repos.ts` (regenerate with `node --experimental-strip-types web/src/pages/learn/gen-docs.mjs`). GitHub `owner/name` is given where the project lives on GitHub; otherwise the official site.
 
-**Abbreviations:** API — application programming interface; BLE — Bluetooth Low Energy; BSIM — Berkeley short-channel insulated-gate field-effect transistor model; CAD — computer-aided design; DQN — deep Q-network; DRC — design rule check; DSN — Specctra design file; DSP — digital signal processing; EDA — electronic design automation; FIR — finite impulse response (filter); FPGA — field-programmable gate array; GDSII — Graphic Design System II; HDL — hardware description language; LQR — linear–quadratic regulator; LU — lower–upper (decomposition); MDP — Markov decision process; MIT — Massachusetts Institute of Technology; MNA — modified nodal analysis; OBJ — Wavefront OBJ; PCB — printed circuit board; PDK — process design kit; PID — proportional–integral–derivative (controller); PPO — proximal policy optimisation; RL — reinforcement learning; ROS — Robot Operating System; RTL — register-transfer level; SAC — soft actor–critic; SKY130 — SkyWater 130 nm process; SPICE — Simulation Program with Integrated Circuit Emphasis; STEP — Standard for the Exchange of Product model data (ISO 10303); STL — stereolithography (file format).
+**Abbreviations:** API — application programming interface; BLE — Bluetooth Low Energy; BSIM — Berkeley short-channel insulated-gate field-effect transistor model; CAD — computer-aided design; CSV — comma-separated values; DQN — deep Q-network; DRC — design rule check; DSN — Specctra design file; DSP — digital signal processing; EDA — electronic design automation; FIR — finite impulse response (filter); FPGA — field-programmable gate array; GDSII — Graphic Design System II; HDL — hardware description language; LQR — linear–quadratic regulator; LU — lower–upper (decomposition); MDP — Markov decision process; MIT — Massachusetts Institute of Technology; MNA — modified nodal analysis; OBJ — Wavefront OBJ; PCB — printed circuit board; PDK — process design kit; PID — proportional–integral–derivative (controller); PPO — proximal policy optimisation; RL — reinforcement learning; ROS — Robot Operating System; RTL — register-transfer level; SAC — soft actor–critic; SKY130 — SkyWater 130 nm process; SPICE — Simulation Program with Integrated Circuit Emphasis; STEP — Standard for the Exchange of Product model data (ISO 10303); STL — stereolithography (file format); SVG — Scalable Vector Graphics; UI — user interface.
 
 ## Circuit simulation
 
@@ -146,3 +146,54 @@ The same list appears on the **Guide & references** page (`#/learn`), generated 
 | **Ray Optics Simulation** | [`ricktu288/ray-optics`](https://github.com/ricktu288/ray-optics) | 2D geometric optics in the browser; imports the scene the Optics Lab exports. |
 | **OpenSCAD Playground** | [`openscad/openscad-playground`](https://github.com/openscad/openscad-playground) | OpenSCAD compiled to WebAssembly; runs the generated parametric frame.scad. |
 | **kiutils** | [`mvnmgrx/kiutils`](https://github.com/mvnmgrx/kiutils) | Python parser for KiCad files, used to verify the KiCad export independently. |
+
+## RF & antennas
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **openEMS** | [`thliebig/openEMS`](https://github.com/thliebig/openEMS) | 3-D FDTD of the real chip antenna, board and head — the step after the lab's 2-D solver. |
+| **Meep** | [`NanoComp/meep`](https://github.com/NanoComp/meep) | FDTD with PML, dispersive materials and near-to-far-field transforms (Python and Scheme). |
+| **scikit-rf** | [`scikit-rf/scikit-rf`](https://github.com/scikit-rf/scikit-rf) | Load the lab's exported .s1p (or your VNA data): Smith charts, de-embedding, matching. |
+| **GNU Radio** | [`gnuradio/gnuradio`](https://github.com/gnuradio/gnuradio) | Software-defined radio blocks — prototype the Bluetooth LE PHY and measure a real link. |
+
+## Heat transfer & fluids
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **Elmer FEM** | [`ElmerCSC/elmerfem`](https://github.com/ElmerCSC/elmerfem) | Multiphysics finite elements: heat transfer with radiation on real CAD meshes. |
+| **FluidX3D** | [`ProjectPhysX/FluidX3D`](https://github.com/ProjectPhysX/FluidX3D) | GPU lattice-Boltzmann in 3-D — the wind tunnel's method at full scale. |
+| **OpenFOAM** | <https://openfoam.org> | chtMultiRegionFoam conjugate heat transfer: air flow and solid conduction together. |
+
+## Mechanisms
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **Pyslvs-UI** | [`KmolYuan/Pyslvs-UI`](https://github.com/KmolYuan/Pyslvs-UI) | Planar linkage simulation and synthesis, including multi-loop and evolutionary path synthesis. |
+| **BOSL2 gears** | [`BelfrySCAD/BOSL2`](https://github.com/BelfrySCAD/BOSL2) | OpenSCAD spur, ring, rack, bevel and worm gears with profile shift. |
+| **FreeCAD Gears** | [`looooo/freecad.gears`](https://github.com/looooo/freecad.gears) | Parametric involute and cycloid gears inside FreeCAD. |
+| **SolveSpace** | [`solvespace/solvespace`](https://github.com/solvespace/solvespace) | Constraint-based CAD that animates linkages and exports DXF. |
+
+## Human factors
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **ANSUR II public data (Probably Overthinking It)** | [`AllenDowney/ProbablyOverthinkingIt`](https://github.com/AllenDowney/ProbablyOverthinkingIt) | The raw ANSUR II measurement files behind the lab's head-breadth and pupil-distance statistics; extend the lab to any other body dimension. |
+
+## Reliability & test
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **reliability** | [`MatthewReid854/reliability`](https://github.com/MatthewReid854/reliability) | Python fitters, accelerated life testing and probability plots — cross-check the Weibull fits. |
+| **lifelines** | [`CamDavidsonPilon/lifelines`](https://github.com/CamDavidsonPilon/lifelines) | Survival analysis for field returns with covariates. |
+| **SurPyval** | [`derrynknife/SurPyval`](https://github.com/derrynknife/SurPyval) | Arbitrary censoring and truncation in life data. |
+
+## Program management
+
+| Project | Where | What to learn from it |
+|---|---|---|
+| **GanttProject** | [`bardsoftware/ganttproject`](https://github.com/bardsoftware/ganttproject) | Desktop Gantt/PERT and resource load; imports the lab's CSV export. |
+| **OpenProject** | [`opf/openproject`](https://github.com/opf/openproject) | Team-scale web project management with Gantt charts and baselines. |
+| **frappe/gantt** | [`frappe/gantt`](https://github.com/frappe/gantt) | A small SVG Gantt library; the lab adds float, critical path, Monte Carlo and earned value. |
+| **Mermaid** | [`mermaid-js/mermaid`](https://github.com/mermaid-js/mermaid) | Renders the lab's gantt export directly on GitHub. |
+| **TaskJuggler** | [`taskjuggler/TaskJuggler`](https://github.com/taskjuggler/TaskJuggler) | Scheduling with resource levelling. |
+| **MPXJ** | [`joniles/mpxj`](https://github.com/joniles/mpxj) | Move plans into Microsoft Project or Primavera formats. |

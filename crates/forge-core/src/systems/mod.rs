@@ -42,31 +42,38 @@ use crate::api::{handle, ApiResult};
 use crate::project::{Cmp, Metric, Project, ReqKind, TradeStudy};
 
 /// Collect metrics from every analysis module.
+/// Every module that contributes metrics, in evaluation order.
+pub const METRIC_MODULES: &[(&str, fn(&Project) -> Vec<Metric>)] = &[
+    ("power", crate::power::metrics),
+    ("optics", crate::optics::metrics),
+    ("circuit", crate::circuit::metrics),
+    ("dsp", crate::dsp::metrics),
+    ("chip", crate::chip::metrics),
+    ("control", crate::control::metrics),
+    ("robotics", crate::robotics::metrics),
+    ("rl", crate::rl::metrics),
+    ("cad", crate::cad::metrics),
+    ("print", crate::print::metrics),
+    ("pcb", crate::pcb::metrics),
+    ("molding", crate::molding::metrics),
+    ("mfg", crate::mfg::metrics),
+    ("structures", crate::structures::metrics),
+    ("quantum", crate::quantum::metrics),
+    ("firmware", crate::firmware::metrics),
+    ("build", crate::build::metrics),
+    ("program", crate::program::metrics),
+    ("reliability", crate::reliability::metrics),
+    ("ergonomics", crate::ergonomics::metrics),
+    ("mechanisms", crate::mechanisms::metrics),
+    ("fluids", crate::fluids::metrics),
+    ("rf", crate::rf::metrics),
+];
+
 pub fn all_metrics(p: &Project) -> Vec<Metric> {
     let mut m = Vec::new();
-    m.extend(crate::power::metrics(p));
-    m.extend(crate::optics::metrics(p));
-    m.extend(crate::circuit::metrics(p));
-    m.extend(crate::dsp::metrics(p));
-    m.extend(crate::chip::metrics(p));
-    m.extend(crate::control::metrics(p));
-    m.extend(crate::robotics::metrics(p));
-    m.extend(crate::rl::metrics(p));
-    m.extend(crate::cad::metrics(p));
-    m.extend(crate::print::metrics(p));
-    m.extend(crate::pcb::metrics(p));
-    m.extend(crate::molding::metrics(p));
-    m.extend(crate::mfg::metrics(p));
-    m.extend(crate::structures::metrics(p));
-    m.extend(crate::quantum::metrics(p));
-    m.extend(crate::firmware::metrics(p));
-    m.extend(crate::build::metrics(p));
-    m.extend(crate::program::metrics(p));
-    m.extend(crate::reliability::metrics(p));
-    m.extend(crate::ergonomics::metrics(p));
-    m.extend(crate::mechanisms::metrics(p));
-    m.extend(crate::fluids::metrics(p));
-    m.extend(crate::rf::metrics(p));
+    for (_, f) in METRIC_MODULES {
+        m.extend(f(p));
+    }
     m.extend(system_metrics(p, &m));
     m
 }
@@ -700,10 +707,24 @@ struct ImpactIn {
     id: String,
 }
 
+#[derive(Deserialize)]
+struct ModuleMetricsIn {
+    module: String,
+    project: Project,
+}
+
 pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
     match method {
         "systems.evaluate" => handle(input, |p: Project| Ok(evaluate(&p))),
         "systems.metrics" => handle(input, |p: Project| Ok(all_metrics(&p))),
+        "systems.module_metrics" => handle(input, |i: ModuleMetricsIn| {
+            let f = METRIC_MODULES
+                .iter()
+                .find(|(n, _)| *n == i.module)
+                .map(|(_, f)| f)
+                .ok_or_else(|| format!("unknown module `{}`; one of {:?}", i.module, METRIC_MODULES.iter().map(|x| x.0).collect::<Vec<_>>()))?;
+            Ok(f(&i.project))
+        }),
         "systems.trace" => handle(input, |p: Project| Ok(trace_graph(&p))),
         "systems.impact" => handle(input, |i: ImpactIn| Ok(impact(&i.project, &i.id))),
         "systems.trade" => handle(input, |t: TradeStudy| Ok(score_trade(&t))),

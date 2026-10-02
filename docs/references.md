@@ -8,7 +8,7 @@ Links are given only where a source is freely available online. The labs that ci
 
 ## Systems engineering
 
-1. NASA, *NASA Systems Engineering Handbook*, SP-2016-6105 Rev 2, 2016. [Systems Studio]
+1. NASA, *NASA Systems Engineering Handbook*, SP-2016-6105 Rev 2, 2016. [Systems Studio, Program & Business Lab]
 2. INCOSE, *INCOSE Systems Engineering Handbook*, Wiley. [Systems Studio]
 3. AIAG & VDA, *FMEA Handbook*, 2019. [Systems Studio]
 
@@ -26,7 +26,7 @@ Links are given only where a source is freely available online. The labs that ci
 10. G. L. Plett, *Battery Management Systems, Vol. 1: Battery Modeling*, Artech House, 2015. [Power & Thermal]
 11. W. Peukert, *Elektrotechnische Zeitschrift* 18, 1897. [Power & Thermal]
 12. L. Benini, A. Bogliolo, G. De Micheli, “A survey of design techniques for system-level dynamic power management”, *IEEE Transactions on VLSI Systems* 8(3), 2000. [Power & Thermal, RL Lab]
-13. F. P. Incropera, D. P. DeWitt, T. L. Bergman, A. S. Lavine, *Fundamentals of Heat and Mass Transfer*, 7th ed., Wiley, 2011. [Power & Thermal]
+13. F. P. Incropera, D. P. DeWitt, T. L. Bergman, A. S. Lavine, *Fundamentals of Heat and Mass Transfer*, 7th ed., Wiley, 2011. [Power & Thermal, Thermal & Fluids Lab]
 14. IEC 60601-1, applied-part surface temperature limits (commonly cited as 43 °C for prolonged skin contact). [Power & Thermal]
 
 ## Optics & displays
@@ -153,8 +153,8 @@ Links are given only where a source is freely available online. The labs that ci
 101. E. Andreassen, A. Clausen, M. Schevenels, B. S. Lazarov & O. Sigmund, "Efficient topology optimization in MATLAB using 88 lines of code", *Struct. Multidisc. Optim.* 43, 2011. [Structures Lab]
 102. O. Sigmund, "A 99 line topology optimization code written in Matlab", *Struct. Multidisc. Optim.* 21, 2001. [Structures Lab]
 103. M. P. Bendsøe & O. Sigmund, *Topology Optimization: Theory, Methods and Applications*, Springer, 2003. [Structures Lab]
-104. W. C. Young & R. G. Budynas, *Roark's Formulas for Stress and Strain*, 7th ed., 2002. [Structures Lab]
-105. R. G. Budynas & J. K. Nisbett, *Shigley's Mechanical Engineering Design*, 10th ed. [Structures Lab]
+104. W. C. Young & R. G. Budynas, *Roark's Formulas for Stress and Strain*, 7th ed., 2002. [Structures Lab, Human Factors Lab]
+105. R. G. Budynas & J. K. Nisbett, *Shigley's Mechanical Engineering Design*, 10th ed. [Structures Lab, Mechanisms Lab]
 106. Bayer MaterialScience (Covestro), *Snap-Fit Joints for Plastics — A Design Guide*. [Structures Lab]
 107. W. D. Pilkey & D. F. Pilkey, *Peterson's Stress Concentration Factors*, 3rd ed., 2008. [Structures Lab]
 108. S. Timoshenko, "Analysis of bi-metal thermostats", *J. Opt. Soc. Am.* 11, 1925. [Structures Lab]
@@ -257,6 +257,89 @@ Links are given only where a source is freely available online. The labs that ci
 193. P. Falstad and I. Sharp, CircuitJS —, <https://www.falstad.com/circuit/> [Web toolchain]
 194. Onshape Learning Center — <https://learn.onshape.com> [Web toolchain]
 195. IPC-2221, *Generic Standard on Printed Board Design* (net-class widths) [Web toolchain]
+
+## RF & antennas
+
+196. D. M. Pozar, *Microwave Engineering*, 4th ed., Wiley, 2012. [RF & Antenna Lab]
+197. C. A. Balanis, *Antenna Theory: Analysis and Design*, 4th ed., Wiley, 2016. [RF & Antenna Lab]
+198. A. Taflove & S. C. Hagness, *Computational Electrodynamics: The Finite-Difference Time-Domain Method*, 3rd ed., Artech House, 2005. [RF & Antenna Lab]
+199. K. S. Yee, “Numerical solution of initial boundary value problems involving Maxwell's equations in isotropic media”, *IEEE Trans. Antennas Propag.* 14(3), 302–307, 1966. [RF & Antenna Lab]
+200. J.-P. Bérenger, “A perfectly matched layer for the absorption of electromagnetic waves”, *J. Comput. Phys.* 114(2), 185–200, 1994. [RF & Antenna Lab]
+201. E. Hammerstad & Ø. Jensen, “Accurate models for microstrip computer-aided design”, IEEE MTT-S International Microwave Symposium Digest, 407–409, 1980. [RF & Antenna Lab]
+202. B. C. Wadell, *Transmission Line Design Handbook*, Artech House, 1991. [RF & Antenna Lab]
+203. Bluetooth SIG, *Bluetooth Core Specification* v5.x, Vol 6 (Low Energy Controller). <https://www.bluetooth.com/specifications/specs/> [RF & Antenna Lab]
+204. Texas Instruments, application notes AN043 (small-size 2.4 GHz PCB antenna) and AN058 (antenna selection guide). [RF & Antenna Lab]
+205. H. T. Friis, “A note on a simple transmission formula”, *Proc. IRE* 34(5), 254–256, 1946. [RF & Antenna Lab]
+206. L. J. Chu, “Physical limitations of omni-directional antennas”, *J. Appl. Phys.* 19, 1163–1175, 1948. [RF & Antenna Lab]
+207. J. S. McLean, “A re-examination of the fundamental limits on the radiation Q of electrically small antennas”, *IEEE Trans. Antennas Propag.* 44(5), 672–676, 1996. [RF & Antenna Lab]
+208. S. Gabriel, R. W. Lau & C. Gabriel, “The dielectric properties of biological tissues: III”, *Phys. Med. Biol.* 41, 2271–2293, 1996. [RF & Antenna Lab]
+209. C. Bowick, *RF Circuit Design*, 2nd ed., Newnes, 2008. [RF & Antenna Lab]
+210. T. S. Rappaport, *Wireless Communications: Principles and Practice*, 2nd ed., Prentice Hall, 2002. [RF & Antenna Lab]
+
+## Heat transfer & fluids
+
+211. S. W. Churchill & H. H. S. Chu, “Correlating equations for laminar and turbulent free convection from a vertical plate”, *Int. J. Heat Mass Transfer* 18, 1323–1329, 1975. [Thermal & Fluids Lab]
+212. S. W. Churchill & M. Bernstein, “A correlating equation for forced convection from gases and liquids to a circular cylinder in crossflow”, *J. Heat Transfer* 99, 300–306, 1977. [Thermal & Fluids Lab]
+213. S. V. Patankar, *Numerical Heat Transfer and Fluid Flow*, Hemisphere, 1980. [Thermal & Fluids Lab]
+214. T. Krüger et al., *The Lattice Boltzmann Method: Principles and Practice*, Springer, 2017. [Thermal & Fluids Lab]
+215. S. Succi, *The Lattice Boltzmann Equation for Fluid Dynamics and Beyond*, Oxford University Press, 2001. [Thermal & Fluids Lab]
+216. M. Schäfer & S. Turek, “Benchmark computations of laminar flow around a cylinder”, *Notes on Numerical Fluid Mechanics* 52, Vieweg, 1996. [Thermal & Fluids Lab]
+217. A. J. C. Ladd, “Numerical simulations of particulate suspensions via a discretized Boltzmann equation”, *J. Fluid Mech.* 271, 1994. [Thermal & Fluids Lab]
+218. C. H. K. Williamson, “Vortex dynamics in the cylinder wake”, *Annu. Rev. Fluid Mech.* 28, 477–539, 1996. [Thermal & Fluids Lab]
+
+## Mechanisms
+
+219. R. L. Norton, *Design of Machinery*, 6th ed., McGraw-Hill, 2019. [Mechanisms Lab]
+220. J. J. Uicker, G. R. Pennock & J. E. Shigley, *Theory of Machines and Mechanisms*, 5th ed., Oxford University Press, 2017. [Mechanisms Lab]
+221. A. M. Wahl, *Mechanical Springs*, 2nd ed., McGraw-Hill, 1963. [Mechanisms Lab]
+222. F. L. Litvin & A. Fuentes, *Gear Geometry and Applied Theory*, 2nd ed., Cambridge University Press, 2004. [Mechanisms Lab]
+223. F. Freudenstein, “Approximate synthesis of four-bar linkages”, *Transactions of the ASME* 77, 1955. [Mechanisms Lab]
+224. R. L. Norton, *Cam Design and Manufacturing Handbook*, 2nd ed., Industrial Press, 2009. [Mechanisms Lab]
+
+## Human factors
+
+225. C. C. Gordon et al., *2012 Anthropometric Survey of U.S. Army Personnel: Methods and Summary Statistics*, NATICK/TR-15/007, 2014 (ANSUR II). [Human Factors Lab]
+226. N. A. Dodgson, “Variation and extrema of human interpupillary distance”, *Proc. SPIE* 5291, 2004. [Human Factors Lab]
+227. S. Pheasant & C. M. Haslegrave, *Bodyspace: Anthropometry, Ergonomics and the Design of Work*, 3rd ed., CRC Press, 2006. [Human Factors Lab]
+228. ISO 7250-1, *Basic human body measurements for technological design — Part 1: Body measurement definitions and landmarks*. [Human Factors Lab]
+229. ISO 8624, *Ophthalmic optics — Spectacle frames — Measuring system and vocabulary*. [Human Factors Lab]
+230. M. S. Sanders & E. J. McCormick, *Human Factors in Engineering and Design*, 7th ed., McGraw-Hill, 1993. [Human Factors Lab]
+231. C. D. Wickens, J. G. Hollands, S. Banbury & R. Parasuraman, *Engineering Psychology and Human Performance*, 4th ed., Pearson, 2013. [Human Factors Lab]
+232. B. Kress & T. Starner, “A review of head-mounted displays (HMD) technologies and applications for consumer electronics”, *Proc. SPIE* 8720, 2013. [Human Factors Lab]
+233. B. C. Kress, *Optical Architectures for Augmented-, Virtual-, and Mixed-Reality Headsets*, SPIE Press, 2020. [Human Factors Lab]
+234. E. M. Landis, “Micro-injection studies of capillary blood pressure in human skin”, *Heart* 15, 209–228, 1930. [Human Factors Lab]
+235. S. Derler & L.-C. Gerhardt, “Tribology of skin: review and analysis of experimental results for the friction coefficient of human skin”, *Tribology Letters* 45, 1–27, 2012. [Human Factors Lab]
+236. G. S. Daniels, “The ‘Average Man’?”, Technical Note WCRD 53-7, Wright Air Development Center, 1952. [Human Factors Lab]
+237. ANSI/HFES 100-2007, *Human Factors Engineering of Computer Workstations*. [Human Factors Lab]
+
+## Reliability & test
+
+238. R. B. Abernethy, *The New Weibull Handbook*, 5th ed., 2006. [Reliability & Test Lab]
+239. W. Q. Meeker & L. A. Escobar, *Statistical Methods for Reliability Data*, Wiley, 1998. [Reliability & Test Lab]
+240. W. Nelson, *Accelerated Testing*, Wiley, 1990. [Reliability & Test Lab]
+241. P. D. T. O'Connor & A. Kleyner, *Practical Reliability Engineering*, 5th ed., Wiley, 2012. [Reliability & Test Lab]
+242. NIST/SEMATECH, *e-Handbook of Statistical Methods*, chapter 8 (assessing product reliability). <https://www.itl.nist.gov/div898/handbook/apr/apr.htm> [Reliability & Test Lab]
+243. MIL-HDBK-217F, *Reliability Prediction of Electronic Equipment*, 1991 (Notice 2, 1995). [Reliability & Test Lab]
+244. C. Lipson & N. J. Sheth, *Statistical Design and Analysis of Engineering Experiments*, McGraw-Hill, 1973. [Reliability & Test Lab]
+245. J. Lieblein & M. Zelen, “Statistical investigation of the fatigue life of deep-groove ball bearings”, *J. Res. NBS* 57(5), 1956. [Reliability & Test Lab]
+246. M. Rausand & A. Høyland, *System Reliability Theory*, 2nd ed., Wiley, 2004. [Reliability & Test Lab]
+
+## Program management & business
+
+247. PMI, *A Guide to the Project Management Body of Knowledge (PMBOK Guide)*, 7th ed., 2021. [Program & Business Lab]
+248. NASA, *Cost Estimating Handbook*, version 4.0, 2015. [Program & Business Lab]
+249. U.S. DoD, *Technology Readiness Assessment Guidebook*. [Program & Business Lab]
+250. U.S. DoD, *Manufacturing Readiness Level (MRL) Deskbook*. [Program & Business Lab]
+251. J. C. Mankins, “Technology readiness levels: a white paper”, NASA, 1995. [Program & Business Lab]
+252. J. E. Kelley & M. R. Walker, “Critical-path planning and scheduling”, Proc. Eastern Joint Computer Conference, 1959. [Program & Business Lab]
+253. D. G. Malcolm, J. H. Roseboom, C. E. Clark & W. Fazar, “Application of a technique for research and development program evaluation”, *Operations Research* 7(5), 1959. [Program & Business Lab]
+254. D. Hulett, *Practical Schedule Risk Analysis*, Gower, 2009. [Program & Business Lab]
+255. Q. W. Fleming & J. M. Koppelman, *Earned Value Project Management*, 4th ed., PMI, 2010. [Program & Business Lab]
+256. W. Lipke, “Schedule is different”, *The Measurable News*, 2003. [Program & Business Lab]
+257. D. S. Christensen & S. R. Heise, “Cost performance index stability”, *National Contract Management Journal*, 1993. [Program & Business Lab]
+258. K. T. Ulrich & S. D. Eppinger, *Product Design and Development*, McGraw-Hill. [Program & Business Lab]
+259. R. A. Brealey, S. C. Myers & F. Allen, *Principles of Corporate Finance*, McGraw-Hill. [Program & Business Lab]
+260. G. Marsaglia & W. W. Tsang, “A simple method for generating gamma variables”, *ACM Transactions on Mathematical Software* 26(3), 2000. [Program & Business Lab]
 
 ## Learning resources (English)
 

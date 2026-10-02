@@ -83,6 +83,7 @@ export function ClampTab() {
               rows={[
                 ['Material', `${c.material}, E = ${f1(c.model.e_mpa / 1000, 2)} GPa (typical)`],
                 ['Contact behind the hinge', `${f1(c.model.l_c)} mm`],
+                ['Spring hinge', c.model.hinge && c.model.hinge_crack_n != null ? `opens past ${f1(c.model.hinge_crack_n, 2)} N (${f1(c.model.hinge.crack_torque_nmm, 1)} N·mm), stop at ${f1(c.model.hinge.stop_deg, 0)}° — Mechanisms Lab` : 'none (rigid at the stop)'],
                 ['Unloaded spread at contact', `${f1(c.model.s0)} mm`],
                 ['Root bending stress at P95', `${f1(c.root_stress_p95_mpa)} MPa`],
                 ['Frame yaw from L/R asymmetry', `${f1(c.yaw_p95_deg, 2)}° at P95`],
@@ -93,7 +94,7 @@ export function ClampTab() {
       )}
       {c && <ComplianceCard m={c.model} />}
       {c && c.notes.map((n) => <div key={n} className="hf-note">{n}</div>)}
-      <div className="grid grid-3">
+      <div className="grid grid-2">
         <Explainer title="Temples are stepped cantilevers" refs={[REFS.roark]}>
           Built in at the hinge and pushed outwards at the contact, each temple deflects by the unit-load (Castigliano) integral over its sections — the stiff hollow pod, then the
           slender arm:
@@ -104,6 +105,13 @@ export function ClampTab() {
           <Formula>{'θ = M Σ ℓᵢ/(E Iᵢ)   →   F = max(0, H − S₀) / (L_c² Σ ℓ/EI + c_R + c_L),   S₀ = 2x_in + 2L_c tan(splay)'}</Formula>
           A long lever makes the front the softest spring — and a stiffer front (bonded lenses, metal core) raises the clamp.
         </Explainer>
+        <Explainer title="…unless the hinge gives first" refs={[REFS.roark]}>
+          Iris's spring hinge stays on its stop until the moment F L_c reaches the spring's over-travel torque T(0) from the Mechanisms Lab; then the temple swings open by α
+          with F L_c = T(α) and each contact moves out by L_c sin α:
+          <Formula>{'H − S₀ = F c_total + 2 L_c sin α(F),   α = 0 while F L_c ≤ T(0)'}</Formula>
+          So the hinge is a clamp-force limiter: wide heads are held near T(0)/L_c until the over-travel stop. Too weak a spring and every head is loose; no hinge and the wide heads
+          are squeezed.
+        </Explainer>
         <Explainer title="Where the comfort band comes from" refs={[REFS.landis, REFS.derler]}>
           Lower edge: the force that stops the glasses sliding down the nose when you look down {cfg.look_down_deg}° with μ = {cfg.friction_mu} (Weight & balance tab). Upper edge:
           the temple contact pressure F / (contact length × temple height) reaching the {cfg.pressure_limit_kpa} kPa sustained-pressure limit. Both are typical, assumption-driven
@@ -113,6 +121,29 @@ export function ClampTab() {
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------- spring hinge
+
+/** Mirrors `ClampModel::force` in the engine: frame bending in series with the spring hinge. */
+function clampForce(m: ClampModel, H: number): { f: number; alpha: number } {
+  const d = H - m.s0;
+  if (d <= 0) return { f: 0, alpha: 0 };
+  const h = m.hinge;
+  if (!h) return { f: d / m.c_total, alpha: 0 };
+  const rad = Math.PI / 180;
+  const table = h.alpha_deg.map((a, i) => {
+    const f = h.torque_nmm[i] / m.l_c;
+    return [f * m.c_total + 2 * m.l_c * Math.sin(a * rad), f, a];
+  });
+  if (d <= table[0][0]) return { f: d / m.c_total, alpha: 0 };
+  const last = table[table.length - 1];
+  if (d >= last[0]) return { f: Math.max(last[1], (d - 2 * m.l_c * Math.sin(h.stop_deg * rad)) / m.c_total), alpha: h.stop_deg };
+  let i = 1;
+  while (i < table.length - 1 && table[i][0] <= d) i++;
+  const [a, b] = [table[i - 1], table[i]];
+  const w = b[0] > a[0] ? (d - a[0]) / (b[0] - a[0]) : 1;
+  return { f: a[1] + w * (b[1] - a[1]), alpha: a[2] + w * (b[2] - a[2]) };
 }
 
 // ---------------------------------------------------------------- top view
@@ -146,7 +177,8 @@ function TopView({ c, cfg }: { c: ClampOut; cfg: ErgoConfig }) {
   const idx = Math.max(0, Math.min(c.percentiles.length - 1, Math.round(pct) - 1));
   const H = c.hb_vs_pct[2][idx];
   const m = c.model;
-  const F = Math.max(0, (H - m.s0) / m.c_total);
+  const { f: F, alpha } = clampForce(m, H);
+  const hingeOpen = (alpha * Math.PI) / 180; // spring-hinge over-travel per side
   const verdict = F < c.band.min_n ? 'too loose' : F > c.band.max_n ? 'too tight' : 'comfortable';
   const g = c.frame.geom;
   const theta = (F * m.l_c * m.front_flex) / 2; // per-side hinge rotation from front bending
@@ -166,7 +198,7 @@ function TopView({ c, cfg }: { c: ClampOut; cfg: ErgoConfig }) {
     const pts: string[] = [];
     for (let i = 0; i <= 40; i++) {
       const s = (lenTotal * i) / 40;
-      const x = side * (g.temple_inner_x + s * Math.tan(splay) + s * Math.sin(theta) + v(s));
+      const x = side * (g.temple_inner_x + s * Math.tan(splay) + s * Math.sin(theta + hingeOpen) + v(s));
       const y = g.pin_y - s;
       pts.push(`${X(x).toFixed(1)},${Y(y).toFixed(1)}`);
     }
@@ -208,7 +240,7 @@ function TopView({ c, cfg }: { c: ClampOut; cfg: ErgoConfig }) {
           <text x={X(0)} y={Y(yC) + 22} textAnchor="middle" className="hf-lbl">{verdict}</text>
           <text x={8} y={14} className="hf-lbl">head breadth P{Math.round(pct)} = {H.toFixed(0)} mm</text>
           <text x={8} y={29} className="hf-lbl">rest spread {m.s0.toFixed(0)} mm · splay {cfg.temple_splay_deg.toFixed(1)}°</text>
-          <text x={X(0)} y={Y(14) - 6} textAnchor="middle" className="hf-lbl">front (bows {(theta * 180 / Math.PI).toFixed(1)}° per hinge)</text>
+          <text x={X(0)} y={Y(14) - 6} textAnchor="middle" className="hf-lbl">front (bows {(theta * 180 / Math.PI).toFixed(1)}° per hinge){m.hinge ? ` · spring hinge open ${alpha.toFixed(1)}°` : ''}</text>
         </svg>
       </div>
       <div className="hf-legend">

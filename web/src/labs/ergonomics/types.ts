@@ -132,10 +132,14 @@ export interface BalanceOut {
 }
 
 export interface Segment { name: string; s0: number; s1: number; i_mm4: number; ei: number }
+export interface SpringHinge { alpha_deg: number[]; torque_nmm: number[]; stop_deg: number; crack_torque_nmm: number }
 export interface ClampModel {
   e_mpa: number; l_c: number; s0: number; splay_deg: number;
   right: Segment[]; left: Segment[]; front: Segment[]; front_flex: number;
   c_right: number; c_left: number; c_front: number; c_total: number;
+  /** Spring hinge from the Mechanisms Lab in series with the frame (null = hinge locked at its stop). */
+  hinge?: SpringHinge | null;
+  hinge_crack_n?: number | null;
 }
 export interface ClampRow { group: Group; percentile: number; head_breadth_mm: number; force_n: number; verdict: string }
 export interface ClampOut {
