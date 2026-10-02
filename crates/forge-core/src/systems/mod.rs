@@ -41,9 +41,11 @@ use serde_json::Value;
 use crate::api::{handle, ApiResult};
 use crate::project::{Cmp, Metric, Project, ReqKind, TradeStudy};
 
-/// Collect metrics from every analysis module.
+/// A module's metrics function.
+pub type MetricsFn = fn(&Project) -> Vec<Metric>;
+
 /// Every module that contributes metrics, in evaluation order.
-pub const METRIC_MODULES: &[(&str, fn(&Project) -> Vec<Metric>)] = &[
+pub const METRIC_MODULES: &[(&str, MetricsFn)] = &[
     ("power", crate::power::metrics),
     ("optics", crate::optics::metrics),
     ("circuit", crate::circuit::metrics),
@@ -69,6 +71,7 @@ pub const METRIC_MODULES: &[(&str, fn(&Project) -> Vec<Metric>)] = &[
     ("rf", crate::rf::metrics),
 ];
 
+/// Collect metrics from every analysis module.
 pub fn all_metrics(p: &Project) -> Vec<Metric> {
     let mut m = Vec::new();
     for (_, f) in METRIC_MODULES {
@@ -718,11 +721,13 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         "systems.evaluate" => handle(input, |p: Project| Ok(evaluate(&p))),
         "systems.metrics" => handle(input, |p: Project| Ok(all_metrics(&p))),
         "systems.module_metrics" => handle(input, |i: ModuleMetricsIn| {
-            let f = METRIC_MODULES
-                .iter()
-                .find(|(n, _)| *n == i.module)
-                .map(|(_, f)| f)
-                .ok_or_else(|| format!("unknown module `{}`; one of {:?}", i.module, METRIC_MODULES.iter().map(|x| x.0).collect::<Vec<_>>()))?;
+            let f = METRIC_MODULES.iter().find(|(n, _)| *n == i.module).map(|(_, f)| f).ok_or_else(|| {
+                format!(
+                    "unknown module `{}`; one of {:?}",
+                    i.module,
+                    METRIC_MODULES.iter().map(|x| x.0).collect::<Vec<_>>()
+                )
+            })?;
             Ok(f(&i.project))
         }),
         "systems.trace" => handle(input, |p: Project| Ok(trace_graph(&p))),
