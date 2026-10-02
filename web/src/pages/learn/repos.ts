@@ -186,7 +186,7 @@ export const REPOS: RepoGroup[] = [
   {
     discipline: "Human factors",
     items: [
-      { name: "ANSUR II public data (Probably Overthinking It)", repo: "AllenDowney/ProbablyOverthinkingIt", lab: "/ergonomics", learn: "The raw ANSUR II measurement files behind the lab's head-breadth and pupil-distance statistics; extend the lab to any other body dimension." },
+      { name: "ANSUR II public data (Probably Overthinking It)", repo: "AllenDowney/ProbablyOverthinkingIt", lab: "/ergonomics", learn: "The public ANSUR II measurement files (data/ANSURIIMALEPublic.csv and data/ANSURIIFEMALEPublic.csv on the repository's book branch) — the survey behind the lab's head-breadth and pupil-distance statistics; extend the lab to any other body dimension." },
     ],
   },
   {
