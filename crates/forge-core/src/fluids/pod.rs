@@ -2138,7 +2138,7 @@ pub fn trade(i: TradeIn) -> Result<TradeOut, String> {
     let area_opt = sheet_area("optics");
     let mut rows = vec![TradeRow {
         id: "none".into(),
-        label: "No spreader (current)".into(),
+        label: "No spreader (baseline)".into(),
         spreader: "none".into(),
         thickness_um: 0.0,
         location: "-".into(),
