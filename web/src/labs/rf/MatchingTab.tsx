@@ -147,13 +147,19 @@ export function MatchingTab() {
                   {iris.data.current_network.length ? (
                     <>Network: <b>{iris.data.current_labels.join(' + ')}</b></>
                   ) : (
-                    <>✕ <b>No matching network</b> — the bill of materials (BOM) has the chip antenna wired straight to the radio. PCB Studio flags the same gap.</>
+                    iris.data.bom.some((b) => b.in_bom) ? (
+                      <>✕ <b>No matching network stored</b> — the bill of materials (BOM) has {iris.data.bom.filter((b) => b.in_bom).map((b) => b.refdes).join(' and ')}, but the analysis reads the network from design.extra.rf, so it treats the antenna as unmatched.</>
+                    ) : (
+                      <>✕ <b>No matching network</b> — the bill of materials (BOM) has the chip antenna wired straight to the radio. PCB Studio flags the same gap.</>
+                    )
                   )}
                 </div>
                 <Chip tone={iris.data.current_summary.worst_rl_db >= 10 ? 'pass' : 'fail'}>
                   {iris.data.current_summary.worst_rl_db >= 10 ? '✓' : '✕'} rf.match_return_loss_db = {fmt(iris.data.current_summary.worst_rl_db, 1)} dB
                 </Chip>
-                <div className="small muted">Parts to add (recommended network):</div>
+                <div className="small muted">
+                  {iris.data.bom.every((b) => b.in_bom) ? 'Recommended network (these parts are already in the BOM):' : 'Parts to add (recommended network):'}
+                </div>
                 <table className="table">
                   <tbody>
                     {iris.data.bom.map((b) => (
@@ -161,6 +167,7 @@ export function MatchingTab() {
                         <td className="mono">{b.refdes}</td>
                         <td>{b.value}</td>
                         <td className="muted small">{b.footprint}</td>
+                        <td className="muted small">{b.in_bom ? '✓ in BOM' : '+ add'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -172,7 +179,7 @@ export function MatchingTab() {
                 <DownloadButton
                   small
                   filename="iris-rf-match-bom.csv"
-                  content={() => toCsv([['refdes', 'name', 'value', 'footprint', 'note'], ...iris.data!.bom.map((b) => [b.refdes, b.name, b.value, b.footprint, b.note])])}
+                  content={() => toCsv([['refdes', 'name', 'value', 'footprint', 'note', 'in_bom'], ...iris.data!.bom.map((b) => [b.refdes, b.name, b.value, b.footprint, b.note, b.in_bom ? 'yes' : 'no'])])}
                   label="BOM rows CSV"
                 />
               </div>

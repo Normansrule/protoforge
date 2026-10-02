@@ -30,7 +30,7 @@ export interface LinkOut {
 }
 
 export interface Metric { key: string; label: string; value: number; unit: string; source: string; note: string }
-export interface BomRow { refdes: string; name: string; value: string; footprint: string; note: string }
+export interface BomRow { refdes: string; name: string; value: string; footprint: string; note: string; in_bom: boolean }
 
 export interface IrisOut {
   design: IrisRf; stored: boolean; h_mm: number;

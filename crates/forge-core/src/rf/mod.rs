@@ -228,6 +228,9 @@ pub struct BomRow {
     pub value: String,
     pub footprint: String,
     pub note: String,
+    /// The project's components already hold this matching part (same position and L/C kind).
+    #[serde(default)]
+    pub in_bom: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -308,10 +311,22 @@ pub fn iris(p: &Project) -> Result<IrisOut, String> {
             + 1
     };
     let (mut nl, mut nc) = (next_free("L"), next_free("C"));
+    // Matching parts already in the BOM (v0.6 carries "RF match series …" / "RF match shunt …").
+    let existing = |series: bool, is_l: bool| {
+        p.components.iter().find(|c| {
+            let n = c.name.to_lowercase();
+            n.contains("rf match")
+                && n.contains(if series { "series" } else { "shunt" })
+                && c.refdes.starts_with(if is_l { 'L' } else { 'C' })
+        })
+    };
     let bom: Vec<BomRow> = rec
         .iter()
         .map(|e| BomRow {
-            refdes: if e.kind.is_l() {
+            in_bom: existing(e.kind.is_series(), e.kind.is_l()).is_some(),
+            refdes: if let Some(c) = existing(e.kind.is_series(), e.kind.is_l()) {
+                c.refdes.clone()
+            } else if e.kind.is_l() {
                 nl += 1;
                 format!("L{}", nl - 1)
             } else {
@@ -525,6 +540,10 @@ mod tests {
         assert!(get("rf.match_return_loss_db") > 10.0);
         assert!((get("rf.feed_z0_ohm") - 50.0).abs() < 5.0);
         assert!(get("rf.link_margin_db") > o.link.margin_db);
+        // v0.5 has no matching parts: the rows are new refdes; v0.6 already carries L2 (series) and L3 (shunt)
+        assert!(o.bom.iter().all(|b| !b.in_bom));
+        let rows: Vec<(&str, bool)> = v6.bom.iter().map(|b| (b.refdes.as_str(), b.in_bom)).collect();
+        assert_eq!(rows, vec![("L2", true), ("L3", true)], "{:?}", v6.bom);
     }
 
     #[test]
