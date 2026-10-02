@@ -523,6 +523,12 @@ pub fn kicad_pro(p: &Project) -> String {
             .fold(r.trace_mm, f64::max)
             .min(0.5)
     };
+    // The RF net class carries the feed the RF & Antenna Lab designed (a
+    // grounded coplanar waveguide: width and gap to the pour), when set.
+    let rf_class = match crate::rf::IrisRf::from_project(p).feed {
+        Some(f) => class("RF", f.width_mm.max(r.trace_mm), f.gap_mm.max(r.clearance_mm)),
+        None => class("RF", class_width(NetClass::Rf), r.clearance_mm.max(0.2)),
+    };
     let mut patterns = Vec::new();
     for n in &l.nets {
         if n.class != NetClass::Signal {
@@ -552,7 +558,7 @@ pub fn kicad_pro(p: &Project) -> String {
                 class("Default", r.trace_mm, r.clearance_mm),
                 class("Power", class_width(NetClass::Power), r.clearance_mm),
                 class("Ground", class_width(NetClass::Ground), r.clearance_mm),
-                class("RF", class_width(NetClass::Rf), r.clearance_mm.max(0.2))
+                rf_class
             ],
             "meta": { "version": 3 },
             "net_colors": null,

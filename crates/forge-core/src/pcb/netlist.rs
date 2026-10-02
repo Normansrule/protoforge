@@ -102,6 +102,23 @@ pub const PINS: &[(&str, &str, &str)] = &[
     ("C3", "1", "1V8"),
     ("C3", "2", "GND"),
     ("AE1", "1", "RF"),
+    // optional RF matching network (series L2, shunt L3 at the antenna) — when
+    // L2 is fitted the antenna moves to its own net RF_ANT
+    ("L2", "1", "RF"),
+    ("L2", "2", "RF_ANT"),
+    ("L3", "1", "RF_ANT"),
+    ("L3", "2", "GND"),
+    // optional 32 MHz crystal + load capacitors on the SoC's XC1/XC2 pins
+    ("U1", "11", "XC1"),
+    ("U1", "12", "XC2"),
+    ("Y1", "1", "XC1"),
+    ("Y1", "2", "GND"),
+    ("Y1", "3", "XC2"),
+    ("Y1", "4", "GND"),
+    ("C7", "1", "XC1"),
+    ("C7", "2", "GND"),
+    ("C8", "1", "XC2"),
+    ("C8", "2", "GND"),
     // IMU (LGA-14, I²C mode)
     ("U3", "1", "GND"),
     ("U3", "4", "IMU_INT"),
@@ -198,6 +215,11 @@ pub const DECOUPLING: &[(&str, &str, &str)] = &[
     ("C4", "U3", "8"),
     ("C5", "U4", "4"),
     ("C6", "R2", "1"),
+    ("Y1", "U1", "11"),
+    ("C7", "U1", "11"),
+    ("C8", "U1", "12"),
+    ("L2", "AE1", "1"),
+    ("L3", "AE1", "1"),
 ];
 
 /// Board-level copper features that are not BOM components.
@@ -207,7 +229,7 @@ pub fn net_class(name: &str) -> NetClass {
     match name {
         "GND" => NetClass::Ground,
         "VBUS" | "VBAT" | "1V8" | "3V3_DISP" | "SW" => NetClass::Power,
-        "RF" => NetClass::Rf,
+        "RF" | "RF_ANT" => NetClass::Rf,
         _ => NetClass::Signal,
     }
 }
@@ -231,7 +253,9 @@ fn net_description(name: &str) -> &'static str {
         "1V8" => "Main 1.8 V logic rail from the buck",
         "3V3_DISP" => "Switched display supply through the load switch",
         "GND" => "Ground — bottom-layer pour stitched with vias",
-        "RF" => "2.4 GHz feed from the SoC antenna pin to the chip antenna",
+        "RF" => "2.4 GHz feed from the SoC antenna pin (to the matching network, if fitted)",
+        "RF_ANT" => "2.4 GHz feed from the matching network to the chip antenna",
+        "XC1" | "XC2" => "32 MHz crystal — keep short, ground underneath, away from the switch node",
         "I2C_SCL" | "I2C_SDA" => "I²C bus: IMU + touch controller, 4.7 kΩ pull-ups",
         "PDM_CLK" | "PDM_DAT" => "Shared PDM bus for the two microphones (L/R by SELECT strap)",
         "VBAT_SENSE" => "Divided battery voltage into the SoC ADC",
@@ -274,9 +298,14 @@ pub fn build_nets(p: &Project, present: &dyn Fn(&str, &str) -> bool, gpio: &[(St
     }
     // GPIO nets whose far end lives on the SoC must include the SoC pin.
     let mut nets: Vec<NetDef> = Vec::new();
-    for (r, pin, n) in table {
+    // With the series matching inductor fitted, the antenna sits on its own net.
+    let matched = present("L2", "1");
+    for (r, pin, mut n) in table {
         if !present(&r, &pin) {
             continue;
+        }
+        if matched && r == "AE1" && n == "RF" {
+            n = "RF_ANT".to_string();
         }
         if let Some(nd) = nets.iter_mut().find(|x| x.name == n) {
             nd.pins.push((r, pin));
@@ -291,6 +320,8 @@ pub fn build_nets(p: &Project, present: &dyn Fn(&str, &str) -> bool, gpio: &[(St
         }
     }
     let _ = p;
+    // a net needs two pins (e.g. the SoC's crystal pins without a crystal fitted)
+    nets.retain(|n| n.pins.len() >= 2);
     nets
 }
 
@@ -310,7 +341,9 @@ mod tests {
         for (cap, ic, pin) in DECOUPLING {
             let cap_net = PINS.iter().find(|(r, p, _)| r == cap && *p == "1").map(|x| x.2).unwrap();
             let ic_net = PINS.iter().find(|(r, p, _)| r == ic && p == pin).map(|x| x.2).unwrap();
-            assert_eq!(cap_net, ic_net, "{cap}");
+            // the antenna pad moves to RF_ANT when the matching network is fitted
+            let same = cap_net == ic_net || (cap_net == "RF_ANT" && ic_net == "RF");
+            assert!(same, "{cap}: {cap_net} vs {ic_net}");
         }
     }
 }

@@ -3,7 +3,7 @@
     "id": "iris",
     "name": "Iris Smart Glasses",
     "codename": "IRIS",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "tagline": "Open-source monocular heads-up display glasses, built from scratch",
     "description": "Iris is a reference product for Protoforge: lightweight glasses with a 640x400 micro-OLED heads-up display in the right eye, two-microphone voice capture, head tracking, a capacitive touch strip and a Bluetooth Low Energy (BLE) link to a phone. Every number in this file feeds a simulation somewhere in the workbench.",
     "author": "Aleksander Norman"
@@ -787,6 +787,353 @@
         "target": 0.66,
         "unit": "ratio"
       }
+    },
+    {
+      "id": "R-036",
+      "text": "The antenna port return loss shall be at least 10 dB across 2.400–2.4835 GHz.",
+      "rationale": "VSWR ≤ 1.9 is the usual small-antenna target; v0.5 had no matching network (3.9 dB, VSWR 4.5). Verified by analysis on an ASSUMED antenna impedance — confirm with a VNA.",
+      "kind": "performance",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-CMP",
+        "SYS-PCB"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "rf.match_return_loss_db",
+        "cmp": "ge",
+        "target": 10,
+        "unit": "dB"
+      }
+    },
+    {
+      "id": "R-037",
+      "text": "The antenna feed trace shall have a characteristic impedance of 50 Ω ± 5 Ω.",
+      "rationale": "A 0.15 mm trace on the 0.8 mm board is ~95 Ω; v0.6 specifies a grounded coplanar waveguide feed.",
+      "kind": "interface",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-PCB"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "rf.feed_z0_ohm",
+        "cmp": "between",
+        "target": 45,
+        "unit": "Ω",
+        "target_hi": 55
+      }
+    },
+    {
+      "id": "R-038",
+      "text": "The Bluetooth LE link to a phone 5 m away, worn on the head, shall close with ≥ 0 dB margin at 90 % availability.",
+      "rationale": "Captions stream from the phone; head and body losses plus a Rayleigh fade margin are included.",
+      "kind": "performance",
+      "derives_from": [
+        "N-4"
+      ],
+      "allocated_to": [
+        "SYS-CMP"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "rf.link_margin_db",
+        "cmp": "ge",
+        "target": 0,
+        "unit": "dB"
+      }
+    },
+    {
+      "id": "R-039",
+      "text": "The hottest exposed frame surface shall stay at or below 41 °C with the display always on (3-D conduction model).",
+      "rationale": "The lumped R-008 model averages heat over the pod; the 3-D model found a 63 °C hotspot on the optics housing behind the display in v0.5.",
+      "kind": "safety",
+      "derives_from": [
+        "N-5"
+      ],
+      "allocated_to": [
+        "SYS-OPT",
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "fluids.peak_skin_c",
+        "cmp": "le",
+        "target": 41,
+        "unit": "C"
+      }
+    },
+    {
+      "id": "R-040",
+      "text": "The hottest frame surface shall be no more than 10 °C above the area-mean surface temperature.",
+      "rationale": "Flags heat with nowhere to spread before it becomes a skin-temperature problem.",
+      "kind": "performance",
+      "derives_from": [
+        "N-5"
+      ],
+      "allocated_to": [
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "fluids.hotspot_over_mean_c",
+        "cmp": "le",
+        "target": 10,
+        "unit": "C"
+      }
+    },
+    {
+      "id": "R-041",
+      "text": "The spring-hinge spring shall have a Goodman fatigue safety factor of at least 1.5 over the usage spectrum.",
+      "rationale": "Shigley's spring design examples use 1.5; v0.5's spring was 1.40 at the over-travel stop.",
+      "kind": "safety",
+      "derives_from": [
+        "N-1"
+      ],
+      "allocated_to": [
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "mechanisms.hinge_spring_sf",
+        "cmp": "ge",
+        "target": 1.5,
+        "unit": "x"
+      }
+    },
+    {
+      "id": "R-042",
+      "text": "The spring hinge shall survive at least 13,140 open/close uses (12 a day for 3 years).",
+      "rationale": "Usage spectrum from the Mechanisms Lab; Miner's rule on Shigley's spring allowables.",
+      "kind": "performance",
+      "derives_from": [
+        "N-1"
+      ],
+      "allocated_to": [
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "mechanisms.hinge_life_cycles",
+        "cmp": "ge",
+        "target": 13140,
+        "unit": "cycles"
+      }
+    },
+    {
+      "id": "R-043",
+      "text": "Opening the folded temple past the detent shall need 3–30 N·mm.",
+      "rationale": "Provisional range: a detent you feel but can open with one hand — confirm with a user test.",
+      "kind": "functional",
+      "derives_from": [
+        "N-1"
+      ],
+      "allocated_to": [
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "mechanisms.hinge_open_torque_nmm",
+        "cmp": "between",
+        "target": 3,
+        "unit": "N·mm",
+        "target_hi": 30
+      }
+    },
+    {
+      "id": "R-044",
+      "text": "One frame size shall fit at least 30 % of adults (50 % women) on every fit rule: pupil distance, temple length and clamp force.",
+      "rationale": "ANSUR II population model. v0.5 fit nobody: the rigid front clamped too hard, and the original spring hinge opened at 0.08 N, too loose.",
+      "kind": "performance",
+      "derives_from": [
+        "N-1"
+      ],
+      "allocated_to": [
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "ergonomics.fit_coverage_pct",
+        "cmp": "ge",
+        "target": 30,
+        "unit": "%"
+      }
+    },
+    {
+      "id": "R-045",
+      "text": "Nose-pad contact pressure shall stay at or below 4.3 kPa.",
+      "rationale": "About 32 mmHg capillary closing pressure (Landis 1930), a typical sustained-pressure limit for skin.",
+      "kind": "safety",
+      "derives_from": [
+        "N-1"
+      ],
+      "allocated_to": [
+        "SYS-FRM"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "ergonomics.nose_pad_pressure_kpa",
+        "cmp": "le",
+        "target": 4.3,
+        "unit": "kPa"
+      }
+    },
+    {
+      "id": "R-046",
+      "text": "At least 85 % of wearers shall see the whole image without adjustment.",
+      "rationale": "A fixed 6 mm eyebox must sit where most pupils are; v0.5 centred it 2.6 mm too far out (60 %).",
+      "kind": "performance",
+      "derives_from": [
+        "N-3"
+      ],
+      "allocated_to": [
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "ergonomics.eyebox_coverage_pct",
+        "cmp": "ge",
+        "target": 85,
+        "unit": "%"
+      }
+    },
+    {
+      "id": "R-047",
+      "text": "Captions should reach 1.5 : 1 contrast against a 5,000 cd/m² sunlit street.",
+      "rationale": "Outdoor legibility; needs a tinted lens or a brighter display — kept as an open goal.",
+      "kind": "goal",
+      "derives_from": [
+        "N-3"
+      ],
+      "allocated_to": [
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "ergonomics.outdoor_contrast",
+        "cmp": "ge",
+        "target": 1.5,
+        "unit": ":1"
+      }
+    },
+    {
+      "id": "R-048",
+      "text": "Reliability over 2 years (8 h a day, 12 hinge cycles a day) shall be at least 90 %, counting a battery below 80 % capacity as a failure.",
+      "rationale": "The Reliability Lab found the 180 mAh cell's cycle wear-out dominates (76 % in v0.5).",
+      "kind": "performance",
+      "derives_from": [
+        "N-2",
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-PWR"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "reliability.r_2yr_pct",
+        "cmp": "ge",
+        "target": 90,
+        "unit": "%"
+      }
+    },
+    {
+      "id": "R-049",
+      "text": "The parts-count MTBF of the electronics shall be at least 1,000,000 h (typical failure rates).",
+      "rationale": "Random-failure budget; replace typical rates with supplier data before DVT.",
+      "kind": "performance",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-PCB"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "reliability.mtbf_h",
+        "cmp": "ge",
+        "target": 1000000,
+        "unit": "h"
+      }
+    },
+    {
+      "id": "R-050",
+      "text": "The DVT plan shall demonstrate R = 0.9 at 90 % confidence with no more than 40 product units.",
+      "rationale": "Keeps the design-verification build affordable for a small team.",
+      "kind": "manufacturing",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-MFG"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "reliability.dvt_units",
+        "cmp": "le",
+        "target": 40,
+        "unit": "units"
+      }
+    },
+    {
+      "id": "R-051",
+      "text": "Production-validation exit shall be within 52 weeks at 80 % confidence.",
+      "rationale": "Commit externally to the P80 of the schedule Monte Carlo, not the most-likely plan.",
+      "kind": "performance",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-MFG"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "program.p80_weeks",
+        "cmp": "le",
+        "target": 52,
+        "unit": "weeks"
+      }
+    },
+    {
+      "id": "R-052",
+      "text": "Gross margin shall be at least 50 % at the stated retail price and target quantity.",
+      "rationale": "Typical hardware margin floor that funds support, returns and the next product.",
+      "kind": "cost",
+      "derives_from": [
+        "N-8"
+      ],
+      "allocated_to": [
+        "SYS-MFG"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "program.gross_margin_pct",
+        "cmp": "ge",
+        "target": 50,
+        "unit": "%"
+      }
+    },
+    {
+      "id": "R-053",
+      "text": "Every subsystem should reach technology readiness level 6 by the critical design review.",
+      "rationale": "Most subsystems have analysis evidence only — building the EVT prototype is what raises them. Kept as an open goal.",
+      "kind": "goal",
+      "derives_from": [
+        "N-7"
+      ],
+      "allocated_to": [
+        "SYS-MFG"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "program.min_trl",
+        "cmp": "ge",
+        "target": 6,
+        "unit": "TRL"
+      }
     }
   ],
   "subsystems": [
@@ -1373,13 +1720,13 @@
     },
     {
       "refdes": "BT1",
-      "name": "LiPo cell 180 mAh",
+      "name": "LiPo cell 240 mAh",
       "part_class": "3.7 V pouch cell with protection",
-      "example_part": "3.7 V 180 mAh LiPo, ~4 g",
+      "example_part": "3.7 V 240 mAh pouch cell with protection (e.g. about 6 × 10 × 36 mm to fit the battery pod), ~5.3 g",
       "subsystem": "SYS-PWR",
       "qty": 1,
       "unit_cost_usd": 3.0,
-      "mass_g": 4.0,
+      "mass_g": 5.33,
       "footprint": "",
       "on_pcb": false,
       "location": "left_pod"
@@ -1414,7 +1761,7 @@
       "refdes": "HW1",
       "name": "Hinge screws + spring hinge",
       "part_class": "M1.4 screws, 5-barrel hinge",
-      "example_part": "Eyewear hinge kit",
+      "example_part": "M1.4 screws, 5-barrel spring hinge: Ø0.6 mm shot-peened 302 stainless spring, D 2.4 mm, 5 active coils, 10° over-travel stop",
       "subsystem": "SYS-FRM",
       "qty": 2,
       "unit_cost_usd": 0.4,
@@ -1466,6 +1813,168 @@
       "footprint": "",
       "on_pcb": false,
       "location": "front_right"
+    },
+    {
+      "refdes": "R6",
+      "name": "USB-C CC1 pull-down 5.1 k",
+      "part_class": "Thick film 1 %",
+      "example_part": "5.1 kΩ 0402 (Rd) so C-to-C chargers supply VBUS",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.005,
+      "mass_g": 0.001,
+      "power": {
+        "active_mw": 0.0,
+        "sleep_mw": 0.0,
+        "duty": 0.0
+      },
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "R7",
+      "name": "USB-C CC2 pull-down 5.1 k",
+      "part_class": "Thick film 1 %",
+      "example_part": "5.1 kΩ 0402 (Rd) so C-to-C chargers supply VBUS",
+      "subsystem": "SYS-PWR",
+      "qty": 1,
+      "unit_cost_usd": 0.005,
+      "mass_g": 0.001,
+      "power": {
+        "active_mw": 0.0,
+        "sleep_mw": 0.0,
+        "duty": 0.0
+      },
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "L2",
+      "name": "RF match series 1.8 nH",
+      "part_class": "RF chip inductor",
+      "example_part": "1.8 nH 0402 multilayer RF inductor, Q ≥ 40 at 2.4 GHz (typical)",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.05,
+      "mass_g": 0.001,
+      "power": {
+        "active_mw": 0.0,
+        "sleep_mw": 0.0,
+        "duty": 0.0
+      },
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "L3",
+      "name": "RF match shunt 4.3 nH",
+      "part_class": "RF chip inductor",
+      "example_part": "4.3 nH 0402 multilayer RF inductor, Q ≥ 40 at 2.4 GHz (typical)",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.05,
+      "mass_g": 0.001,
+      "power": {
+        "active_mw": 0.0,
+        "sleep_mw": 0.0,
+        "duty": 0.0
+      },
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "Y1",
+      "name": "32 MHz crystal",
+      "part_class": "Quartz crystal",
+      "example_part": "32 MHz, 2.0 × 1.6 mm SMD, ±20 ppm, 8 pF load (match the SoC datasheet)",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.25,
+      "mass_g": 0.01,
+      "power": {
+        "active_mw": 0.0,
+        "sleep_mw": 0.0,
+        "duty": 0.0
+      },
+      "footprint": "XTAL-4_2x1.6",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "C7",
+      "name": "Crystal load cap 12 pF",
+      "part_class": "C0G MLCC",
+      "example_part": "12 pF C0G 0402 (for 8 pF load with ~2 pF stray)",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.01,
+      "mass_g": 0.001,
+      "power": {
+        "active_mw": 0.0,
+        "sleep_mw": 0.0,
+        "duty": 0.0
+      },
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "C8",
+      "name": "Crystal load cap 12 pF",
+      "part_class": "C0G MLCC",
+      "example_part": "12 pF C0G 0402 (for 8 pF load with ~2 pF stray)",
+      "subsystem": "SYS-CMP",
+      "qty": 1,
+      "unit_cost_usd": 0.01,
+      "mass_g": 0.001,
+      "power": {
+        "active_mw": 0.0,
+        "sleep_mw": 0.0,
+        "duty": 0.0
+      },
+      "footprint": "0402",
+      "on_pcb": true,
+      "location": "right_pod"
+    },
+    {
+      "refdes": "TH1",
+      "name": "Graphite heat spreader",
+      "part_class": "Synthetic graphite sheet",
+      "example_part": "25 µm synthetic graphite sheet with adhesive, behind the micro-display on the optics-housing end wall",
+      "subsystem": "SYS-OPT",
+      "qty": 1,
+      "unit_cost_usd": 0.15,
+      "mass_g": 0.03,
+      "power": {
+        "active_mw": 0.0,
+        "sleep_mw": 0.0,
+        "duty": 0.0
+      },
+      "footprint": "",
+      "on_pcb": false,
+      "location": "front_right"
+    },
+    {
+      "refdes": "NP1",
+      "name": "Silicone nose pads (pair)",
+      "part_class": "Push-in silicone pads",
+      "example_part": "Soft silicone pads ≈ 10 × 10 mm each (≥ 100 mm² contact per pad)",
+      "subsystem": "SYS-FRM",
+      "qty": 1,
+      "unit_cost_usd": 0.2,
+      "mass_g": 0.4,
+      "power": {
+        "active_mw": 0.0,
+        "sleep_mw": 0.0,
+        "duty": 0.0
+      },
+      "footprint": "",
+      "on_pcb": false,
+      "location": "front"
     }
   ],
   "trades": [
@@ -1865,7 +2374,7 @@
       "bridge_mm": 18,
       "temple_length_mm": 145,
       "front_thickness_mm": 5,
-      "rim_width_mm": 5,
+      "rim_width_mm": 4.5,
       "lens_shape_exponent": 3,
       "temple_width_mm": 4,
       "temple_height_mm": 8,
@@ -1881,12 +2390,12 @@
     },
     "battery": {
       "chemistry": "LiPo",
-      "capacity_mah": 180,
+      "capacity_mah": 240.0,
       "nominal_v": 3.7,
       "full_v": 4.2,
       "cutoff_v": 3.3,
       "internal_resistance_ohm": 0.35,
-      "mass_g": 4.0,
+      "mass_g": 5.33,
       "usable_fraction": 0.85
     },
     "power_rails": {
@@ -1991,7 +2500,57 @@
       ],
       "pcb_tier": "standard",
       "optics_lens": "achromat_cop_pc",
-      "chip_fir_arch": "mac"
+      "chip_fir_arch": "mac",
+      "rf": {
+        "network": [
+          {
+            "kind": "series_l",
+            "value": 1.8e-09,
+            "q": 40
+          },
+          {
+            "kind": "shunt_l",
+            "value": 4.3e-09,
+            "q": 40
+          }
+        ],
+        "feed": {
+          "kind": "cpwg",
+          "width_mm": 0.91,
+          "gap_mm": 0.2,
+          "length_mm": 6
+        }
+      },
+      "fluids": {
+        "spreader": "graphite",
+        "spreader_um": 25,
+        "spreader_location": "optics"
+      },
+      "mechanisms": {
+        "hinge": {
+          "material": "stainless_302",
+          "wire_d_mm": 0.6,
+          "mean_d_mm": 2.4,
+          "active_coils": 5,
+          "ends": "squared_ground",
+          "free_len_mm": 5.5,
+          "preload_mm": 0.6,
+          "peened": true,
+          "inner_corner_r_mm": 1.1,
+          "outer_corner_r_mm": 0.1,
+          "max_overtravel_deg": 10,
+          "head_width_mm": 146,
+          "friction": 0.15,
+          "pin_d_mm": 1.4,
+          "uses_per_day": 12,
+          "wide_pulls_per_day": 2,
+          "design_years": 3
+        }
+      },
+      "ergonomics": {
+        "pad_area_mm2": 100,
+        "display_offset_mm": 2.6
+      }
     }
   }
 }

@@ -32,10 +32,24 @@
 //! pressure limit. Both ends are **typical, assumption-driven** values —
 //! confirm with wear tests.
 //!
+//! **Spring hinge.** When the product has a spring hinge (Iris's HW1), the
+//! hinge stays shut against its stop only until the moment `F L_c` reaches
+//! the spring's over-travel torque `T(0)`; past that the temple rotates by
+//! an over-travel angle α with `F L_c = T(α)` — the torque curve comes from
+//! the Mechanisms Lab ([`crate::mechanisms::hinge`]). Each contact then moves
+//! out by `L_c sin α` on top of the elastic deflection, so
+//!
+//! ```text
+//! H − S₀ = F c_total + 2 L_c sin α(F),   α(F) = 0 while F L_c ≤ T(0)
+//! ```
+//!
+//! and the hinge acts as a clamp-force limiter: a wide head cannot squeeze
+//! much harder than `T(0)/L_c` until the over-travel stop is reached.
+//!
 //! Head breadth (the maximum breadth, above the ears) stands in for the width
 //! the temples actually span, which is a little smaller: forces here are
-//! upper bounds. Lenses bonded into the rims, spring hinges and hinge play are
-//! not modelled.
+//! upper bounds. Lenses bonded into the rims and hinge play are not
+//! modelled.
 //!
 //! References: Gere & Goodno, *Mechanics of Materials* (cantilever and
 //! unit-load deflection); Young & Budynas, *Roark's Formulas for Stress and
@@ -83,6 +97,43 @@ pub fn box_i(h: f64, w: f64, t: f64) -> f64 {
     (h * w.powi(3) - hi * wi.powi(3)) / 12.0
 }
 
+/// Over-travel torque curve of a spring hinge: torque (N·mm) against the
+/// angle past the worn position (degrees), up to the over-travel stop.
+#[derive(Clone, Debug, Default, Serialize, PartialEq)]
+pub struct SpringHinge {
+    pub alpha_deg: Vec<f64>,
+    pub torque_nmm: Vec<f64>,
+    pub stop_deg: f64,
+    /// Torque at which the hinge starts to open past the worn position, N·mm.
+    pub crack_torque_nmm: f64,
+}
+
+impl SpringHinge {
+    fn torque(&self, alpha: f64) -> f64 {
+        crate::math::interp(&self.alpha_deg, &self.torque_nmm, alpha).max(0.0)
+    }
+
+    /// Over-travel angle (degrees) at which the hinge carries torque `t`; `stop_deg` if it never does.
+    fn angle_for(&self, t: f64) -> f64 {
+        if t <= self.crack_torque_nmm {
+            return 0.0;
+        }
+        if self.torque(self.stop_deg) < t {
+            return self.stop_deg;
+        }
+        let (mut lo, mut hi) = (0.0, self.stop_deg);
+        for _ in 0..60 {
+            let mid = 0.5 * (lo + hi);
+            if self.torque(mid) < t {
+                lo = mid;
+            } else {
+                hi = mid;
+            }
+        }
+        0.5 * (lo + hi)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct ClampModel {
     pub e_mpa: f64,
@@ -100,6 +151,12 @@ pub struct ClampModel {
     pub c_left: f64,
     pub c_front: f64,
     pub c_total: f64,
+    /// Spring hinge in series with the frame (None = hinge locked at its stop).
+    pub hinge: Option<SpringHinge>,
+    /// Clamp force at which the spring hinge starts to open, N (None without one).
+    pub hinge_crack_n: Option<f64>,
+    #[serde(skip)]
+    hinge_table: Vec<[f64; 2]>,
 }
 
 impl ClampModel {
@@ -186,29 +243,81 @@ impl ClampModel {
             c_left,
             c_front,
             c_total: c_right + c_left + c_front,
+            hinge: None,
+            hinge_crack_n: None,
+            hinge_table: Vec::new(),
         }
+    }
+
+    /// Put a spring hinge in series with the frame.
+    pub fn with_hinge(mut self, hinge: Option<SpringHinge>) -> Self {
+        self.hinge_crack_n = hinge.as_ref().map(|h| h.crack_torque_nmm / self.l_c);
+        // (total spread, force) at every point of the torque curve: piecewise-linear and monotone.
+        self.hinge_table = hinge
+            .as_ref()
+            .map(|h| {
+                h.alpha_deg
+                    .iter()
+                    .zip(&h.torque_nmm)
+                    .map(|(a, t)| {
+                        let f = t / self.l_c;
+                        [f * self.c_total + 2.0 * self.l_c * a.to_radians().sin(), f]
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.hinge = hinge;
+        self
+    }
+
+    /// Hinge over-travel angle (degrees) while pressing with force `f`.
+    pub fn overtravel_deg(&self, f: f64) -> f64 {
+        self.hinge.as_ref().map(|h| h.angle_for(f * self.l_c)).unwrap_or(0.0)
+    }
+
+    /// Total spread between the contacts (beyond `S₀`) that produces force `f`, mm.
+    pub fn spread_for(&self, f: f64) -> f64 {
+        f * self.c_total + 2.0 * self.l_c * self.overtravel_deg(f).to_radians().sin()
     }
 
     /// Clamp force per side for head width `h`, N.
     pub fn force(&self, h: f64) -> f64 {
-        ((h - self.s0) / self.c_total).max(0.0)
+        let d = h - self.s0;
+        if d <= 0.0 {
+            return 0.0;
+        }
+        let t = &self.hinge_table;
+        if t.is_empty() || d <= t[0][0] {
+            return d / self.c_total;
+        }
+        let last = t[t.len() - 1];
+        if d >= last[0] {
+            // at the over-travel stop the frame is rigid again
+            let stop = self.hinge.as_ref().map(|h| h.stop_deg).unwrap_or(0.0);
+            return ((d - 2.0 * self.l_c * stop.to_radians().sin()) / self.c_total).max(last[1]);
+        }
+        let i = t.partition_point(|p| p[0] <= d).clamp(1, t.len() - 1);
+        let (a, b) = (t[i - 1], t[i]);
+        let w = if b[0] > a[0] { (d - a[0]) / (b[0] - a[0]) } else { 1.0 };
+        a[1] + w * (b[1] - a[1])
     }
 
-    /// Outward deflection of each contact [right, left], mm.
+    /// Outward movement of each contact [right, left], mm (elastic bending plus hinge over-travel).
     pub fn deflections(&self, h: f64) -> [f64; 2] {
         let f = self.force(h);
         let front = f * self.c_front / 2.0;
-        [f * self.c_right + front, f * self.c_left + front]
+        let hinge = self.l_c * self.overtravel_deg(f).to_radians().sin();
+        [f * self.c_right + front + hinge, f * self.c_left + front + hinge]
     }
 
     /// Head width that produces force `f`.
     pub fn width_for(&self, f: f64) -> f64 {
-        self.s0 + f * self.c_total
+        self.s0 + self.spread_for(f)
     }
 
     /// Splay that centres the comfort band on head width `h` for a target force.
     pub fn splay_for(&self, h: f64, f_target: f64, inner_x: f64) -> f64 {
-        let s0 = h - f_target * self.c_total;
+        let s0 = h - self.spread_for(f_target);
         ((s0 / 2.0 - inner_x) / self.l_c).atan().to_degrees()
     }
 
@@ -289,5 +398,38 @@ mod tests {
         // 14 × 11 box, 1.2 wall: (14·11³ − 11.6·8.6³)/12 = 938.0 mm⁴
         let i = box_i(14.0, 11.0, 1.2);
         assert!((i - (14.0 * 1331.0 - 11.6 * 636.056) / 12.0).abs() < 1e-6, "{i}");
+    }
+
+    #[test]
+    fn spring_hinge_limits_clamp_force() {
+        let fg = crate::ergonomics::model::frame_geom(&crate::project::Project::iris());
+        let rigid = ClampModel::new(&fg, 0.0, 10.0);
+        // the hinge opens at 50 N·mm and stiffens to 60 N·mm at its 20° stop
+        let h = SpringHinge {
+            alpha_deg: vec![0.0, 10.0, 20.0],
+            torque_nmm: vec![50.0, 55.0, 60.0],
+            stop_deg: 20.0,
+            crack_torque_nmm: 50.0,
+        };
+        let sprung = rigid.clone().with_hinge(Some(h));
+        let crack = 50.0 / rigid.l_c;
+        assert!((sprung.hinge_crack_n.unwrap() - crack).abs() < 1e-12);
+        // below the crack force both models agree
+        let w_small = rigid.width_for(0.5 * crack);
+        assert!((sprung.force(w_small) - rigid.force(w_small)).abs() < 1e-9);
+        // a much wider head is held between the crack and stop forces while the hinge opens
+        let w_wide = rigid.width_for(crack) + 10.0;
+        let f = sprung.force(w_wide);
+        assert!(rigid.force(w_wide) > crack * 1.2);
+        assert!(f > crack && f < 60.0 / rigid.l_c, "{f}");
+        // the spread is shared by bending and hinge rotation: 2 L_c sin α + F c = H − S₀
+        let a = sprung.overtravel_deg(f);
+        assert!(a > 0.0 && a < 20.0);
+        let resid = 2.0 * rigid.l_c * a.to_radians().sin() + f * rigid.c_total - (w_wide - rigid.s0);
+        assert!(resid.abs() < 0.05, "{resid}");
+        // width_for inverts force; past the stop the frame is rigid again
+        for f in [0.1 * crack, 0.9 * crack, 1.05 * crack, 60.0 / rigid.l_c + 0.5] {
+            assert!((sprung.force(sprung.width_for(f)) - f).abs() < 1e-3 * f, "{f}");
+        }
     }
 }

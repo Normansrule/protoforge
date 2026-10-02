@@ -321,6 +321,8 @@ pub fn build(p: &Project, pos: &[PartPos], gpio: &[(String, String)]) -> Board {
     let gnd = nets.iter().position(|n| n.name == "GND").map(|i| i as u16).unwrap_or(u16::MAX);
     // Antenna keep-out: no copper on any layer except the RF feed on top.
     let mut keepouts = Vec::new();
+    // with a matching network the antenna pad sits on RF_ANT
+    let ant_net = if nets.iter().any(|n| n.name == "RF_ANT") { "RF_ANT" } else { "RF" };
     for pp in parts.iter().filter(|pp| pp.footprint.starts_with("ANT")) {
         let c = pp.courtyard;
         keepouts.push(Keepout {
@@ -328,7 +330,7 @@ pub fn build(p: &Project, pos: &[PartPos], gpio: &[(String, String)]) -> Board {
             rect: [(c[0] - 0.8).max(0.0), (c[1] - 1.0).max(0.0), (c[2] + 0.4).min(w), h],
             top: true,
             bottom: true,
-            allow_net: "RF".into(),
+            allow_net: ant_net.into(),
             no_pour: true,
         });
     }

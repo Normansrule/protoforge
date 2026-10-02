@@ -109,6 +109,7 @@ pub const NAMES: &[&str] = &[
     "FPC-24_0.5",
     "JST-SH-2",
     "ANT_3216",
+    "XTAL-4_2x1.6",
 ];
 
 pub fn library() -> Vec<Footprint> {
@@ -344,6 +345,22 @@ pub fn footprint(name: &str) -> Option<Footprint> {
             pin1: [-1.85, 0.95],
             npth: vec![],
             note: "Needs a copper keep-out (no ground on any layer) around and under the antenna and a π matching network tuned on the real board.".into(),
+        },
+        "XTAL-4_2x1.6" => Footprint {
+            name: name.into(),
+            description: "Quartz crystal, 2.0 × 1.6 mm ceramic SMD package, 4 pads (crystal on 1–3, case on 2–4)".into(),
+            pads: vec![
+                smd("1", -0.65, -0.5, 0.65, 0.55),
+                smd("2", 0.65, -0.5, 0.65, 0.55),
+                smd("3", 0.65, 0.5, 0.65, 0.55),
+                smd("4", -0.65, 0.5, 0.65, 0.55),
+            ],
+            courtyard: [-1.25, -1.05, 1.25, 1.05],
+            body: [-1.0, -0.8, 1.0, 0.8],
+            height: 0.5,
+            pin1: [-1.2, -0.9],
+            npth: vec![],
+            note: "Typical 2016 land pattern; pin numbering and which pads carry the crystal vary by maker — check the datasheet. Keep the crystal and its load capacitors next to the SoC's XC pins with ground under them.".into(),
         },
         _ => return None,
     };

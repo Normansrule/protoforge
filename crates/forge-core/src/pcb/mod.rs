@@ -201,6 +201,18 @@ pub const STRATEGIES: &[Strategy] = &[
         bot_cost: (24, 14),
         iterations: 24,
     },
+    Strategy {
+        name: "signals first, even bottom layer, long negotiation",
+        power_first: false,
+        bot_cost: (16, 12),
+        iterations: 48,
+    },
+    Strategy {
+        name: "power first, even bottom layer, long negotiation",
+        power_first: true,
+        bot_cost: (16, 12),
+        iterations: 48,
+    },
 ];
 
 fn net_order(b: &board::Board, power_first: bool) -> Vec<u16> {
@@ -252,8 +264,14 @@ fn notes_for(p: &Project) -> Vec<String> {
     if has("J1") && !(has("R6") && has("R7")) {
         v.push("BOM gap: a USB-C power sink needs 5.1 kΩ pull-down resistors (Rd) on CC1 and CC2, otherwise C-to-C chargers will not supply VBUS. Add R6/R7 (0402) to the project — the lab connects them automatically.".into());
     }
-    if has("U1") {
-        v.push("BOM gap: a BLE SoC normally needs a 32 MHz crystal (+ load capacitors) and an RF matching network between the ANT pin and the chip antenna; they are not in the Iris BOM yet.".into());
+    if has("U1") && !has("Y1") {
+        v.push("BOM gap: a BLE SoC normally needs a 32 MHz crystal and its load capacitors on XC1/XC2. Add Y1 (XTAL-4_2x1.6) with C7/C8 (0402) — the lab connects them automatically.".into());
+    }
+    if has("AE1") && !has("L2") {
+        v.push("BOM gap: no RF matching network between the SoC's ANT pin and the chip antenna. Add L2 (series) and L3 (shunt) — see the RF & Antenna Lab for values; the lab connects them automatically.".into());
+    }
+    if has("L2") {
+        v.push("RF feed: the autorouter uses the minimum trace width everywhere. Re-route RF and RF_ANT by hand as the grounded coplanar waveguide the RF & Antenna Lab specifies (the KiCad export carries it as the RF net class).".into());
     }
     v.push("CHG_STAT is open-drain: enable the SoC's internal pull-up on that GPIO.".into());
     v
@@ -916,6 +934,7 @@ mod tests {
             let r = route_phase(&p, &pr.parts, &pr.gpio, s);
             let l = finalize(&p, &pr.parts, &r);
             let clean = l.stats.routed_pct >= 100.0 && l.stats.drc_violations == 0;
+            eprintln!("{}: routed {:.1} %, {} DRC {:?}", s.name, l.stats.routed_pct, l.stats.drc_violations, l.nets.iter().filter(|n| !n.unconnected.is_empty()).map(|n| n.name.clone()).collect::<Vec<_>>());
             if out.is_none() || clean {
                 out = Some(r);
             }

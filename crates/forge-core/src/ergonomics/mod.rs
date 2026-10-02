@@ -75,7 +75,7 @@ pub mod stats;
 
 use anthro::{Band, Coverage, FitCheck, Group, Person};
 use balance::{Loads, MassItem, Supports};
-use clamp::ClampModel;
+use clamp::{ClampModel, SpringHinge};
 use model::{ErgoConfig, FrameGeom, FrameSize};
 
 // ------------------------------------------------------------------ shared analysis
@@ -93,6 +93,37 @@ pub struct Analysis {
     pub look_down: Loads,
     pub band: Band,
     pub clamp: ClampModel,
+    /// Spring hinge from the Mechanisms Lab, when the product has one.
+    pub hinge: Option<SpringHinge>,
+}
+
+/// Over-travel torque curve of the product's spring hinge, if the bill of
+/// materials has one (a component whose name mentions a "spring hinge").
+pub fn spring_hinge(p: &Project) -> Option<SpringHinge> {
+    let has = p.components.iter().any(|c| {
+        let t = format!("{} {}", c.name, c.example_part).to_lowercase();
+        t.contains("spring hinge") || t.contains("spring-hinge")
+    });
+    if !has {
+        return None;
+    }
+    let hp = crate::mechanisms::hinge::HingeParams::from_project(p);
+    let out = crate::mechanisms::hinge::analyze(p, &hp).ok()?;
+    let i90 = out.phi_deg.iter().position(|x| *x >= 90.0)?;
+    // the first sample past 90° (a centred difference at 90° mixes in the detent side)
+    let i0 = (i90 + 1).min(out.phi_deg.len() - 1);
+    let mut alpha: Vec<f64> = vec![0.0];
+    let mut torque: Vec<f64> = vec![out.torque_nmm[i0].max(0.0)];
+    for q in i0 + 1..out.phi_deg.len() {
+        alpha.push(out.phi_deg[q] - 90.0);
+        torque.push(out.torque_nmm[q].max(torque[torque.len() - 1]));
+    }
+    Some(SpringHinge {
+        stop_deg: *alpha.last().unwrap_or(&0.0),
+        crack_torque_nmm: torque[0],
+        alpha_deg: alpha,
+        torque_nmm: torque,
+    })
 }
 
 thread_local! {
@@ -105,7 +136,7 @@ fn s_of(fg: &FrameGeom) -> Supports {
 }
 
 pub fn analysis(p: &Project, cfg: &ErgoConfig) -> std::rc::Rc<Analysis> {
-    let key = crate::memo::key(&(&p.design.frame, &p.design.optics, &p.design.pcb, &p.components, cfg));
+    let key = crate::memo::key(&(&p.design.frame, &p.design.optics, &p.design.pcb, &p.components, p.design.extra.get("mechanisms"), cfg));
     crate::memo::memo(&ANALYSIS, key, || {
         let fg = model::frame_geom(p);
         let items = balance::mass_items(p, &fg);
@@ -122,7 +153,8 @@ pub fn analysis(p: &Project, cfg: &ErgoConfig) -> std::rc::Rc<Analysis> {
             min_n: balance::min_clamp_n(&look_down, cfg),
             max_n: balance::max_clamp_n(&fg, cfg),
         };
-        let clamp = ClampModel::new(&fg, cfg.temple_splay_deg, cfg.contact_before_bend_mm);
+        let hinge = spring_hinge(p);
+        let clamp = ClampModel::new(&fg, cfg.temple_splay_deg, cfg.contact_before_bend_mm).with_hinge(hinge.clone());
         std::rc::Rc::new(Analysis {
             cfg: cfg.clone(),
             fg,
@@ -134,6 +166,7 @@ pub fn analysis(p: &Project, cfg: &ErgoConfig) -> std::rc::Rc<Analysis> {
             look_down,
             band,
             clamp,
+            hinge,
         })
     })
 }
@@ -143,7 +176,7 @@ fn checks_for(a: &Analysis, fg: &FrameGeom, splay: Option<f64>, people: &[Person
     let cm = if fg == &a.fg && splay.is_none() {
         a.clamp.clone()
     } else {
-        ClampModel::new(fg, splay.unwrap_or(a.cfg.temple_splay_deg), a.cfg.contact_before_bend_mm)
+        ClampModel::new(fg, splay.unwrap_or(a.cfg.temple_splay_deg), a.cfg.contact_before_bend_mm).with_hinge(a.hinge.clone())
     };
     let f = |h: f64| cm.force(h);
     people.iter().map(|pp| anthro::check(fg, &a.cfg, a.band, pp, &f)).collect()
@@ -432,7 +465,7 @@ fn sizes_api(i: SizesIn) -> Result<SizesOut, String> {
         .map(|(si, &s)| {
             let c = &cands[s];
             let fg = a.fg.resized(c);
-            let cm = ClampModel::new(&fg, c.splay_deg.unwrap_or(cfg.temple_splay_deg), cfg.contact_before_bend_mm);
+            let cm = ClampModel::new(&fg, c.splay_deg.unwrap_or(cfg.temple_splay_deg), cfg.contact_before_bend_mm).with_hinge(a.hinge.clone());
             SizeOut {
                 name: names[si].to_string(),
                 size: *c,
@@ -517,7 +550,7 @@ fn head_api(i: HeadIn) -> Result<HeadOut, String> {
         None => a.fg.clone(),
     };
     let splay = i.size.and_then(|s| s.splay_deg).unwrap_or(cfg.temple_splay_deg);
-    let cm = ClampModel::new(&fg, splay, cfg.contact_before_bend_mm);
+    let cm = ClampModel::new(&fg, splay, cfg.contact_before_bend_mm).with_hinge(a.hinge.clone());
     let f = |h: f64| cm.force(h);
     let check = anthro::check(&fg, &cfg, a.band, &person, &f);
     let contact_y = fg.pin_y - cm.l_c;
@@ -776,7 +809,7 @@ fn clamp_api(i: BaseIn) -> Result<ClampOut, String> {
     let cov = 100.0 * comb.prob_between(lo, hi);
     let target = 0.5 * (a.band.min_n + a.band.max_n);
     let best_splay = cm.splay_for(comb.quantile(0.5), target, a.fg.temple_inner_x);
-    let cm2 = ClampModel::new(&a.fg, best_splay, cfg.contact_before_bend_mm);
+    let cm2 = ClampModel::new(&a.fg, best_splay, cfg.contact_before_bend_mm).with_hinge(a.hinge.clone());
     let cov2 = 100.0 * comb.prob_between(cm2.width_for(a.band.min_n), cm2.width_for(a.band.max_n));
     let defl = cm.deflections(h95);
     let lever = (a.fg.pad[1] - (a.fg.pin_y - cm.l_c)).abs().max(1.0);
@@ -981,10 +1014,14 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
             a.upright.nose_share_pct
         )),
         Metric::new("ergonomics.clamp_force_n", "Temple clamp force at P95 head breadth", f95, "N", "ergonomics").with_note(&format!(
-            "per side at {h95:.0} mm head breadth; spread at contact {:.0} mm, compliance {:.2} mm/N ({:.0} % front bending); comfort band {:.2}–{:.2} N",
+            "per side at {h95:.0} mm head breadth; spread at contact {:.0} mm, compliance {:.2} mm/N ({:.0} % front bending){}; comfort band {:.2}–{:.2} N",
             a.clamp.s0,
             a.clamp.c_total,
             100.0 * a.clamp.c_front / a.clamp.c_total,
+            match a.clamp.hinge_crack_n {
+                Some(c) => format!("; spring hinge (Mechanisms Lab) opens past {c:.2} N"),
+                None => String::new(),
+            },
             a.band.min_n,
             a.band.max_n
         )),
@@ -1054,13 +1091,19 @@ mod tests {
 
     #[test]
     fn clamp_force_scales_with_head_and_splay_relieves_it() {
-        let p = Project::iris();
+        // a rigid hinge (no spring hinge in the BOM): a linear spring, ΔF = ΔH / c_total
+        let mut p = Project::iris();
+        p.components.retain(|c| !c.name.to_lowercase().contains("spring hinge"));
         let a = analysis(&p, &ErgoConfig::default());
+        assert!(a.hinge.is_none());
         let f1 = a.clamp.force(150.0);
         let f2 = a.clamp.force(160.0);
         assert!(f2 > f1 && f1 >= 0.0);
-        // linear spring: ΔF = ΔH / c_total
         assert!(((f2 - f1) - 10.0 / a.clamp.c_total).abs() < 1e-9 || f1 == 0.0);
+        // Iris's spring hinge can only lower the force
+        let iris = analysis(&Project::iris(), &ErgoConfig::default());
+        assert!(iris.hinge.is_some());
+        assert!(iris.clamp.force(160.0) <= f2 + 1e-9);
         let cfg = ErgoConfig {
             temple_splay_deg: 8.0,
             ..Default::default()
