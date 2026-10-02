@@ -1,0 +1,86 @@
+/* Program & Business Lab — layout and chart styles (colours only via theme tokens). */
+
+.pg-gantt { width: 100%; overflow-x: auto; }
+.pg-gantt svg { display: block; }
+.pg-gantt-row:hover > rect:first-of-type { fill: var(--surface-2); }
+
+.pg-swatch { display: inline-block; width: 12px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.pg-hatch-swatch { background: repeating-linear-gradient(45deg, var(--muted) 0 1.5px, transparent 1.5px 4px); border: 1px solid var(--muted); }
+.pg-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+
+.pg-detail { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.pg-kv { display: grid; grid-template-columns: repeat(3, auto minmax(0, 1fr)); gap: 3px 10px; font-size: 12.5px; margin-top: 8px; }
+.pg-kv > span { color: var(--muted); }
+.pg-kv > b { font-weight: 500; }
+@media (max-width: 760px) { .pg-kv { grid-template-columns: auto minmax(0, 1fr); } }
+
+.pg-net { width: 100%; overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); padding: 4px; }
+.pg-net svg { display: block; }
+.pg-net-caption { min-height: 2.6em; color: var(--text-2); padding: 4px 2px 8px; overflow-wrap: anywhere; }
+
+.pg-tasktable input, .pg-tasktable select { padding: 3px 5px; font-size: 12.5px; min-width: 0; }
+.pg-tasktable td { padding: 4px 5px; vertical-align: middle; }
+.pg-crit-row td:first-child { color: var(--series-2); font-weight: 700; }
+
+.pg-svg { width: 100%; height: auto; display: block; }
+.pg-scroll-x { width: 100%; overflow-x: auto; }
+
+.pg-notes p { margin: 6px 0; color: var(--text-2); }
+
+.pg-bars { display: grid; gap: 6px; }
+.pg-bar-row { display: grid; grid-template-columns: 54px minmax(0, 1fr) minmax(60px, 160px) 116px; gap: 8px; align-items: center; }
+.pg-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.pg-bar { position: relative; height: 10px; border-radius: 5px; background: var(--surface-3); overflow: hidden; }
+.pg-bar > div { position: absolute; left: 0; top: 0; height: 100%; border-radius: 5px; transition: width 0.4s ease; }
+@media (max-width: 560px) {
+  .pg-bar-row { grid-template-columns: 50px minmax(0, 1fr) 92px; }
+  .pg-bar-row .pg-ellipsis { display: none; }
+}
+
+/* every assumption field gets a visible "assumption — edit" tag under its label */
+.pg-assumed > .field .field-label::after { content: 'assumption — edit'; display: block; width: max-content; margin-top: 2px; font-size: 10px; font-weight: 400; padding: 0 6px; border-radius: 999px; border: 1px dashed var(--warn); color: var(--warn); }
+.pg-assume { display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px dashed var(--warn); color: var(--warn); white-space: nowrap; }
+
+.pg-stack { position: relative; height: 26px; border-radius: 8px; background: var(--surface-3); overflow: hidden; }
+.pg-stack > div { position: absolute; top: 0; height: 100%; border-right: 1px solid var(--surface-1); transition: width 0.3s ease, left 0.3s ease; }
+.pg-wf-label { font-size: 10.5px; line-height: 1.2; color: var(--text-2); text-align: center; overflow-wrap: anywhere; }
+
+.pg-level { display: inline-flex; align-items: center; gap: 6px; }
+.pg-level-bar { display: inline-flex; gap: 2px; }
+.pg-level-bar i { display: inline-block; width: 6px; height: 12px; border-radius: 2px; background: var(--surface-3); }
+.pg-level-bar i.on { background: var(--series-1); }
+.pg-ready select { padding: 3px 5px; font-size: 12.5px; max-width: 190px; }
+
+.pg-ladder { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.pg-ladder li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; font-size: 12px; padding: 3px 6px; border-radius: 6px; border-left: 3px solid var(--surface-3); background: var(--surface-1); animation: pg-rise 0.35s ease both; }
+.pg-ladder li.met { border-left-color: var(--good); }
+.pg-ladder li.here { outline: 1.5px solid var(--accent); }
+.pg-ladder li > .mono { font-weight: 700; color: var(--text-2); }
+@keyframes pg-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.pg-gates { position: relative; height: 100px; margin: 8px 30px 6px 4px; }
+.pg-gates-track { position: absolute; left: 0; right: 0; top: 40px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--series-7), var(--series-1), var(--series-3), var(--series-4), var(--series-6)); opacity: 0.6; }
+.pg-gate { position: absolute; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; min-width: 54px; padding: 2px 6px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-1); font-size: 12px; line-height: 1.25; }
+.pg-gate.pass { border-color: var(--good); }
+.pg-gate.warn { border-color: var(--warn); }
+.pg-gate.fail { border-color: var(--bad); }
+
+.pg-reviews { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+@media (max-width: 420px) { .pg-reviews { grid-template-columns: minmax(0, 1fr); } }
+.pg-progress { height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.pg-progress > div { height: 100%; background: var(--accent); transition: width 0.5s ease; }
+.pg-checklist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pg-checklist li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 6px; font-size: 13px; align-items: start; }
+.pg-auto { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 5px; font-size: 11px; font-weight: 800; margin-top: 1px; }
+.pg-auto.ok { background: color-mix(in srgb, var(--good) 22%, transparent); color: var(--good-text); }
+.pg-auto.no { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad-text); }
+
+.pg-scale { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 4px; font-size: 13px; }
+.pg-scale b { display: inline-block; width: 22px; }
+.pg-tools { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.pg-refs { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pg-bar > div, .pg-stack > div, .pg-progress > div { transition: none; }
+  .pg-ladder li { animation: none; }
+}
