@@ -25,10 +25,13 @@
 //! `mechanisms.hinge_open_torque_nmm` is the peak torque needed to push the
 //! folded temple over the hump.
 //!
-//! **On the head.** The temple contacts the head at the ear bend, `L_c`
-//! behind the pin. Spreading the ear contact outward by Δ is shared by the
-//! hinge (over-travel α) and the temple arm's bending (cantilever from the
-//! pod, `k_arm = 3EI/L³`): `L_c sin α + F/k_arm = Δ` with `F L_c = T(90° + α)`.
+//! **On the head.** The temple contacts the head `L_c` behind the pin (the
+//! Human Factors Lab's contact point, just in front of the ear bend).
+//! Spreading the contact outward by Δ is shared by the hinge (over-travel α)
+//! and the frame's elastic bending — the stepped temple cantilever plus half
+//! of the front's bowing, `1/k = c_total/2` from [`crate::ergonomics::clamp`],
+//! so both labs give the same clamp force: `L_c sin α + F/k = Δ` with
+//! `F L_c = T(90° + α)`.
 //!
 //! **Fatigue.** Each use folds and unfolds the temple over the hump twice,
 //! spreads it on the head once, and some uses pull it to the over-travel
@@ -129,8 +132,13 @@ pub struct HingeGeom {
     pub contact_len_mm: f64,
     pub pod_len_mm: f64,
     pub arm_len_mm: f64,
-    /// Lateral stiffness of the temple at the ear contact with a rigid hinge (two-segment beam), N/mm.
+    /// Lateral stiffness of the temple alone at the ear contact (two-segment beam, rigid hinge and front), N/mm.
+    pub temple_stiffness_n_mm: f64,
+    /// Per-side stiffness of the whole frame at the contact with a rigid hinge (temple + front bowing,
+    /// the Human Factors clamp model), N/mm — what the hinge works against on the head.
     pub arm_stiffness_n_mm: f64,
+    /// Half the unloaded spread between the contacts (Human Factors model, includes temple splay), mm.
+    pub rest_half_spread_mm: f64,
     pub frame_material: String,
 }
 
@@ -160,7 +168,15 @@ pub fn geometry(p: &Project, h: &HingeParams) -> HingeGeom {
     let i_pod = hh * wl.powi(3) / 12.0 + a_web * (x_web - xbar).powi(2) + 2.0 * wl * fl.powi(3) / 12.0 + a_fl * (x_fl - xbar).powi(2);
     // two-segment cantilever from the hinge, load at the ear contact
     let compliance = (contact.powi(3) - arm.powi(3)) / (3.0 * e * i_pod) + arm.powi(3) / (3.0 * e * i_arm);
-    let k_arm = 1.0 / compliance.max(1e-12);
+    let k_temple = 1.0 / compliance.max(1e-12);
+    // On the head: the Human Factors Lab's frame model (contact point, temple + front bowing).
+    let ecfg = crate::ergonomics::model::ErgoConfig::from_project(p);
+    let cm = crate::ergonomics::clamp::ClampModel::new(
+        &crate::ergonomics::model::frame_geom(p),
+        ecfg.temple_splay_deg,
+        ecfg.contact_before_bend_mm,
+    );
+    let k_frame = 2.0 / cm.c_total.max(1e-12);
     HingeGeom {
         stop_offset_mm: a,
         inner_mm: t_in,
@@ -170,10 +186,12 @@ pub fn geometry(p: &Project, h: &HingeParams) -> HingeGeom {
         temple_length_mm: f.temple_length_mm,
         pin_x_mm: l.pin_x,
         temple_inner_x_mm: l.pin_x - t_in,
-        contact_len_mm: contact,
+        contact_len_mm: cm.l_c,
         pod_len_mm: pod,
         arm_len_mm: arm,
-        arm_stiffness_n_mm: k_arm,
+        temple_stiffness_n_mm: k_temple,
+        arm_stiffness_n_mm: k_frame,
+        rest_half_spread_mm: cm.s0 / 2.0,
         frame_material: mat.name.into(),
     }
 }
@@ -371,7 +389,7 @@ pub fn analyze(p: &Project, h: &HingeParams) -> Result<HingeOut, String> {
     let max_travel = dl.iter().cloned().fold(0.0f64, f64::max);
     let max_tau = tau_per_n * k * (d0 + max_travel);
     // ---- on the head
-    let spread = h.head_width_mm / 2.0 - g.temple_inner_x_mm;
+    let spread = h.head_width_mm / 2.0 - g.rest_half_spread_mm;
     let lc = g.contact_len_mm;
     let ka = g.arm_stiffness_n_mm.max(1e-9);
     let ot_phi: Vec<f64> = phi[i90..].iter().map(|x| x - 90.0).collect();
@@ -524,11 +542,11 @@ pub fn analyze(p: &Project, h: &HingeParams) -> Result<HingeOut, String> {
         notes.push("The head is narrower than the frame: no spread, so the hinge adds no clamp force.".into());
     } else {
         notes.push(format!(
-            "On a {:.0} mm head the hinge takes {:.0} % of the {:.1} mm spread and clamps with {:.2} N per side ({:.2} N if the hinge were rigid) — grip also comes from temple bend and ear fit.",
+            "On a {:.0} mm head the hinge takes {:.0} % of the {:.1} mm spread per side and clamps with {:.2} N per side ({:.2} N if the hinge were rigid) — the frame model (temple plus front bowing, contact point) is the Human Factors Lab's, so the two labs agree.",
             h.head_width_mm, wear.hinge_share_pct, spread, wear.clamp_n, wear.clamp_rigid_n
         ));
         notes.push(
-            "Temple stiffness is a two-segment beam (open-channel pod + solid arm, lid ignored); the Structures Lab finite element model (structures.temple_stiffness_n_mm, load at the tip) includes the knuckles and pod walls and reads softer."
+            "The temple alone is a two-segment beam here (open-channel pod + solid arm, lid ignored); the front's bowing makes the whole frame several times softer. The Structures Lab finite element model (structures.temple_stiffness_n_mm, load at the tip) includes the knuckles and pod walls and reads softer than this beam."
                 .into(),
         );
     }

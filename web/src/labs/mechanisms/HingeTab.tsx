@@ -160,7 +160,7 @@ export function HingeTab() {
 travel: δ = max(0, y + r − a) / sin φ
 energy: E = ½ k [(δ₀ + δ)² − δ₀²]
 torque: T = dE/dφ = k (δ₀ + δ) dδ/dφ  (+ μ F r_pin)
-head:   L_c sin α + F/k_arm = Δ,   F L_c = T(90° + α)`}</Formula>
+head:   L_c sin α + F c_total/2 = Δ,   F L_c = T(90° + α)`}</Formula>
           <p className="small">
             Snap fits, screws and living hinges are in the <Link to="/structures">Structures Lab</Link> (Calculators) — the Structures Lab also runs the temple's own plastic hinge-area fatigue.
           </p>
@@ -256,7 +256,7 @@ function HeadCard({ o, h }: { o: HingeOut; h: HingeParams }) {
   });
   const headW = (h.head_width_mm / 2) * sc;
   return (
-    <Card title="On the head" subtitle="The spread needed at the ear is shared by the hinge's over-travel and the temple's bending">
+    <Card title="On the head" subtitle="The spread needed at the ear is shared by the hinge's over-travel and the frame's bending (temple + front, the Human Factors Lab's model)">
       <div className="grid grid-2">
         <svg className="mx-diagram" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Top view of Iris on a head with the temples spread">
           <ellipse cx={cx} cy={fy + lc * 0.66} rx={headW} ry={lc * 0.6} className="mx-head" />
@@ -273,7 +273,7 @@ function HeadCard({ o, h }: { o: HingeOut; h: HingeParams }) {
               <path d="M0,0 L10,5 L0,10 z" fill="var(--series-2)" />
             </marker>
           </defs>
-          <text x={8} y={H - 22}>head {h.head_width_mm} mm · temples {fmt(2 * g.temple_inner_x_mm, 0)} mm apart</text>
+          <text x={8} y={H - 22}>head {h.head_width_mm} mm · temples {fmt(2 * g.rest_half_spread_mm, 0)} mm apart</text>
           <text x={8} y={H - 8}>clamp {fmt(o.wear.clamp_n, 2)} N/side · α = {fmt(o.wear.overtravel_deg, 1)}°</text>
         </svg>
         <div>
@@ -281,11 +281,12 @@ function HeadCard({ o, h }: { o: HingeOut; h: HingeParams }) {
             rows={[
               ['Spread needed per side Δ', `${fmt(o.wear.spread_mm, 2)} mm`],
               ['Hinge over-travel α', `${fmt(o.wear.overtravel_deg, 2)}° ${o.wear.hits_stop ? '(at the stop!)' : ''}`],
-              ['Temple bending', `${fmt(o.wear.arm_bend_mm, 3)} mm`],
+              ['Frame bending (temple + front)', `${fmt(o.wear.arm_bend_mm, 3)} mm`],
               ['Share taken by the hinge', `${fmt(o.wear.hinge_share_pct, 1)} %`],
               ['Clamp force per side', `${fmt(o.wear.clamp_n, 3)} N`],
               ['…if the hinge were rigid', `${fmt(o.wear.clamp_rigid_n, 2)} N`],
-              ['Temple stiffness at the ear (beam)', `${fmt(g.arm_stiffness_n_mm, 2)} N/mm`],
+              ['Frame stiffness at the contact', `${fmt(g.arm_stiffness_n_mm, 3)} N/mm`],
+              ['…temple alone (beam)', `${fmt(g.temple_stiffness_n_mm, 2)} N/mm`],
               ['Over-travel starts at', `${fmt(o.overtravel_start_torque_nmm, 2)} N·mm (+${fmt(o.overtravel_rate_nmm_deg, 3)} N·mm/°)`],
             ]}
           />

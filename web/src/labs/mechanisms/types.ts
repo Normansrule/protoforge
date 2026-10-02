@@ -131,7 +131,7 @@ export interface HingeOut {
   params: HingeParams;
   geom: {
     stop_offset_mm: number; inner_mm: number; outer_mm: number; temple_width_mm: number; temple_height_mm: number; temple_length_mm: number;
-    pin_x_mm: number; temple_inner_x_mm: number; contact_len_mm: number; pod_len_mm: number; arm_len_mm: number; arm_stiffness_n_mm: number; frame_material: string;
+    pin_x_mm: number; temple_inner_x_mm: number; contact_len_mm: number; pod_len_mm: number; arm_len_mm: number; temple_stiffness_n_mm: number; arm_stiffness_n_mm: number; rest_half_spread_mm: number; frame_material: string;
   };
   spring: {
     material: string; sut_mpa: number; ssy_mpa: number; ssu_mpa: number; sse_mpa: number; g_mpa: number; index_c: number; k_b: number;

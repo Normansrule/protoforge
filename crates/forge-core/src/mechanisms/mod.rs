@@ -183,7 +183,13 @@ thread_local! {
 
 /// Metrics feeding requirement verification (the Iris hinge).
 pub fn metrics(p: &Project) -> Vec<Metric> {
-    let key = crate::memo::key(&(&p.design.frame, &p.design.optics, &p.design.pcb, p.design.extra.get("mechanisms")));
+    let key = crate::memo::key(&(
+        &p.design.frame,
+        &p.design.optics,
+        &p.design.pcb,
+        p.design.extra.get("mechanisms"),
+        p.design.extra.get("ergonomics"),
+    ));
     crate::memo::memo(&METRICS, key, || metrics_uncached(p))
 }
 
