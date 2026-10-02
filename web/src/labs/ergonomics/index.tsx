@@ -46,7 +46,7 @@ export default function Lab() {
       {tab === 'balance' && <BalanceTab />}
       {tab === 'clamp' && <ClampTab />}
       {tab === 'display' && <DisplayTab />}
-      {tab === 'learn' && <LearnTab />}
+      {tab === 'learn' && <LearnTab onGo={setTab} />}
     </LabPage>
   );
 }

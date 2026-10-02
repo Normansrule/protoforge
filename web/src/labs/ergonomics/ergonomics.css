@@ -23,6 +23,7 @@
 .hf-svg .hf-tick { fill: var(--muted); font-size: 11px; font-family: var(--font); }
 .hf-svg .hf-axis { fill: var(--text-2); font-size: 11.5px; font-family: var(--font); }
 .hf-svg .hf-lbl { fill: var(--text-2); font-size: 11.5px; font-family: var(--font); }
+.hf-svg .hf-lbl.muted { fill: var(--muted); }
 .hf-svg .hf-big { font-size: 20px; font-weight: 700; font-family: var(--font); }
 .hf-svg .hf-head { fill: color-mix(in srgb, var(--copper) 22%, var(--surface-2)); stroke: color-mix(in srgb, var(--copper) 60%, var(--border-strong)); stroke-width: 1.2; }
 .hf-svg .hf-ear { fill: color-mix(in srgb, var(--copper) 34%, var(--surface-2)); stroke: color-mix(in srgb, var(--copper) 60%, var(--border-strong)); }
@@ -69,3 +70,14 @@
 
 .hf-stats .stat-note, .hf-stats .stat-label { overflow-wrap: anywhere; }
 .hf-legend, .hf-kv dd { overflow-wrap: anywhere; }
+
+/* Scorecard: a table on wide screens, stacked cards on phones. */
+.hf-only-phone { display: none; }
+@media (max-width: 760px) {
+  .hf-score, .hf-score tbody { display: block; width: 100%; }
+  .hf-score thead { display: none; }
+  .hf-score tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .hf-score td { display: block; padding: 0; border: none; }
+  .hf-score td.hf-wide { grid-column: 1 / -1; }
+  .hf-only-phone { display: inline; }
+}

@@ -16,10 +16,10 @@ the results.
 | Tab | What you get |
 |---|---|
 | Anthropometry & fit | A **parametric 3-D head** (sex and percentile sliders for head breadth, interpupillary distance (IPD), hinge-to-ear distance and nose bridge width) wearing the real Iris CAD parts; the temples swing open about their hinge pins until they meet the head, contact and ear markers turn green or red, and chips report pupil centring, temple length, clamp force and eyebox. **Fit rules** (temple splay, decentration tolerance, ear window, share of women, sample size, seed), saved to `design.extra.ergonomics`. An animated **Monte Carlo scatter** (head breadth vs IPD) with a distinct marker per failure reason (fits, too tight, too loose, pupils off-centre, temple length) over the comfort and PD windows, and coverage bars for women, men and combined. **Anthropometry** cards: probability density curves per dimension with the Iris reference lines, percentile tables (P1–P99) with the ANSUR II empirical percentiles beside the normal approximation, measured-vs-assumption chips, and editable means/SDs. **S/M/L size search**: three sizes (lens width, bridge, temple length, splay) that maximise coverage, each with its comfortable head-breadth range and the share it serves, and a "Use for Iris" button. Downloads: population CSV, percentile CSV, size-range CSV. |
-| Weight & balance | **Animated force diagram**: side view that nods through the look-down angle with weight, nose and ear reactions and the slide force drawn to scale, and a front view with the load on each pad and ear and the centre-of-mass offset; a holds/slips chip and a friction-needed vs pitch plot. **Battery what-if** (move the left-pod parts towards the ear and watch the nose load fall), **nose-pad pressure vs pad area** against the capillary-pressure limit, and the **mass breakdown** (CAD parts + components). Download: mass-properties CSV. |
+| Weight & balance | **Animated force diagram**: side view that nods through the look-down angle with weight, nose and ear reactions and the slide force drawn to scale, and a rear-facing front view with each pad's normal force drawn perpendicular to the nose flank (the wedge multiplies the vertical load by 1/sin β), each ear's load and the centre-of-mass offset; a holds/slips chip and a friction-needed vs pitch plot. **Battery what-if** (move the left-pod parts towards the ear and watch the nose load fall; the 25 gf line is an assumed design target, not a published limit), **nose-pad pressure vs pad area** against the capillary-pressure limit, and the **mass breakdown** (CAD parts + components). Download: mass-properties CSV. |
 | Temple clamp | **Top view at true scale**: the head breadth sweeps the population, the temples bend with their computed cantilever shape plus the front's hinge rotation, force arrows and a comfortable / too tight / too loose verdict. **Clamp force vs head-breadth percentile** for men, women and combined with the comfort band; a P5/P50/P95 table; the **compliance breakdown** (front bending vs each temple) with every segment's second moment of area; sliders for splay, contact point, contact length, pressure limit, friction and look-down angle; "use the best splay". Download: clamp-force CSV. |
 | Legibility & eyebox | **Heads-up text against the world**: an animated street scene cycling dim room → office → overcast → sunlit → snow, where the caption's light is *added* to the see-through background and tone-mapped, with the ACR and verdict; a saved tint slider and a what-if display luminance. **Text size vs acuity**: letter ladder against the acuity threshold and the comfortable band, table of cap heights in arcminutes and Snellen equivalents. **ACR by scene** with the display luminance needed for 3 : 1. **Eyebox coverage**: animated right-eye pupils falling inside or outside the eyebox, the IPD density with the accepted window, coverage vs display offset, face-asymmetry slider and "centre on the population". Download: contrast CSV. |
-| How it works | An animated pipeline from body statistics to requirement checks, the "average man" fallacy, data provenance, comfort of head-worn products, seeing the display, temple mechanics, limitations and tools to graduate to. |
+| How it works | An animated pipeline from body statistics to requirement checks; a live **Iris scorecard** of the `ergonomics.*` metrics against the targets this lab recommends, each with the fix recomputed from the current design and a link to its tab; a **lever-rule demo** (slide or animate the centre of mass between nose pads and ear roots); a **Monte Carlo convergence demo** (running share passing a rule with its 95 % confidence band, log n axis); the "average man" fallacy, data provenance, comfort of head-worn products, seeing the display, temple mechanics, limitations and tools to graduate to. |
 
 ## Engine API
 
@@ -107,16 +107,32 @@ API methods; three sizes beat one.
 | `ergonomics.caption_arcmin` | 22.4′ | 10 px caption × 2.24′/px — comfortable |
 
 **What the simulations caught.** The Iris CAD temples run straight back from
-hinges 122 mm apart, so every adult head pushes them out 9–20 mm: the clamp
-is 2–5 N per side, far above the sustained-pressure limit. A 6.4° splay
-centres the comfort band on the median head (58 % inside the band), and three
+hinges 122 mm apart, so every adult head pushes each temple out ≈ 9–20 mm
+(P5–P95): the clamp is 2–5 N per side, far above the sustained-pressure limit. A 6.4° splay
+centres the comfort band on the median head (58 % inside the band, 35 % fit on
+all rules), but the band is only ≈ 10 mm of head breadth wide: one size covering
+P5–P95 would need the frame to be ≈ 17 mm/N compliant, twice Iris's 8.7 mm/N
+(spring hinges, a thinner front). Three
 sizes with their own splay cover 77.5 % of adults on all rules. The nose
 carries 38 gf on 20 mm² pads — 4.5 × the capillary limit; pads of ≈ 90 mm²
 each fix the pressure, and moving the battery behind the ear trims the load.
 The display axis sits at the lens-box centre (34 mm) while the median
 monocular PD is ≈ 31.4 mm: shifting it 2.6 mm towards the nose raises eyebox
 coverage from 60 % to 90 %. In sunlight the caption washes out (1.24 : 1);
-reaching 1.5 : 1 needs a ≈ 47 % tint or ≈ 6,300 nits of display luminance.
+reaching 1.5 : 1 needs a tint transmitting ≤ 47 % or ≈ 6,300 nits of display
+luminance.
+
+**Recommended Iris requirements** (shown live on the How it works scorecard;
+not yet in `project.json`):
+
+| Metric | Target | Iris v0.5 | Fix found |
+|---|---|---|---|
+| `ergonomics.fit_coverage_pct` | ≥ 30 % | 0.03 % ✕ | 6.4° temple splay → 35 %; S/M/L → 78 % |
+| `ergonomics.nose_pad_pressure_kpa` | ≤ 4.3 kPa | 19.3 kPa ✕ | ≥ 89 mm² pads → 4.2 kPa |
+| `ergonomics.eyebox_coverage_pct` | ≥ 85 % | 59.8 % ✕ | display axis 2.6 mm towards the nose → 89.6 % |
+| `ergonomics.outdoor_contrast` | ≥ 1.5 : 1 | 1.24 : 1 ✕ | tint ≤ 47 % transmission, or ≈ 6,300 nits |
+| `ergonomics.clamp_force_n` (optional) | ≤ 1.4 N | 4.55 N ✕ | sizes, or ≈ 2 × frame compliance |
+| `ergonomics.caption_arcmin` (optional) | ≥ 16′ | 22.4′ ✓ | — |
 
 The lab's settings live in `design.extra.ergonomics` (defaults:
 `female_fraction 0.5, temple_splay_deg 0, display_offset_mm 0,
@@ -184,4 +200,5 @@ contact_before_bend_mm 10, bright_scene_nits 5000, samples 4000, seed 7`).
   ed., McGraw-Hill (2002).
 * ANSUR II public data files, as mirrored in
   [AllenDowney/ProbablyOverthinkingIt](https://github.com/AllenDowney/ProbablyOverthinkingIt)
-  (`data/` on the `book` branch) — the source of the statistics computed here.
+  (`data/ANSURIIMALEPublic.csv`, `data/ANSURIIFEMALEPublic.csv`) — the source of
+  the statistics computed here.

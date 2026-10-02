@@ -9,6 +9,8 @@ import { csv, f1, Kv, OkChip, PlayButton, REFS, useClock, useErgo, usePlaying } 
 import type { BalanceOut, ErgoConfig } from './types';
 
 const G = 9.80665;
+/** Assumed nose-load design target, grams-force (not a published limit). */
+const NOSE_TARGET_GF = 25;
 
 export function BalanceTab() {
   const { project, cfg, setCfg } = useErgo();
@@ -23,7 +25,7 @@ export function BalanceTab() {
       {b && (
         <div className="grid grid-4 hf-stats">
           <Stat label="Wearable mass" value={f1(b.mass_g)} unit="g" note={`frame (CAD) + ${project.components.length} BOM lines`} />
-          <Stat label="Load on the nose" value={f1(b.upright.nose_gf)} unit="gf" note={`${f1(b.upright.nose_share_pct, 0)} % of the weight · ergonomics.nose_load_g`} tone={b.upright.nose_gf <= 25 ? 'pass' : 'warn'} />
+          <Stat label="Load on the nose" value={f1(b.upright.nose_gf)} unit="gf" note={`${f1(b.upright.nose_share_pct, 0)} % of the weight · ergonomics.nose_load_g`} tone={b.upright.nose_gf <= NOSE_TARGET_GF ? 'pass' : 'warn'} />
           <Stat label="Nose-pad pressure" value={f1(pmax)} unit="kPa" tone={pmax <= b.pressure_limit_kpa ? 'pass' : 'fail'} note={`limit ≈ ${f1(b.pressure_limit_kpa)} kPa (32 mmHg) · ${f1(b.pad_area_mm2, 0)} mm² pads`} />
           <Stat label="Right ear share" value={f1(b.upright.right_ear_share_pct, 0)} unit="%" note={`right side ${f1(b.right_g)} g · left ${f1(b.left_g)} g`} />
         </div>
@@ -39,9 +41,13 @@ export function BalanceTab() {
               yLabel="nose load (gf)"
               series={[{ name: 'nose load', x: b.shift_mm, y: b.nose_gf_vs_shift }]}
               vLines={[{ value: shift, label: `${f1(b.upright.nose_gf)} gf` }]}
-              hLines={[{ value: 25, label: 'suggested 25 gf' }]}
+              hLines={[{ value: NOSE_TARGET_GF, label: `${NOSE_TARGET_GF} gf design target (assumed)` }]}
             />
-            <p className="small muted" style={{ margin: 0 }}>A what-if only: the CAD battery pod does not move. Behind-the-ear battery housings are a common smart-glasses layout for exactly this reason.</p>
+            <p className="small muted" style={{ margin: 0 }}>
+              A what-if only: the CAD battery pod does not move. Behind-the-ear battery housings are a common smart-glasses layout for exactly this reason. The {NOSE_TARGET_GF} gf line is
+              this lab&apos;s assumed target (about the weight of a light pair of ordinary spectacles carried mostly on the nose), not a published limit — the pad-pressure check
+              below is the physical one.
+            </p>
           </Card>
           <Card title="Nose-pad pressure vs pad area" subtitle="Normal force per pad over its contact area, against the ≈ 4.3 kPa sustained-pressure limit.">
             <Plot
@@ -121,18 +127,34 @@ function ForceCard({ b, cfg }: { b: BalanceOut; cfg: ErgoConfig }) {
   const Wd = Math.max(300, width);
   const side = Wd >= 720;
   const sw = side ? Wd * 0.58 : Wd;
-  const sh = side ? 400 : 340;
-  // side view: engine y → svg x (forward = right), engine z → svg −y
-  const yMin = -180, yMax = 40, zMax = 160, zMin = -150;
+  // Side view: engine y → svg x (forward = right), engine z → svg −y. The head nods about the
+  // neck pivot; the view box is the union of the head's bounding box (plus room for the arrows)
+  // over 0–60° of pitch, so the scale stays fixed while it animates and nothing leaves the view.
+  const PIV: [number, number] = [-95, -140];
+  const box: [number, number][] = [[-178, 155], [45, 155], [45, -130], [-178, -130]];
+  let bb = [Infinity, -Infinity, Infinity, -Infinity]; // y min/max, z min/max
+  for (const deg of [0, 15, 30, 45, 60]) {
+    const ra = (deg * Math.PI) / 180;
+    for (const [y, z] of box) {
+      const yr = PIV[0] + (y - PIV[0]) * Math.cos(ra) + (z - PIV[1]) * Math.sin(ra);
+      const zr = PIV[1] - (y - PIV[0]) * Math.sin(ra) + (z - PIV[1]) * Math.cos(ra);
+      bb = [Math.min(bb[0], yr), Math.max(bb[1], yr), Math.min(bb[2], zr), Math.max(bb[3], zr)];
+    }
+  }
+  const [yMin, yMax, zMin0, zMax] = bb;
+  const zMin = zMin0 - 40; // the world-vertical weight arrow and its label hang below
+  // phone: as tall as the width-limited scale needs, so there is no empty band
+  const sh = side ? 460 : Math.min(420, Math.ceil(30 + ((zMax - zMin) * (sw - 20)) / (yMax - yMin)));
   const k = Math.min((sw - 20) / (yMax - yMin), (sh - 30) / (zMax - zMin));
   const X = (y: number) => (sw - (yMax - yMin) * k) / 2 + (y - yMin) * k;
   const Y = (z: number) => 24 + (zMax - z) * k;
-  const pivot = [X(-95), Y(-140)];
-  const fs = 2.6; // px per gf
+  const pivot = [X(PIV[0]), Y(PIV[1])];
+  const fs = 2.6; // px per gf (front view uses 0.8 fs throughout)
+  const fsS = 1.8; // px per gf in the side view (every arrow)
   const pad = b.pads[0], ear = b.ears[0], com = b.com;
   const headPath = `M${X(-8)},${Y(95)} C${X(-40)},${Y(150)} ${X(-170)},${Y(140)} ${X(-172)},${Y(40)} C${X(-176)},${Y(-40)} ${X(-150)},${Y(-90)} ${X(-110)},${Y(-120)} L${X(-60)},${Y(-125)} C${X(-30)},${Y(-120)} ${X(-12)},${Y(-110)} ${X(-10)},${Y(-95)} L${X(-14)},${Y(-72)} L${X(-4)},${Y(-60)} L${X(-12)},${Y(-45)} L${X(10)},${Y(-35)} L${X(-8)},${Y(8)} L${X(-12)},${Y(25)} C${X(-10)},${Y(55)} ${X(-5)},${Y(80)} ${X(-8)},${Y(95)} Z`;
   const fw = Wd - sw - 16;
-  const fh = side ? 400 : 320;
+  const fh = side ? sh : 340;
   const front = (
     <svg width={side ? fw : Wd} height={fh} className="hf-svg" role="img" aria-label="Front view: load on each nose pad and ear">
       {(() => {
@@ -146,23 +168,44 @@ function ForceCard({ b, cfg }: { b: BalanceOut; cfg: ErgoConfig }) {
             <line x1={cx(-70)} x2={cx(70)} y1={cy(ear[2])} y2={cy(ear[2])} className="hf-frame" />
             <rect x={cx(-60)} y={cy(20)} width={52 * sc} height={40 * sc} rx={10} className="hf-frame-fill" />
             <rect x={cx(8)} y={cy(20)} width={52 * sc} height={40 * sc} rx={10} className="hf-frame-fill" />
-            {[0, 1].map((i) => (
-              <g key={`p${i}`}>
-                <Arrow x={cx(b.pads[i][0])} y={cy(pad[2]) + Math.max(0, r[i]) * fs * 0.8 + 6} dx={0} dy={-Math.max(0, r[i]) * fs * 0.8} color="var(--series-1)" />
-                <text x={cx(b.pads[i][0]) + (i === 0 ? 6 : -6)} y={cy(pad[2]) + 34} textAnchor={i === 0 ? 'start' : 'end'} className="hf-lbl">{f1(r[i])} gf</text>
-              </g>
-            ))}
-            {[2, 3].map((i) => (
-              <g key={`e${i}`}>
-                <Arrow x={cx(b.ears[i - 2][0])} y={cy(ear[2]) + Math.max(0, r[i]) * fs * 0.8 + 6} dx={0} dy={-Math.max(0, r[i]) * fs * 0.8} color="var(--series-3)" />
-                <text x={cx(b.ears[i - 2][0])} y={cy(ear[2]) + Math.max(0, r[i]) * fs * 0.8 + 20} textAnchor="middle" className="hf-lbl">{f1(r[i])} gf</text>
-              </g>
-            ))}
+            {[0, 1].map((i) => {
+              // Pad normal force acts perpendicular to the nose flank: outward and up, β above horizontal.
+              const n = (Math.max(0, r[i]) / Math.sin(beta)) * fs * 0.8;
+              const sx = i === 0 ? 1 : -1;
+              const x0 = cx(b.pads[i][0]), y0 = cy(pad[2]);
+              const hx = x0 + sx * n * Math.cos(beta), hy = y0 - n * Math.sin(beta);
+              return (
+                <g key={`p${i}`}>
+                  <Arrow x={x0} y={y0} dx={hx - x0} dy={hy - y0} color="var(--series-1)" />
+                  <text x={hx + sx * 4} y={hy - 20} textAnchor={i === 0 ? 'start' : 'end'} className="hf-lbl">
+                    N {f1((Math.max(0, r[i]) / Math.sin(beta)) * G / 1000, 2)} N
+                  </text>
+                  <text x={hx + sx * 4} y={hy - 6} textAnchor={i === 0 ? 'start' : 'end'} className="hf-lbl muted">
+                    lifts {f1(r[i])} gf
+                  </text>
+                </g>
+              );
+            })}
+            {[2, 3].map((i) => {
+              const sx = i === 2 ? 1 : -1;
+              const len = Math.max(0, r[i]) * fs * 0.8;
+              return (
+                <g key={`e${i}`}>
+                  <Arrow x={cx(b.ears[i - 2][0])} y={cy(ear[2]) + len + 6} dx={0} dy={-len} color="var(--series-3)" />
+                  <text x={cx(b.ears[i - 2][0]) + sx * 6} y={cy(ear[2]) + len + 18} textAnchor={i === 2 ? 'start' : 'end'} className="hf-lbl">
+                    ear {f1(r[i])} gf
+                  </text>
+                </g>
+              );
+            })}
             <circle cx={cx(com[0])} cy={cy(com[2])} r={5} className="hf-com" />
-            <Arrow x={cx(com[0])} y={cy(com[2])} dx={0} dy={b.mass_g * fs * 0.8 * 0.5} color="var(--series-2)" />
-            <text x={cx(com[0]) + 8} y={cy(com[2]) - 6} className="hf-lbl">CoM x = {f1(com[0])} mm</text>
-            <text x={6} y={16} className="hf-lbl">← left (battery)</text>
-            <text x={w0 - 6} y={32} textAnchor="end" className="hf-lbl">right (electronics, display) →</text>
+            <Arrow x={cx(com[0])} y={cy(com[2])} dx={0} dy={b.mass_g * fs * 0.8} color="var(--series-2)" />
+            <text x={cx(com[0])} y={cy(com[2]) + b.mass_g * fs * 0.8 + 16} textAnchor="middle" className="hf-lbl">
+              W {f1(b.mass_g)} gf · CoM x = {f1(com[0])} mm
+            </text>
+            <text x={w0 / 2} y={16} textAnchor="middle" className="hf-lbl muted">front view, seen from behind the wearer</text>
+            <text x={6} y={fh - 8} className="hf-lbl">← left (battery)</text>
+            <text x={w0 - 6} y={fh - 8} textAnchor="end" className="hf-lbl">right (electronics) →</text>
           </g>
         );
       })()}
@@ -177,7 +220,7 @@ function ForceCard({ b, cfg }: { b: BalanceOut; cfg: ErgoConfig }) {
       <div className="row" style={{ marginBottom: 6 }}>
         {!playing && (
           <div style={{ flex: '1 1 220px' }}>
-            <Slider label="Head pitch (looking down)" value={manual} min={0} max={80} step={1} unit="°" onChange={setManual} />
+            <Slider label="Head pitch (looking down)" value={manual} min={0} max={60} step={1} unit="°" onChange={setManual} />
           </div>
         )}
         <OkChip ok={holds} yes={`holds at ${f1(pitch, 0)}°`} no={`slips at ${f1(pitch, 0)}°`} />
@@ -193,11 +236,11 @@ function ForceCard({ b, cfg }: { b: BalanceOut; cfg: ErgoConfig }) {
             <rect x={X(b.frame.geom.pod_rear_y)} y={Y(ear[2] + b.frame.geom.pod_h_mm / 2)} width={(b.frame.geom.pod_front_y - b.frame.geom.pod_rear_y) * k} height={b.frame.geom.pod_h_mm * k} rx={3} className="hf-frame-fill" />
             <line x1={X(0)} y1={Y(24)} x2={X(0)} y2={Y(-24)} className="hf-frame" />
             {/* reactions in the head frame */}
-            <Arrow x={X(pad[1])} y={Y(pad[2]) + (r[0] + r[1]) * fs + 8} dx={0} dy={-(r[0] + r[1]) * fs} color="var(--series-1)" />
-            <text x={X(pad[1]) + 6} y={Y(pad[2]) + (r[0] + r[1]) * fs + 8} className="hf-lbl">nose {f1(r[0] + r[1])} gf</text>
-            <Arrow x={X(ear[1])} y={Y(ear[2]) + (r[2] + r[3]) * fs + 8} dx={0} dy={-(r[2] + r[3]) * fs} color="var(--series-3)" />
-            <text x={X(ear[1]) + 6} y={Y(ear[2]) + (r[2] + r[3]) * fs + 8} className="hf-lbl">ears {f1(r[2] + r[3])} gf</text>
-            {slide > 1e-4 && <Arrow x={X(pad[1])} y={Y(pad[2]) - 10} dx={(slide / G) * 1000 * fs} dy={0} color="var(--series-4)" />}
+            <Arrow x={X(pad[1])} y={Y(pad[2]) + (r[0] + r[1]) * fsS + 8} dx={0} dy={-(r[0] + r[1]) * fsS} color="var(--series-1)" />
+            <text x={X(pad[1]) + 6} y={Y(pad[2]) + (r[0] + r[1]) * fsS + 8} className="hf-lbl">nose {f1(r[0] + r[1])} gf</text>
+            <Arrow x={X(ear[1])} y={Y(ear[2]) + (r[2] + r[3]) * fsS + 8} dx={0} dy={-(r[2] + r[3]) * fsS} color="var(--series-3)" />
+            <text x={X(ear[1]) + 6} y={Y(ear[2]) + (r[2] + r[3]) * fsS + 8} className="hf-lbl">ears {f1(r[2] + r[3])} gf</text>
+            {slide > 1e-4 && <Arrow x={X(pad[1])} y={Y(pad[2]) - 10} dx={(slide / G) * 1000 * fsS} dy={0} color="var(--series-4)" />}
             <circle cx={X(com[1])} cy={Y(com[2])} r={5} className="hf-com" />
           </g>
           {/* gravity stays vertical in the world */}
@@ -209,8 +252,8 @@ function ForceCard({ b, cfg }: { b: BalanceOut; cfg: ErgoConfig }) {
             const wy = pivot[1] + dx * Math.sin(ang) + dy * Math.cos(ang);
             return (
               <g>
-                <Arrow x={wx} y={wy} dx={0} dy={b.mass_g * fs * 0.8} color="var(--series-2)" />
-                <text x={wx + 8} y={wy + b.mass_g * fs * 0.8} className="hf-lbl">W = {f1(b.mass_g)} gf</text>
+                <Arrow x={wx} y={wy} dx={0} dy={b.mass_g * fsS} color="var(--series-2)" />
+                <text x={wx - 8} y={wy + b.mass_g * fsS} textAnchor="end" className="hf-lbl">W = {f1(b.mass_g)} gf</text>
               </g>
             );
           })()}
