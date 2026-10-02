@@ -1,6 +1,6 @@
 // The bathtub curve as three competing Weibull modes, with a population of
 // units that fail as the clock runs (play/pause, reduced-motion aware).
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { Card, Explainer, Formula, Slider } from '../../components/ui';
 import { useElementWidth } from '../../components/useElementWidth';
 import { useCompute } from '../../engine/hooks';
@@ -39,9 +39,11 @@ export function Bathtub() {
     return Math.min(Math.max(...mid) * 1.1, (data.h_random[0] ?? 1e-5) * 12);
   }, [data]);
   const sx = (x: number) => m.l + (x / 40000) * (W - m.l - m.r);
-  const sy = (h: number) => m.t + (H - m.t - m.b) * (1 - Math.min(h, hmax) / hmax);
+  // curves leave through the top edge (clipped) instead of flattening at the cap
+  const sy = (h: number) => m.t + (H - m.t - m.b) * (1 - Math.min(h, hmax * 4) / hmax);
   const path = (ys: number[]) => (data ? data.t.map((x, i) => `${i ? 'L' : 'M'}${sx(x).toFixed(1)},${sy(ys[i]).toFixed(1)}`).join('') : '');
   const cols = 24;
+  const clip = `rl-bath-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   return (
     <Card
       title="The bathtub curve, animated"
@@ -62,13 +64,18 @@ export function Bathtub() {
               <text key={x} x={sx(x)} y={H - 8} textAnchor="middle" className="rl-axis">{fmt(x)} h</text>
             ))}
             <text x={14} y={m.t + (H - m.t - m.b) / 2} transform={`rotate(-90 14 ${m.t + (H - m.t - m.b) / 2})`} textAnchor="middle" className="rl-axis-label">hazard h(t)</text>
+            <defs>
+              <clipPath id={clip}>
+                <rect x={m.l} y={m.t} width={W - m.l - m.r} height={H - m.t - m.b} />
+              </clipPath>
+            </defs>
             {data && (
-              <>
+              <g clipPath={`url(#${clip})`}>
                 <path d={path(data.h_infant)} fill="none" stroke={MODE_COLORS[0]} strokeWidth={1.3} strokeDasharray="4 3" />
                 <path d={path(data.h_random)} fill="none" stroke={MODE_COLORS[1]} strokeWidth={1.3} strokeDasharray="4 3" />
                 <path d={path(data.h_wear)} fill="none" stroke={MODE_COLORS[2]} strokeWidth={1.3} strokeDasharray="4 3" />
                 <path d={path(data.h_total)} fill="none" stroke="var(--text)" strokeWidth={2.4} />
-              </>
+              </g>
             )}
             <line x1={sx(t)} x2={sx(t)} y1={m.t} y2={H - m.b} stroke="var(--accent)" strokeWidth={1.5} />
             <text x={Math.min(sx(t) + 4, W - 70)} y={m.t + 12} className="rl-axis" style={{ fill: 'var(--accent)' }}>t = {fmt(t)} h</text>

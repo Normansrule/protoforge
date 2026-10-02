@@ -185,8 +185,8 @@ function Planner({ af, model, iris }: { af: number; model: Model; iris: IrisOut 
         <Slider label="Reliability R" value={rel} min={0.5} max={0.99} step={0.01} onChange={setRel} />
         <Slider label="Confidence C" value={conf} min={0.5} max={0.99} step={0.01} onChange={setConf} />
         <Slider label="Weibull β of the mechanism" value={beta} min={0.5} max={6} step={0.1} onChange={setBeta} />
-        <Slider label="Failures allowed" value={fails} min={0} max={3} step={1} onChange={(v) => setFails(Math.round(v))} />
-        <Slider label="Units on test" value={units} min={1} max={60} step={1} onChange={(v) => setUnits(Math.round(v))} />
+        <Slider label="Failures allowed" value={fails} min={0} max={3} step={1} format={(v) => String(Math.round(v))} onChange={(v) => setFails(Math.round(v))} />
+        <Slider label="Units on test" value={units} min={1} max={60} step={1} format={(v) => String(Math.round(v))} onChange={(v) => setUnits(Math.round(v))} />
         <NumberField label={`Test length per unit (${tu})`} value={dur} onChange={setDur} />
       </div>
       <div className="small muted">Default field life: {cycling ? `${fmt(defaultLife)} daily thermal cycles` : `${fmt(defaultLife)} operating hours`} = Iris's {prof?.mission_years ?? 2}-year use profile.</div>
@@ -309,10 +309,10 @@ function Chamber() {
           { value: 'dry_heat', label: 'Dry heat (IEC 60068-2-2)' },
           { value: 'cold', label: 'Cold (IEC 60068-2-1)' },
         ]} />
-        <Slider label="Low temperature" value={lo} min={-40} max={10} step={1} unit="°C" onChange={setLo} />
-        <Slider label="High temperature" value={hi} min={30} max={85} step={1} unit="°C" onChange={setHi} />
+        <Slider label="Low temperature" value={lo} min={-40} max={10} step={1} format={(v) => String(Math.round(v))} unit="°C" onChange={setLo} />
+        <Slider label="High temperature" value={hi} min={30} max={85} step={1} format={(v) => String(Math.round(v))} unit="°C" onChange={setHi} />
         <Slider label="Ramp rate" value={ramp} min={1} max={15} step={0.5} unit="°C/min" onChange={setRamp} />
-        {kind === 'thermal_cycle' && <Slider label="Dwell" value={dwell} min={5} max={60} step={1} unit="min" onChange={setDwell} />}
+        {kind === 'thermal_cycle' && <Slider label="Dwell" value={dwell} min={5} max={60} step={1} format={(v) => String(Math.round(v))} unit="min" onChange={setDwell} />}
       </div>
       <div className="small muted">Standard designations for orientation only — pick severities from your product specification and check the current editions.</div>
     </Card>

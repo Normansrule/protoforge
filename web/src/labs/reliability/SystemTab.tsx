@@ -96,7 +96,7 @@ export function SystemTab() {
                   : `✓ Simulated unit ${unitIx + 1} working at ${(tH / yearH).toFixed(2)} years${unit.system_ttf_h < 1e14 ? ` · it will fail at ${fmt(unit.system_ttf_h / yearH, 3)} years (${cause?.label ?? ''})` : ''}`
               ) : 'Monte Carlo off'}
               <span className="row" style={{ marginLeft: 'auto' }}>
-                <button className="btn small" onClick={() => setUnitIx((u) => (u + 7) % Math.max(1, rbd.mc?.units.length ?? 1))} aria-label="previous unit">‹</button>
+                <button className="btn small" onClick={() => { const n = Math.max(1, rbd.mc?.units.length ?? 1); setUnitIx((u) => (u - 1 + n) % n); }} aria-label="previous unit">‹</button>
                 <button className="btn small" onClick={() => setUnitIx((u) => (u + 1) % Math.max(1, rbd.mc?.units.length ?? 1))} aria-label="next unit">›</button>
               </span>
             </div>
@@ -110,14 +110,14 @@ export function SystemTab() {
               series={[
                 { name: 'system R(t)', x: rbd.t_h.map((t) => t / yearH), y: rbd.r_sys },
                 { name: 'random failures only (parts count)', x: rbd.t_h.map((t) => t / yearH), y: rbd.r_random, dash: '5 3' },
-                ...(rbd.mc ? [{ name: 'Monte Carlo', x: rbd.t_h.filter((_, i) => i % 6 === 0).map((t) => t / yearH), y: rbd.mc.r_curve.filter((_, i) => i % 6 === 0), scatter: true, color: 'var(--series-2)' }] : []),
+                ...(rbd.mc ? [{ name: 'Monte Carlo', x: rbd.t_h.filter((_, i) => i % 6 === 0).map((t) => t / yearH), y: rbd.mc.r_curve.filter((_, i) => i % 6 === 0), scatter: true, color: 'var(--series-3)' }] : []),
               ]}
               xLabel="years in service"
               yLabel="reliability"
               legend
               height={250}
               yDomain={[0, 1.02]}
-              vLines={[{ value: missionH / yearH, label: `${fmt(missionH / yearH)} y` }, { value: rbd.b10_h / yearH, label: 'B10' }]}
+              vLines={(() => { const apart = Math.abs(rbd.b10_h - missionH) > 0.12 * horizonH; return [{ value: missionH / yearH, label: `${fmt(missionH / yearH)} y` }, { value: rbd.b10_h / yearH, label: apart ? 'B10' : '' }].map((v, i) => (i === 0 && !apart ? { ...v, label: rbd.b10_h < missionH ? `B10 · ${v.label}` : `${v.label} · B10` } : v)); })()}
             />
             {rbd.mc && (
               <div className="small muted">
@@ -185,7 +185,7 @@ export function SystemTab() {
         <Card title="Use profile" subtitle="Saved with the project (design.extra.reliability) — the metrics follow">
           <Slider label="Mission" value={cfg.mission_years} min={0.5} max={5} step={0.5} unit="years" onChange={(v) => setCfg({ mission_years: v })} />
           <Slider label="Worn per day" value={cfg.hours_per_day} min={1} max={16} step={0.5} unit="h" onChange={(v) => setCfg({ hours_per_day: v })} />
-          <Slider label="Open/close per day" value={cfg.hinge_cycles_per_day} min={1} max={40} step={1} onChange={(v) => setCfg({ hinge_cycles_per_day: v })} />
+          <Slider label="Open/close per day" value={cfg.hinge_cycles_per_day} min={1} max={40} step={1} format={(v) => String(Math.round(v))} onChange={(v) => setCfg({ hinge_cycles_per_day: v })} />
           <Slider label="Activation energy for part FITs" value={cfg.ea_ev} min={0.3} max={1} step={0.05} unit="eV" onChange={(v) => setCfg({ ea_ev: v })} />
           <Select label="Microphones" value={String(cfg.mic_k)} onChange={(v) => setCfg({ mic_k: Number(v) })} options={[{ value: '2', label: 'Both needed (beamformer) — series' }, { value: '1', label: 'One is enough (degraded captions) — 1 of 2' }]} />
           <Toggle label="Count the battery reaching 80 % capacity as a failure" value={cfg.battery_counts} onChange={(v) => setCfg({ battery_counts: v })} />

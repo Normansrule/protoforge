@@ -86,8 +86,8 @@ export function SampleTab() {
           <Slider label="Test length per unit k (lives)" value={k} min={0.5} max={3} step={0.1} onChange={setK} />
         </Card>
         <Card title="Plan on the OC curve">
-          <Slider label="Units in the binomial plan" value={planN} min={2} max={80} step={1} onChange={(v) => setPlanN(Math.round(v))} />
-          <Slider label="Failures allowed" value={planF} min={0} max={5} step={1} onChange={(v) => setPlanF(Math.round(v))} />
+          <Slider label="Units in the binomial plan" value={planN} min={2} max={80} step={1} format={(v) => String(Math.round(v))} onChange={(v) => setPlanN(Math.round(v))} />
+          <Slider label="Failures allowed" value={planF} min={0} max={5} step={1} format={(v) => String(Math.round(v))} onChange={(v) => setPlanF(Math.round(v))} />
           <Slider label="Reliability you believe the design has" value={design} min={0.8} max={0.999} step={0.001} onChange={setDesign} />
           <button className="btn small" onClick={() => s && setPlanN(s.rows[Math.min(planF, s.rows.length - 1)].binomial_n)}>Use the minimum units for {planF} failure(s)</button>
         </Card>

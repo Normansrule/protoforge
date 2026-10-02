@@ -304,7 +304,7 @@ function EstimatorStudy() {
   return (
     <Card title="Which estimator should I trust? A Monte Carlo study" subtitle="400 synthetic tests drawn from a known Weibull (η = 1000): how spread out and how biased is the fitted β?">
       <div className="grid grid-3">
-        <Slider label="Units per test" value={n} min={3} max={40} step={1} onChange={(v) => setN(Math.round(v))} />
+        <Slider label="Units per test" value={n} min={3} max={40} step={1} format={(v) => String(Math.round(v))} onChange={(v) => setN(Math.round(v))} />
         <Slider label="Fraction failed when the test stops" value={ff} min={0.2} max={1} step={0.05} onChange={setFf} format={(v) => `${Math.round(v * 100)} %`} />
         <Slider label="True β" value={beta} min={0.5} max={5} step={0.1} onChange={setBeta} />
       </div>

@@ -140,11 +140,11 @@ export function DvtTab() {
         <Card title="Plan targets" subtitle="Saved with the project — reliability.dvt_units follows">
           <Slider label="Reliability to demonstrate" value={cfg.dvt_reliability} min={0.7} max={0.99} step={0.01} onChange={(v) => setCfg({ dvt_reliability: v })} />
           <Slider label="Confidence" value={cfg.dvt_confidence} min={0.5} max={0.95} step={0.05} onChange={(v) => setCfg({ dvt_confidence: v })} format={(v) => `${Math.round(v * 100)} %`} />
-          <Slider label="Failures allowed per leg" value={cfg.dvt_failures} min={0} max={2} step={1} onChange={(v) => setCfg({ dvt_failures: Math.round(v) })} />
+          <Slider label="Failures allowed per leg" value={cfg.dvt_failures} min={0} max={2} step={1} format={(v) => String(Math.round(v))} onChange={(v) => setCfg({ dvt_failures: Math.round(v) })} />
           <Slider label="Life-leg test length" value={cfg.life_multiple} min={1} max={3} step={0.25} unit="lives" onChange={(v) => setCfg({ life_multiple: v })} />
           <Slider label="Assumed β of the life mechanisms" value={cfg.life_beta} min={1} max={4} step={0.1} onChange={(v) => setCfg({ life_beta: v })} />
-          <Slider label="Units per qualification check" value={cfg.qual_units} min={1} max={10} step={1} onChange={(v) => setCfg({ qual_units: Math.round(v) })} />
-          <Slider label="Daily electronics temperature swing" value={cfg.daily_swing_c} min={5} max={40} step={1} unit="K" onChange={(v) => setCfg({ daily_swing_c: v })} />
+          <Slider label="Units per qualification check" value={cfg.qual_units} min={1} max={10} step={1} format={(v) => String(Math.round(v))} onChange={(v) => setCfg({ qual_units: Math.round(v) })} />
+          <Slider label="Daily electronics temperature swing" value={cfg.daily_swing_c} min={5} max={40} step={1} format={(v) => String(Math.round(v))} unit="K" onChange={(v) => setCfg({ daily_swing_c: v })} />
         </Card>
         {d && (
           <Card title="Notes">

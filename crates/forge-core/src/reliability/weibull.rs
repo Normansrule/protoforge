@@ -631,7 +631,8 @@ pub fn fit(i: FitIn) -> Result<FitOut, String> {
         }
         notes.push("Weibayes bounds: η from the chi-square distribution with 2r + 2 degrees of freedom (β treated as exact).".into());
     } else if i.bounds == "lr" && mle_ok && data.len() > 400 {
-        notes.push("Likelihood-ratio bounds are limited to 400 observations in the browser; Fisher-matrix bounds are drawn instead.".into());
+        notes
+            .push("Likelihood-ratio bounds are limited to 400 observations in the browser; Fisher-matrix bounds are drawn instead.".into());
         bounds_method = "fisher".into();
         cov = fisher_cov(&data, beta, eta);
         if let Some(v) = cov {
