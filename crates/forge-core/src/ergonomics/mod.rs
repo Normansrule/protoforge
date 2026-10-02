@@ -136,7 +136,14 @@ fn s_of(fg: &FrameGeom) -> Supports {
 }
 
 pub fn analysis(p: &Project, cfg: &ErgoConfig) -> std::rc::Rc<Analysis> {
-    let key = crate::memo::key(&(&p.design.frame, &p.design.optics, &p.design.pcb, &p.components, p.design.extra.get("mechanisms"), cfg));
+    let key = crate::memo::key(&(
+        &p.design.frame,
+        &p.design.optics,
+        &p.design.pcb,
+        &p.components,
+        p.design.extra.get("mechanisms"),
+        cfg,
+    ));
     crate::memo::memo(&ANALYSIS, key, || {
         let fg = model::frame_geom(p);
         let items = balance::mass_items(p, &fg);
@@ -465,7 +472,8 @@ fn sizes_api(i: SizesIn) -> Result<SizesOut, String> {
         .map(|(si, &s)| {
             let c = &cands[s];
             let fg = a.fg.resized(c);
-            let cm = ClampModel::new(&fg, c.splay_deg.unwrap_or(cfg.temple_splay_deg), cfg.contact_before_bend_mm).with_hinge(a.hinge.clone());
+            let cm =
+                ClampModel::new(&fg, c.splay_deg.unwrap_or(cfg.temple_splay_deg), cfg.contact_before_bend_mm).with_hinge(a.hinge.clone());
             SizeOut {
                 name: names[si].to_string(),
                 size: *c,
@@ -1068,8 +1076,9 @@ mod tests {
         let nose = get(&m, "ergonomics.nose_load_g");
         let total = p.component_mass_g();
         assert!(nose > 0.3 * total && nose < 60.0, "{nose}");
+        // v0.6 moves the display axis 2.6 mm towards the nose
         let eb = get(&m, "ergonomics.eyebox_coverage_pct");
-        assert!(eb > 40.0 && eb < 80.0, "{eb}");
+        assert!((85.0..=100.0).contains(&eb), "{eb}");
         let acr = get(&m, "ergonomics.outdoor_contrast");
         assert!((acr - (828.0 + 3500.0) / 3500.0).abs() < 1e-6, "{acr}");
         let f = get(&m, "ergonomics.clamp_force_n");

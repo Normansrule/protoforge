@@ -633,8 +633,47 @@ pub struct ExampleVersion {
 /// A third, exploratory version on its own branch (a 250 mAh cell) gives the
 /// branch, compare and merge tools something to work on; its description
 /// states only the change — the labs report what it does when it is compared.
+/// Requirements Iris v0.6 added from the round-3 labs (RF, thermal, mechanisms,
+/// human factors, reliability, program).
+pub const V06_REQS: &[&str] = &[
+    "R-036", "R-037", "R-038", "R-039", "R-040", "R-041", "R-042", "R-043", "R-044", "R-045", "R-046", "R-047", "R-048", "R-049", "R-050",
+    "R-051", "R-052", "R-053",
+];
+/// BOM lines Iris v0.6 added.
+pub const V06_PARTS: &[&str] = &["R6", "R7", "L2", "L3", "Y1", "C7", "C8", "TH1", "NP1"];
+
+/// Iris v0.5 rebuilt from the shipped v0.6 by undoing every v0.6 change.
+pub fn iris_v05() -> Project {
+    let mut p = Project::iris();
+    p.meta.version = "0.5.0".into();
+    p.requirements.retain(|r| !V06_REQS.contains(&r.id.as_str()));
+    p.components.retain(|c| !V06_PARTS.contains(&c.refdes.as_str()));
+    for k in ["rf", "fluids", "mechanisms", "ergonomics"] {
+        p.design.extra.remove(k);
+    }
+    p.design.battery.capacity_mah = 180.0;
+    p.design.battery.mass_g = 4.0;
+    for c in p.components.iter_mut() {
+        match c.refdes.as_str() {
+            "BT1" => {
+                c.name = "LiPo cell 180 mAh".into();
+                c.example_part = "3.7 V 180 mAh LiPo, ~4 g".into();
+                c.mass_g = 4.0;
+            }
+            "HW1" => c.example_part = "Eyewear hinge kit".into(),
+            _ => {}
+        }
+    }
+    p.design.frame.rim_width_mm = 5.0;
+    // The board keeps v0.6's design rules (0.127 mm on a 0.254 mm grid). v0.5
+    // shipped with 0.15 mm on a 0.25 mm grid, which today's placer and router
+    // no longer close cleanly (the grid wastes a fifth of every channel).
+    p
+}
+
 pub fn iris_history() -> Vec<ExampleVersion> {
-    let v5 = Project::iris();
+    let v6 = Project::iris();
+    let v5 = iris_v05();
     // v0.4: before the round of mechanical / firmware / manufacturing analyses
     let mut v4 = v5.clone();
     v4.meta.version = "0.4.0".into();
@@ -685,6 +724,28 @@ pub fn iris_history() -> Vec<ExampleVersion> {
     };
     let (c3, c4, a3, a4) = (clearance(&v3), clearance(&v4), adc(&v3), adc(&v4));
     let rail = v4.design.power_rails.core_v;
+    // round 3: what the six new labs said about v0.5, and what v0.6 changed
+    let m = |p: &Project, key: &str| -> f64 {
+        let ms = match key.split('.').next().unwrap_or("") {
+            "rf" => crate::rf::metrics(p),
+            "fluids" => crate::fluids::metrics(p),
+            "mechanisms" => crate::mechanisms::metrics(p),
+            "ergonomics" => crate::ergonomics::metrics(p),
+            "reliability" => crate::reliability::metrics(p),
+            _ => crate::systems::all_metrics(p),
+        };
+        ms.into_iter().find(|x| x.key == key).map(|x| x.value).unwrap_or(f64::NAN)
+    };
+    let r3 = |key: &str| (m(&v5, key), m(&v6, key));
+    let (rl5, rl6) = r3("rf.match_return_loss_db");
+    let (z5, z6) = r3("rf.feed_z0_ohm");
+    let (t5, t6) = r3("fluids.peak_skin_c");
+    let (sf5, sf6) = r3("mechanisms.hinge_spring_sf");
+    let (fit5, fit6) = r3("ergonomics.fit_coverage_pct");
+    let (np5, np6) = r3("ergonomics.nose_pad_pressure_kpa");
+    let (eb5, eb6) = r3("ergonomics.eyebox_coverage_pct");
+    let (rel5, rel6) = r3("reliability.r_2yr_pct");
+    let mass6 = m(&v6, "mass.total_g");
     vec![
         ExampleVersion {
             name: "Iris v0.3 — first integrated design".into(),
@@ -740,8 +801,18 @@ pub fn iris_history() -> Vec<ExampleVersion> {
             ),
             branch: "main".into(),
             parent: Some(1),
-            baseline: Some("Product baseline (candidate)".into()),
+            baseline: Some("Design baseline".into()),
             project: v5,
+        },
+        ExampleVersion {
+            name: "Iris v0.6 — RF, thermal, hinge, fit, reliability and program".into(),
+            description: format!(
+                "Six new labs added eighteen requirements, and v0.5 failed nine binding ones. The antenna had no matching network (return loss {rl5:.1} dB → {rl6:.1} dB with L2 1.8 nH + L3 4.3 nH) and a {z5:.0} Ω feed ({z6:.0} Ω as a grounded coplanar waveguide); the 3-D thermal model found {t5:.0} °C on the optics housing ({t6:.1} °C with a 25 µm graphite sheet); the hinge spring's fatigue factor was {sf5:.2} ({sf6:.2} shot-peened, stiffer, 10° stop); coupling the Mechanisms hinge into the Human Factors clamp model showed one size fitting {fit5:.0} % of adults ({fit6:.0} % now the hinge limits clamp force); nose pads {np5:.0} kPa → {np6:.1} kPa; eyebox coverage {eb5:.0} % → {eb6:.0} %; and 2-year reliability {rel5:.0} % → {rel6:.0} % with a 240 mAh cell, whose extra mass was paid for with a 4.5 mm rim ({mass6:.1} g). The crystal, matching network and USB-C CC resistors PCB Studio had flagged since v0.3 are on the board, still routed by the autorouter. Open goals: lateral colour (R-030), outdoor contrast (R-047) and readiness (R-053)."
+            ),
+            branch: "main".into(),
+            parent: Some(3),
+            baseline: Some("Product baseline (candidate)".into()),
+            project: v6,
         },
     ]
 }

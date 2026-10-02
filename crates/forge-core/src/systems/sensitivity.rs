@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn lists_and_sets_parameters() {
-        let p = Project::iris();
+        let p = crate::bridge::diff::iris_v05();
         let ps = parameters(&p);
         assert!(ps.iter().any(|x| x.path == "battery.capacity_mah" && x.value == 180.0));
         assert!(ps.iter().any(|x| x.path == "optics.px_w"));
@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn battery_sweep_flips_battery_life() {
-        let mut p = Project::iris();
+        let mut p = crate::bridge::diff::iris_v05();
         // a requirement on the component roll-up so the test does not depend on the Power lab
         p.requirements.push(crate::project::Requirement {
             id: "R-X".into(),

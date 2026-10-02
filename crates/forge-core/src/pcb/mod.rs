@@ -349,12 +349,25 @@ pub fn layout_with(p: &Project, placement_override: Option<Vec<PartPos>>) -> Lay
     layout_impl(p, placement_override, true)
 }
 
-/// The routing result for the default Iris inputs, produced by this router
-/// (see the `baked_route_matches_router` test and `regenerate_baked_route`).
+/// Routing results for the shipped Iris (v0.6) and the previous release
+/// (v0.5, used by the version history), produced by this router — see the
+/// `baked_route_matches_router` test and `regenerate_baked_route`.
 const BAKED_ROUTE: &str = include_str!("iris_route.json");
 
-fn baked_route() -> Option<Routed> {
-    serde_json::from_str(BAKED_ROUTE).ok()
+fn baked_routes() -> Vec<Routed> {
+    serde_json::from_str(BAKED_ROUTE).unwrap_or_default()
+}
+
+/// The baked route whose inputs match this project, if any.
+fn baked_route_for(p: &Project) -> Option<Routed> {
+    let key = cache_key_hex(p);
+    baked_routes().into_iter().find(|r| r.key == key)
+}
+
+/// Projects whose routes are baked: the shipped Iris and its v0.5 predecessor.
+#[cfg(test)]
+fn baked_projects() -> Vec<Project> {
+    vec![Project::iris(), crate::bridge::diff::iris_v05()]
 }
 
 /// Bump when routing behaviour changes so stale baked routes are ignored.
@@ -393,15 +406,13 @@ fn layout_impl(p: &Project, placement_override: Option<Vec<PartPos>>, use_baked:
         None => (pr.parts.clone(), pr.gpio.clone()),
     };
     if placement_override_is_none && use_baked {
-        if let Some(r) = baked_route() {
-            if r.key == cache_key_hex(p) {
-                let mut l = finalize(p, &parts, &r);
-                l.stats.strategy = STRATEGIES[r.strategy_index.min(STRATEGIES.len() - 1)].name.to_string();
-                l.stats.strategy_index = r.strategy_index;
-                l.stats.attempts = r.strategy_index + 1;
-                l.stats.from_cache = true;
-                return l;
-            }
+        if let Some(r) = baked_route_for(p) {
+            let mut l = finalize(p, &parts, &r);
+            l.stats.strategy = STRATEGIES[r.strategy_index.min(STRATEGIES.len() - 1)].name.to_string();
+            l.stats.strategy_index = r.strategy_index;
+            l.stats.attempts = r.strategy_index + 1;
+            l.stats.from_cache = true;
+            return l;
         }
     }
     let mut best: Option<Layout> = None;
@@ -975,44 +986,47 @@ mod tests {
     #[test]
     #[ignore]
     fn regenerate_baked_route() {
-        let p = Project::iris();
-        let pr = place::constructive(&p);
-        let mut out: Option<Routed> = None;
-        for s in STRATEGIES {
-            let r = route_phase(&p, &pr.parts, &pr.gpio, s);
-            let l = finalize(&p, &pr.parts, &r);
-            let clean = l.stats.routed_pct >= 100.0 && l.stats.drc_violations == 0;
-            eprintln!(
-                "{}: routed {:.1} %, {} DRC {:?}",
-                s.name,
-                l.stats.routed_pct,
-                l.stats.drc_violations,
-                l.nets
-                    .iter()
-                    .filter(|n| !n.unconnected.is_empty())
-                    .map(|n| n.name.clone())
-                    .collect::<Vec<_>>()
-            );
-            if out.is_none() || clean {
-                out = Some(r);
+        let mut all = Vec::new();
+        for p in baked_projects() {
+            let pr = place::constructive(&p);
+            let mut out: Option<Routed> = None;
+            for s in STRATEGIES {
+                let r = route_phase(&p, &pr.parts, &pr.gpio, s);
+                let l = finalize(&p, &pr.parts, &r);
+                let clean = l.stats.routed_pct >= 100.0 && l.stats.drc_violations == 0;
+                eprintln!(
+                    "v{} {}: routed {:.1} %, {} DRC {:?}",
+                    p.meta.version,
+                    s.name,
+                    l.stats.routed_pct,
+                    l.stats.drc_violations,
+                    l.nets
+                        .iter()
+                        .filter(|n| !n.unconnected.is_empty())
+                        .map(|n| n.name.clone())
+                        .collect::<Vec<_>>()
+                );
+                if out.is_none() || clean {
+                    out = Some(r);
+                }
+                if clean {
+                    break;
+                }
             }
-            if clean {
-                break;
-            }
+            all.push(out.unwrap());
         }
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/pcb/iris_route.json");
-        std::fs::write(path, serde_json::to_string(&out.unwrap()).unwrap()).unwrap();
+        std::fs::write(path, serde_json::to_string(&all).unwrap()).unwrap();
     }
 
     /// The baked route must be exactly what the router produces today.
     #[test]
     fn baked_route_matches_router() {
         let p = Project::iris();
-        let baked = baked_route().expect("baked route parses");
-        assert_eq!(
-            baked.key,
-            cache_key_hex(&p),
-            "baked route is stale: run `cargo test -p forge-core regenerate_baked_route -- --ignored`"
+        let baked = baked_route_for(&p).expect("baked route is stale: run `cargo test -p forge-core regenerate_baked_route -- --ignored`");
+        assert!(
+            baked_route_for(&crate::bridge::diff::iris_v05()).is_some(),
+            "the v0.5 history route is stale: regenerate"
         );
         let pr = place::constructive(&p);
         let fresh = route_phase(&p, &pr.parts, &pr.gpio, &STRATEGIES[baked.strategy_index]);

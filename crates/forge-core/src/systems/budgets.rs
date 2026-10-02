@@ -463,7 +463,7 @@ mod tests {
 
     #[test]
     fn power_rollup_hand_calc() {
-        let p = Project::iris();
+        let p = crate::bridge::diff::iris_v05();
         // U1: 21 mW × 0.25 + 0.006 × 0.75
         let u1 = p.components.iter().find(|c| c.refdes == "U1").unwrap();
         assert!((component_power_mw(u1) - (21.0 * 0.25 + 0.006 * 0.75)).abs() < 1e-12);

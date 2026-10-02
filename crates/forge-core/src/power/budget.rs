@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn hand_calculated_iris_budget() {
-        let p = Project::iris();
+        let p = crate::bridge::diff::iris_v05();
         let b = budget(&p, &UsageProfile::default());
         // U1 21·0.25 + 0.006·0.75, U2 140·0.3 + 0.05·0.7, U3 0.9, MK1/MK2 0.9·0.25 + 0.02·0.75,
         // U4 0.004, U6 18·0.03 + 0.002·0.97, U7 0.05

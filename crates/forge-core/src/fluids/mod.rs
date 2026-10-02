@@ -309,7 +309,12 @@ mod tests {
 
     #[test]
     fn iris_metrics_and_energy_balance() {
-        let p = Project::iris();
+        // v0.6 has a graphite sheet behind the display: the hotspot is within the skin limit
+        let v6 = metrics(&Project::iris());
+        let peak6 = v6.iter().find(|x| x.key == "fluids.peak_skin_c").unwrap().value;
+        assert!(peak6 <= 41.0, "{peak6}");
+        // v0.5 had none
+        let p = crate::bridge::diff::iris_v05();
         let m = metrics(&p);
         let get = |k: &str| m.iter().find(|x| x.key == k).unwrap_or_else(|| panic!("missing {k}")).value;
         let peak = get("fluids.peak_skin_c");
@@ -346,7 +351,7 @@ mod tests {
     fn display_heat_in_the_pod_compares_with_the_lumped_model() {
         // Like-for-like with the lumped model (all heat in the pod): the 3-D mean is far
         // below 39 °C but the hotspot over the board's hot parts reaches about the lumped value.
-        let p = Project::iris();
+        let p = crate::bridge::diff::iris_v05();
         let cfg = pod::PodConfig {
             voxel_mm: Some(1.5),
             display_heat_in: Some("pod".into()),

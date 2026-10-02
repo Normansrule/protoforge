@@ -278,9 +278,11 @@ mod tests {
     fn hinge_reads_project_extra() {
         let mut p = Project::iris();
         let base = hinge::analyze(&p, &hinge::HingeParams::from_project(&p)).unwrap();
-        p.design.extra.insert("mechanisms".into(), json!({"hinge": {"preload_mm": 1.0}}));
+        let mut stiffer = hinge::HingeParams::from_project(&p);
+        stiffer.preload_mm += 0.4;
+        p.design.extra.insert("mechanisms".into(), json!({ "hinge": stiffer }));
         let h = hinge::HingeParams::from_project(&p);
-        assert_eq!(h.preload_mm, 1.0);
+        assert_eq!(h.preload_mm, stiffer.preload_mm);
         let o = hinge::analyze(&p, &h).unwrap();
         assert!(o.spring.preload_n > base.spring.preload_n);
         assert!(o.detent_open_torque_nmm > base.detent_open_torque_nmm);

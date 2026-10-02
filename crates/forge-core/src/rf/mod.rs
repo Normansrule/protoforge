@@ -504,7 +504,12 @@ mod tests {
 
     #[test]
     fn iris_as_is_vs_recommended() {
-        let p = Project::iris();
+        // v0.6 stores the recommended network and feed
+        let v6 = iris(&Project::iris()).unwrap();
+        assert!(v6.stored);
+        assert!(v6.current_summary.worst_rl_db > 10.0, "{}", v6.current_summary.worst_rl_db);
+        assert!((v6.current_feed_z0 - 50.0).abs() < 5.0, "{}", v6.current_feed_z0);
+        let p = crate::bridge::diff::iris_v05();
         let o = iris(&p).unwrap();
         assert!(!o.stored);
         // v0.5: no network → poor return loss; routed 0.15 mm feed is far from 50 Ω

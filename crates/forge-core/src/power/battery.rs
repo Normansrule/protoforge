@@ -633,7 +633,7 @@ mod tests {
 
     #[test]
     fn trade_band_matches_hand_calc() {
-        let p = Project::iris();
+        let p = crate::bridge::diff::iris_v05();
         let avg = 54.76;
         let t = trade(
             &p,

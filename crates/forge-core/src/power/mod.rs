@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn iris_metrics() {
-        let p = Project::iris();
+        let p = crate::bridge::diff::iris_v05();
         let m = metrics(&p);
         let get = |k: &str| m.iter().find(|x| x.key == k).unwrap().value;
         assert!((get("power.battery_life_h") - 10.34).abs() < 0.05);

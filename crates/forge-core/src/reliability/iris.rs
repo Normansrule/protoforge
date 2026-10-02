@@ -171,6 +171,20 @@ pub fn classify(c: &Component) -> LibEntry {
             )
         };
     }
+    if has(&["graphite", "heat spreader", "nose pad"]) {
+        return LibEntry {
+            excluded: true,
+            ..e(
+                "Passive comfort / thermal part (not a functional failure item)",
+                0.0,
+                false,
+                "Delamination of a spreader or a lost nose pad shows up in the drop, sweat and abrasion tests, not as a failure rate.",
+            )
+        };
+    }
+    if has(&["thick film", "pull-down"]) {
+        return e("Chip resistor", 0.5, false, "");
+    }
     if has(&["flex cable", "ffc"]) {
         return LibEntry {
             wear: Some((2.2, 60_000.0, "folds", "hinge")),
@@ -218,6 +232,17 @@ pub fn classify(c: &Component) -> LibEntry {
             false,
             "Flex cracking dominates in thin boards — keep MLCCs away from board edges and screw bosses.",
         );
+    }
+    if has(&["quartz crystal", "mhz crystal"]) {
+        return e(
+            "Quartz crystal",
+            10.0,
+            false,
+            "Shock can crack the blank or shift frequency — part of the drop test; check the start-up margin (negative resistance) at temperature.",
+        );
+    }
+    if has(&["rf chip inductor", "rf match"]) {
+        return e("RF chip inductor", 1.0, false, "");
     }
     if has(&["inductor"]) {
         return e("Power inductor", 2.0, false, "");
@@ -446,6 +471,11 @@ mod tests {
         assert_eq!(find("J3").class, "Board-to-board / FPC connector");
         assert_eq!(find("R1").class, "Chip resistor");
         assert_eq!(find("OPT2").class, "Bonded optics");
+        assert_eq!(find("R6").class, "Chip resistor");
+        assert_eq!(find("C7").class, "Ceramic capacitor (MLCC)");
+        assert_eq!(find("Y1").class, "Quartz crystal");
+        assert_eq!(find("L2").class, "RF chip inductor");
+        assert!(ex.iter().any(|e| e.refdes == "TH1") && ex.iter().any(|e| e.refdes == "NP1"));
         assert!(leaves.iter().all(|b| b.class != "Unclassified part"), "unclassified parts in Iris");
     }
 
