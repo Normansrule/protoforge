@@ -1,0 +1,58 @@
+/* Thermal & Fluids Lab — layout and diagram styles (colours only via theme tokens). */
+
+.fl-main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .fl-main { grid-template-columns: minmax(0, 1fr); } }
+.fl-calc { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 900px) { .fl-calc { grid-template-columns: minmax(0, 1fr); } }
+
+.fl-legend {
+  position: absolute; right: 12px; top: 12px; width: 200px; pointer-events: none;
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 10px; backdrop-filter: blur(6px);
+}
+.fl-legend-bar { height: 10px; border-radius: 5px; margin: 6px 0 3px; border: 1px solid var(--border);
+  background: linear-gradient(90deg, #fdeee4, #f9cfb5, #f4a57e, #ec8052, #d95926, #b4461b, #8a3413, #5a200a); }
+.fl-legend-limit { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px dashed var(--text); }
+.fl-legend-ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-2); }
+@media (max-width: 560px) { .fl-legend { width: 150px; right: 8px; top: 8px; padding: 6px 8px; } }
+
+.fl-clock { position: absolute; left: 12px; bottom: 12px; padding: 4px 9px; border-radius: 8px; font-size: 13px;
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent); border: 1px solid var(--border); }
+
+.fl-bars { display: grid; gap: 10px; }
+.fl-bar-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) 64px; gap: 10px; align-items: center; }
+.fl-bar-track { position: relative; height: 14px; background: var(--surface-3); border-radius: 4px; }
+.fl-bar { height: 100%; border-radius: 0 4px 4px 0; transition: width 0.5s ease; }
+.fl-bar-limit { position: absolute; top: -4px; bottom: -4px; width: 0; border-left: 2px dashed var(--bad); }
+@media (max-width: 560px) { .fl-bar-row { grid-template-columns: 110px minmax(0, 1fr) 56px; } }
+@media (prefers-reduced-motion: reduce) { .fl-bar { transition: none; } }
+
+.fl-slice { display: block; border-radius: 8px; border: 1px solid var(--border); image-rendering: pixelated; }
+.fl-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); }
+
+.fl-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.fl-tunnel { display: block; width: 100%; border-radius: 10px; border: 1px solid var(--border); touch-action: none; }
+.fl-tunnel.painting { cursor: crosshair; }
+.fl-flowtag { position: absolute; left: 10px; top: 8px; padding: 2px 8px; border-radius: 7px;
+  background: color-mix(in srgb, var(--surface-1) 80%, transparent); color: var(--text-2); pointer-events: none; }
+.fl-ramp { display: inline-block; width: 90px; height: 10px; border-radius: 5px; border: 1px solid var(--border); }
+
+.fl-good { color: var(--good-text); }
+.fl-bad { color: var(--bad-text); }
+
+.fl-diagram { width: 100%; max-width: 560px; height: auto; display: block; margin: 0 auto 8px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface-2); }
+.fl-diagram text { fill: var(--text-2); font-size: 9.5px; font-family: var(--font); }
+.fl-diagram .lbl { fill: var(--text); font-weight: 600; }
+.fl-diagram .fl-rise { stroke: var(--series-2); stroke-width: 1.4; stroke-dasharray: 3 10; opacity: 0.8; animation: fl-up 2.6s linear infinite; }
+.fl-diagram .fl-stream { fill: none; stroke: var(--series-1); stroke-width: 1.3; stroke-dasharray: 6 6; animation: fl-flow 1.4s linear infinite; }
+.fl-d-shell { fill: color-mix(in srgb, var(--series-2) 18%, var(--surface-1)); stroke: var(--series-2); stroke-width: 1.5; }
+.fl-d-air { fill: var(--surface-2); stroke: var(--border-strong); }
+.fl-d-pcb { fill: var(--series-3); }
+.fl-d-chip { fill: var(--text-2); }
+.fl-d-path { fill: none; stroke: var(--muted); stroke-dasharray: 2 3; }
+.fl-d-dot { fill: var(--series-2); }
+@keyframes fl-up { to { stroke-dashoffset: 26; } }
+@keyframes fl-flow { to { stroke-dashoffset: -24; } }
+@media (prefers-reduced-motion: reduce) { .fl-diagram .fl-rise, .fl-diagram .fl-stream { animation: none; } }
+.fl-lab .table td.tnum { white-space: nowrap; }
