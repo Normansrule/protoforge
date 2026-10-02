@@ -71,11 +71,19 @@ export function LinkTab() {
                 height={240}
                 xLog
                 xLabel="distance (m)"
-                yLabel="received power (dBm)"
-                hLines={[
-                  { value: o.forward.sens_dbm + o.fade_db, label: 'phone sens. + fade' },
-                  { value: o.reverse.sens_dbm + o.fade_db, label: 'glasses sens. + fade' },
-                ]}
+                yLabel="P_rx (dBm)"
+                hLines={
+                  // one label when the two thresholds would print on top of each other
+                  Math.abs(o.forward.sens_dbm - o.reverse.sens_dbm) < 6
+                    ? [
+                        { value: Math.max(o.forward.sens_dbm, o.reverse.sens_dbm) + o.fade_db, label: 'phone / glasses sens. + fade' },
+                        { value: Math.min(o.forward.sens_dbm, o.reverse.sens_dbm) + o.fade_db, label: '' },
+                      ]
+                    : [
+                        { value: o.forward.sens_dbm + o.fade_db, label: 'phone sens. + fade' },
+                        { value: o.reverse.sens_dbm + o.fade_db, label: 'glasses sens. + fade' },
+                      ]
+                }
                 vLines={[{ value: l.distance_m, label: `${fmt(l.distance_m, 1)} m` }]}
                 legend
               />
@@ -173,7 +181,8 @@ function Waterfall({ d }: { d: Direction }) {
   const hi = Math.ceil(Math.max(...all) / 10) * 10;
   const lo = Math.floor(Math.min(...all, d.sens_dbm - 5) / 10) * 10;
   const H = 280;
-  const m = { l: 44, r: 10, t: 14, b: 76 };
+  // wider left margin on phones so the first rotated label is not clipped
+  const m = { l: W < 520 ? 66 : 44, r: 10, t: 14, b: 76 };
   const n = rows.length + 1;
   const bw = (W - m.l - m.r) / n;
   const y = (v: number) => m.t + ((hi - v) / (hi - lo)) * (H - m.t - m.b);
@@ -287,7 +296,18 @@ function RangeMap({ o, distance, phy, onDistance }: { o: LinkOut; distance: numb
           {o.phys.map((p) => (
             <g key={p.id}>
               <circle cx={cx} cy={cy} r={p.range_m * pxPerM} fill="none" stroke={PHY_COLORS[p.id]} strokeWidth={p.id === phy ? 3 : 1.5} strokeDasharray={p.id === phy ? undefined : '6 4'} />
-              <text x={cx + p.range_m * pxPerM * 0.7071 + 4} y={cy + p.range_m * pxPerM * 0.7071 + 4} className="rf-map-t">{p.name} {p.range_m.toFixed(0)} m</text>
+              {(() => {
+                // label at the ring's lower-right; flip to the left of the point when it would leave the map
+                const label = `${p.name} ${p.range_m.toFixed(0)} m`;
+                const lx = cx + p.range_m * pxPerM * 0.7071;
+                const ly = Math.min(H - 6, cy + p.range_m * pxPerM * 0.7071 + 4);
+                const flip = lx + 4 + label.length * 6.2 > W - 4;
+                return (
+                  <text x={flip ? lx - 4 : lx + 4} y={ly} textAnchor={flip ? 'end' : 'start'} className="rf-map-t">
+                    {label}
+                  </text>
+                );
+              })()}
             </g>
           ))}
           {play && [0, 1].map((k) => {
@@ -295,7 +315,7 @@ function RangeMap({ o, distance, phy, onDistance }: { o: LinkOut; distance: numb
             return <circle key={k} cx={cx} cy={cy} r={ph * (cur?.range_m ?? 10) * pxPerM} fill="none" stroke="var(--accent)" strokeWidth={2} opacity={1 - ph} />;
           })}
           <line x1={cx} y1={cy} x2={phX} y2={phY} className="rf-map-ray" />
-          <text x={phX + 14} y={phY - 14} className="rf-map-t">{distance.toFixed(1)} m · margin {o.margin_db >= 0 ? '+' : ''}{o.margin_db.toFixed(1)} dB</text>
+          <text x={phX + 14 + 150 > W ? phX - 14 : phX + 14} y={phY - 14} textAnchor={phX + 14 + 150 > W ? 'end' : 'start'} className="rf-map-t">{distance.toFixed(1)} m · margin {o.margin_db >= 0 ? '+' : ''}{o.margin_db.toFixed(1)} dB</text>
           <g transform={`translate(${cx},${cy})`}>
             <circle r={13} className="rf-map-head" />
             <path d="M-10,-2 h6 a4,4 0 1 0 0,0.1 M4,-2 h6" className="rf-map-glasses" />
