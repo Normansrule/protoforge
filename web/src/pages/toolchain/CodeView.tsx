@@ -58,7 +58,7 @@ export function CodeView(props: { code: string; filename: string; lang: Lang; ma
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
         <span className="muted small mono">{props.filename}</span>
         <div className="row">
-          <button className="btn small" onClick={() => navigator.clipboard?.writeText(props.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); })}>{copied ? 'Copied' : 'Copy'}</button>
+          <button className="btn small" onClick={() => navigator.clipboard?.writeText(props.code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); }).catch(() => {})}>{copied ? 'Copied' : 'Copy'}</button>
           <DownloadButton filename={props.filename} content={() => new Blob([props.code], { type: props.mime ?? 'text/plain' })} small />
         </div>
       </div>

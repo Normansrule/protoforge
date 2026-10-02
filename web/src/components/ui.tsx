@@ -164,10 +164,13 @@ export function Code(props: { code: string; filename?: string; maxHeight?: numbe
           <button
             className="btn small"
             onClick={() => {
-              navigator.clipboard?.writeText(full).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1200);
-              });
+              navigator.clipboard
+                ?.writeText(full)
+                .then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1200);
+                })
+                .catch(() => {}); // clipboard blocked (permissions, insecure context): the download button still works
             }}
           >
             {copied ? 'Copied' : 'Copy'}

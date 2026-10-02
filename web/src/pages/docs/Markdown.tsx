@@ -96,7 +96,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
     <div className="md-code">
       <div className="md-code-bar">
         <span className="mono small muted">{lang || 'text'}</span>
-        <button className="btn small" onClick={() => navigator.clipboard?.writeText(code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); })}>{copied ? 'Copied' : 'Copy'}</button>
+        <button className="btn small" onClick={() => navigator.clipboard?.writeText(code).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); }).catch(() => {})}>{copied ? 'Copied' : 'Copy'}</button>
       </div>
       <pre className="code">{code}</pre>
     </div>

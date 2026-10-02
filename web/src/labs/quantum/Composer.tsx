@@ -514,8 +514,8 @@ export default function Composer() {
           {exp.data?.quirk_url && (
             <div className="row" style={{ marginBottom: 10 }}>
               <a className="btn primary" href={exp.data.quirk_url} target="_blank" rel="noreferrer">Open in Quirk ↗</a>
-              <button className="btn small" onClick={() => navigator.clipboard?.writeText(exp.data!.quirk_url ?? '')}>Copy link</button>
-              <button className="btn small" onClick={() => navigator.clipboard?.writeText(exp.data!.quirk_json ?? '')}>Copy Quirk JSON</button>
+              <button className="btn small" onClick={() => navigator.clipboard?.writeText(exp.data!.quirk_url ?? '').catch(() => {})}>Copy link</button>
+              <button className="btn small" onClick={() => navigator.clipboard?.writeText(exp.data!.quirk_json ?? '').catch(() => {})}>Copy Quirk JSON</button>
             </div>
           )}
           <Seg value={fmt} onChange={setFmt} options={[{ value: 'qasm2', label: 'OpenQASM 2.0' }, { value: 'qasm3', label: 'OpenQASM 3.0' }, { value: 'qiskit', label: 'Qiskit (Python)' }]} />

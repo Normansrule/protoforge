@@ -376,7 +376,7 @@ function TorsionSketch({ angle, D, leg }: { angle: number; D: number; leg: numbe
   const a = (-angle * Math.PI) / 180;
   return (
     <svg className="mx-diagram" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Torsion spring winding up">
-      {[0, 1, 2, 3].map((k) => <circle key={k} cx={cx} cy={cy} r={R - k * 0.6} className="mx-wire" opacity={0.35 + 0.15 * k} />)}
+      {[0, 1, 2, 3].map((k) => <circle key={k} cx={cx} cy={cy} r={Math.max(0.5, R - k * 0.6)} className="mx-wire" opacity={0.35 + 0.15 * k} />)}
       <circle cx={cx} cy={cy} r={Math.max(2, R * 0.55)} className="mx-arbor" />
       <line x1={cx + R} y1={cy} x2={cx + R} y2={cy - L} className="mx-wire" />
       <line x1={cx - R * Math.cos(a)} y1={cy + R * Math.sin(a)} x2={cx - R * Math.cos(a) - L * Math.sin(-a)} y2={cy + R * Math.sin(a) - L * Math.cos(a)} className="mx-wire" />
