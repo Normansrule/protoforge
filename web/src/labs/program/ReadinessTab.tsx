@@ -57,7 +57,7 @@ export function ReadinessTab() {
 
       {d && (
         <Card title="Subsystem evidence" subtitle="Tell the lab what exists; the suggested levels follow. Click a row to see the ladder and why it stops where it does."
-          actions={<DownloadButton small filename={downloadName(project, 'readiness', 'md')} content={() => readinessMd(project.meta.name, d)} label="Readiness report (Markdown)" />}>
+          actions={<DownloadButton small filename={downloadName(project, 'readiness', 'md')} content={() => readinessMd(project.meta.name, d)} label="Readiness report" />}>
           <div className="table-wrap">
             <table className="table pg-ready">
               <thead><tr><th>Subsystem</th><th>Heritage</th><th>Built so far</th><th>TRL</th><th>MRL</th><th>Requirements</th></tr></thead>

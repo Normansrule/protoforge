@@ -37,6 +37,8 @@
   .pg-bar-row .pg-ellipsis { display: none; }
 }
 
+/* every assumption field gets a visible "assumption — edit" tag under its label */
+.pg-assumed > .field .field-label::after { content: 'assumption — edit'; display: block; width: max-content; margin-top: 2px; font-size: 10px; font-weight: 400; padding: 0 6px; border-radius: 999px; border: 1px dashed var(--warn); color: var(--warn); }
 .pg-assume { display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px dashed var(--warn); color: var(--warn); white-space: nowrap; }
 
 .pg-stack { position: relative; height: 26px; border-radius: 8px; background: var(--surface-3); overflow: hidden; }

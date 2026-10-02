@@ -36,8 +36,8 @@ export function EconTab() {
       <div className="grid grid-sidebar">
         <Card title="Assumptions" subtitle="Every number here is a guess to replace with your own — none are quotes.">
           {e && (
-            <>
-              <Slider label="Retail price" unit="USD" value={e.retail_price_usd} min={49} max={999} step={1} onChange={(v) => set({ retail_price_usd: v })} hint="assumption — edit" />
+            <div className="pg-assumed">
+              <Slider label="Retail price" unit="USD" value={e.retail_price_usd} min={49} max={999} step={1} onChange={(v) => set({ retail_price_usd: v })} />
               <Slider label="Direct-to-consumer share" unit="%" value={e.direct_share_pct} min={0} max={100} step={1} onChange={(v) => set({ direct_share_pct: v })} />
               <Slider label="Retailer margin" unit="%" value={e.retail_margin_pct} min={0} max={60} step={1} onChange={(v) => set({ retail_margin_pct: v })} />
               <Slider label="Payment and shop fees (direct)" unit="%" value={e.payment_fee_pct} min={0} max={10} step={0.1} onChange={(v) => set({ payment_fee_pct: v })} />
@@ -45,6 +45,7 @@ export function EconTab() {
               <Slider label="Warranty returns" unit="%" value={e.warranty_return_pct} min={0} max={20} step={0.5} onChange={(v) => set({ warranty_return_pct: v })} />
               <Slider label="Sales, marketing and support" unit="% of net" value={e.opex_pct} min={0} max={40} step={1} onChange={(v) => set({ opex_pct: v })} />
               <Slider label="Discount rate" unit="%/yr" value={e.discount_rate_pct} min={0} max={30} step={0.5} onChange={(v) => set({ discount_rate_pct: v })} />
+              <div className="small" style={{ fontWeight: 600, margin: '2px 0 4px' }}>Unit volumes per year <Assume /></div>
               <div className="grid grid-3" style={{ gap: 8 }}>
                 {[0, 1, 2].map((k) => (
                   <NumberField key={k} label={`Year ${k + 1} units`} value={vols[k] ?? 0} onChange={(v) => { const nv = [...vols]; nv[k] = Math.max(0, v); set({ volumes: nv }); }} />
@@ -52,8 +53,8 @@ export function EconTab() {
               </div>
               <NumberField label="Line fixtures and test jigs" unit="USD" value={e.fixtures_usd} onChange={(v) => set({ fixtures_usd: Math.max(0, v) })} />
               <Select label="Launch after" value={(e.launch || 'p80') as 'cpm' | 'p50' | 'p80'} options={[{ value: 'cpm', label: 'the plan (most likely)' }, { value: 'p50', label: 'P50 schedule' }, { value: 'p80', label: 'P80 schedule (prudent)' }]} onChange={(v) => set({ launch: v })} />
-              <div className="row small muted"><Assume /> all of the above · <button className="btn small ghost" onClick={() => save({ economics: undefined })}>Reset</button></div>
-            </>
+              <div className="row small muted">Every field above is an assumption · <button className="btn small ghost" onClick={() => save({ economics: undefined })}>Reset to defaults</button></div>
+            </div>
           )}
         </Card>
         <div className="stack">
@@ -101,7 +102,7 @@ export function EconTab() {
         <Card title="What moves the business case" subtitle="NPV with one assumption at its low / high value, the rest at base.">
           {d && <NpvTornado d={d} />}
         </Card>
-        <Card title="Notes" actions={d && <DownloadButton small filename={downloadName(project, 'business-case', 'md')} content={() => businessMd(project.meta.name, d)} label="Business case (Markdown)" />}>
+        <Card title="Notes" actions={d && <DownloadButton small filename={downloadName(project, 'business-case', 'md')} content={() => businessMd(project.meta.name, d)} label="Business case (.md)" />}>
           {d?.notes.map((n, i) => <p key={i} className="small">{n}</p>)}
           {d && <p className="small">Certification in the plan: {usd(d.plan_cert_usd)} (compliance-plan midpoints, indicative). Hard-tool cost from the Molding engine: {usd(d.tooling_usd)}; molding beats printing above {d.crossover_qty ? int(d.crossover_qty) : '—'} units.</p>}
         </Card>

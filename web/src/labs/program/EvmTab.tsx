@@ -108,7 +108,7 @@ export function EvmTab() {
           </div>
         </Card>
         <Card title="Indices over time" subtitle="Cost-based SPI drifts back to 1 at the end (all value is eventually earned); the time-based SPI(t) does not.">
-          {d && <Plot series={idxSeries} height={250} xLabel="week" yLabel="index" hLines={[{ value: 1, label: 'on plan' }]} yDomain={[0.5, 1.3]} />}
+          {d && <Plot series={idxSeries} height={250} xLabel="week" yLabel="index" hLines={[{ value: 1, label: 'on plan' }]} yDomain={[0.5, 1.3]} formatY={(v) => v.toFixed(2)} />}
         </Card>
       </div>
 

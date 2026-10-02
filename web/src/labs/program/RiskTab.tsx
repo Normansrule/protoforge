@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { Card, Chip, DownloadButton, ErrorBox, Explainer, Formula, Select, Slider, Stat } from '../../components/ui';
 import { Plot } from '../../components/Plot';
 import { useCompute } from '../../engine/hooks';
+import { useElementWidth } from '../../components/useElementWidth';
 import type { RiskResult } from './types';
 import { addWeeks, CRIT, downloadName, num, PlayBar, useClock, useProgram } from './util';
 
@@ -117,7 +118,8 @@ function Histogram({ d, shown }: { d: RiskResult; shown: number }) {
     }
     return { counts: c, bins: n, max: Math.max(...d.histogram.counts, 1) };
   }, [d, shown]);
-  const W = 640, H = 240, ml = 36, mb = 30, mt = 10;
+  const [ref, width] = useElementWidth<HTMLDivElement>();
+  const W = Math.max(300, Math.min(760, width || 640)), H = W < 480 ? 210 : 240, ml = 36, mb = 30, mt = 10;
   const iw = W - ml - 10, ih = H - mb - mt;
   const lo = d.histogram.lo, hi = lo + bins * d.histogram.width;
   const x = (v: number) => ml + ((v - lo) / (hi - lo || 1)) * iw;
@@ -126,6 +128,7 @@ function Histogram({ d, shown }: { d: RiskResult; shown: number }) {
   const ticks = [];
   for (let t = Math.ceil(lo); t <= hi; t += Math.max(1, Math.round((hi - lo) / 7))) ticks.push(t);
   return (
+    <div ref={ref}>
     <svg viewBox={`0 0 ${W} ${H}`} className="pg-svg" role="img" aria-label="Histogram of simulated completion weeks">
       {counts.map((c, i) => {
         const h = (c / max) * ih;
@@ -143,12 +146,17 @@ function Histogram({ d, shown }: { d: RiskResult; shown: number }) {
       ].map((l, i) => (
         <g key={l.label}>
           <line x1={x(l.v)} x2={x(l.v)} y1={mt} y2={mt + ih} stroke={l.c} strokeDasharray="5 4" strokeWidth={1.4} />
-          <text x={x(l.v) + 3} y={mt + 12 + i * 13} fontSize={11} fill={l.c} fontWeight={700}>{l.label} {l.v.toFixed(1)}</text>
+          <text x={x(l.v) + 3} y={mt + 12 + i * 13} fontSize={11} fill={l.c} fontWeight={700} stroke="var(--surface-1)" strokeWidth={3} paintOrder="stroke">{l.label} {l.v.toFixed(1)}</text>
         </g>
       ))}
       {last !== null && shown < d.iterations && <circle cx={x(last)} cy={mt + 6} r={4} fill="var(--accent)" />}
-      <text x={W - 12} y={H - 1} fontSize={10.5} textAnchor="end" fill="var(--muted)">green ≤ P50 · amber ≤ P80 · orange beyond</text>
     </svg>
+    <div className="row small muted" style={{ marginTop: 4 }}>
+      <span><span className="pg-swatch" style={{ background: 'var(--series-3)' }} />≤ P50</span>
+      <span><span className="pg-swatch" style={{ background: 'var(--series-4)' }} />P50–P80</span>
+      <span><span className="pg-swatch" style={{ background: 'var(--series-2)' }} />beyond P80</span>
+    </div>
+    </div>
   );
 }
 

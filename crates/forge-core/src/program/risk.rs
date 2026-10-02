@@ -109,7 +109,11 @@ impl PertTable {
     pub fn new(a: f64, m: f64, b: f64) -> PertTable {
         let w = b - a;
         if w < 1e-12 {
-            return PertTable { a: m, w: 0.0, q: vec![0.0, 0.0] };
+            return PertTable {
+                a: m,
+                w: 0.0,
+                q: vec![0.0, 0.0],
+            };
         }
         let al = 1.0 + 4.0 * (m - a) / w;
         let be = 1.0 + 4.0 * (b - m) / w;

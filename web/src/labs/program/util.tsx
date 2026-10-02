@@ -5,7 +5,22 @@ import { useCompute } from '../../engine/hooks';
 import { useProject } from '../../state/project';
 import type { Config, ConfigOut, Task } from './types';
 
-export { useClock, PlayBar, usePrefersReducedMotion } from '../control/kit';
+import { useClock as useKitClock, usePrefersReducedMotion, type Clock } from '../control/kit';
+
+export { PlayBar, usePrefersReducedMotion } from '../control/kit';
+
+/**
+ * The shared animation clock, with one change for this lab: when the viewer
+ * prefers reduced motion the clock does not autoplay, so a chart that would
+ * otherwise sit on its empty first frame shows its finished state instead.
+ * Play / replay still animate on request.
+ */
+export function useClock(duration: number, opts: Parameters<typeof useKitClock>[1] = {}): Clock {
+  const c = useKitClock(duration, opts);
+  const reduced = usePrefersReducedMotion();
+  if (reduced && opts.autoplay !== false && !c.playing && c.t === 0) return { ...c, t: duration };
+  return c;
+}
 
 /** The resolved configuration (defaults filled in by the engine) and a saver. */
 export function useProgram() {

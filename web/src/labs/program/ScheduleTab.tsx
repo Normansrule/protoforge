@@ -144,7 +144,7 @@ export function ScheduleTab() {
             <span className="field-top"><span className="field-label">Start date</span></span>
             <input type="date" value={cfg?.config.start_date ?? '2026-10-05'} onChange={(e) => e.target.value && save({ start_date: e.target.value })} />
           </label>
-          <NumberField label="Blended labour rate (assumption — edit)" unit="USD/h" value={cfg?.config.eng_rate_usd_h ?? 75} onChange={(v) => save({ eng_rate_usd_h: Math.max(0, v) })} />
+          <div className="pg-assumed"><NumberField label="Blended labour rate" unit="USD/h" value={cfg?.config.eng_rate_usd_h ?? 75} onChange={(v) => save({ eng_rate_usd_h: Math.max(0, v) })} /></div>
           <Select label="Frame tooling at PVT" value={(cfg?.config.frame_tooling ?? 'auto') as 'auto' | 'mold'} options={[{ value: 'auto', label: 'Follow the cost model (cheapest process)' }, { value: 'mold', label: 'Hard steel mold (roadmap)' }]} onChange={(v) => save({ frame_tooling: v, tasks: null })} />
           <div className="small muted" style={{ alignSelf: 'center' }}>Changing tooling regenerates the default plan.</div>
         </div>
