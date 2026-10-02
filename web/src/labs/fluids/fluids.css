@@ -44,6 +44,7 @@
   border: 1px solid var(--border); background: var(--surface-2); }
 .fl-diagram text { fill: var(--text-2); font-size: 9.5px; font-family: var(--font); }
 .fl-diagram .lbl { fill: var(--text); font-weight: 600; }
+.fl-diagram text.fl-d-sm { font-size: 7.5px; }
 .fl-diagram .fl-rise { stroke: var(--series-2); stroke-width: 1.4; stroke-dasharray: 3 10; opacity: 0.8; animation: fl-up 2.6s linear infinite; }
 .fl-diagram .fl-stream { fill: none; stroke: var(--series-1); stroke-width: 1.3; stroke-dasharray: 6 6; animation: fl-flow 1.4s linear infinite; }
 .fl-d-shell { fill: color-mix(in srgb, var(--series-2) 18%, var(--surface-1)); stroke: var(--series-2); stroke-width: 1.5; }

@@ -40,7 +40,7 @@ function PlumeDiagram({ dt, speed }: { dt: number; speed: number }) {
       {[0, 1, 2, 3, 4].map((k) => (
         <path key={k} d={`M170,${80 + k * 17} C 210,${80 + k * 17} 210,${k < 2 ? 70 + k * 10 : k > 2 ? 150 + (k - 3) * 10 : 114} 235,${k < 2 ? 70 + k * 10 : k > 2 ? 150 + (k - 3) * 10 : 114} S 270,${80 + k * 17} 310,${80 + k * 17}`} className="fl-stream" style={{ opacity: speed > 0 ? 0.9 : 0.25 }} />
       ))}
-      <text x="190" y="196">wind {speed.toFixed(1)} m/s → Re = V D / ν</text>
+      <text x="312" y="196" textAnchor="end">wind {speed.toFixed(1)} m/s · Re = V D / ν</text>
     </svg>
   );
 }

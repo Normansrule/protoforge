@@ -383,9 +383,9 @@ pub struct Aabb {
 impl Aabb {
     fn overlap_cell(&self, lo: [f64; 3], h: f64) -> f64 {
         let mut v = 1.0;
-        for d in 0..3 {
-            let a = self.lo[d].max(lo[d]);
-            let b = self.hi[d].min(lo[d] + h);
+        for ((&slo, &shi), &l) in self.lo.iter().zip(&self.hi).zip(&lo) {
+            let a = slo.max(l);
+            let b = shi.min(l + h);
             if b <= a {
                 return 0.0;
             }
@@ -1026,6 +1026,7 @@ pub struct HGroup {
     pub q_mw: f64,
 }
 
+#[allow(clippy::needless_range_loop)] // several arrays indexed by the same body
 fn coefficients(pm: &PodModel, means: &[(f64, f64)]) -> Vec<HGroup> {
     let cfg = &pm.cfg;
     let mut out = Vec::new();
@@ -1076,6 +1077,9 @@ pub fn solve_steady(pm: &PodModel, q: &[f64], passes: usize, warm: Option<&[f64]
     let ng = 9;
     // start from a 5 K guess on every group
     let mut means = vec![(5.0, 1.0); ng];
+    // A warm start only helps when the mesh is the same; a spreader or bracket
+    // that fills extra voxels changes the node count, so start cold then.
+    let warm = warm.filter(|w| w.len() == pm.model.ndof());
     let mut theta = warm.map(|w| w.to_vec()).unwrap_or_else(|| vec![0.0; pm.model.ndof()]);
     if warm.is_some() {
         means = pm.model.face_group_means(&theta, ng);
@@ -1418,7 +1422,9 @@ pub fn subdivide(m: &crate::cad::Mesh, max_edge: f64) -> crate::cad::Mesh {
         let (p, q) = (o.vertex(a), o.vertex(b));
         (p[0] - q[0]).powi(2) + (p[1] - q[1]).powi(2) + (p[2] - q[2]).powi(2)
     };
-    let mut stack: Vec<([u32; 3], u32)> = (0..m.triangle_count()).map(|t| ([m.indices[3 * t], m.indices[3 * t + 1], m.indices[3 * t + 2]], 0)).collect();
+    let mut stack: Vec<([u32; 3], u32)> = (0..m.triangle_count())
+        .map(|t| ([m.indices[3 * t], m.indices[3 * t + 1], m.indices[3 * t + 2]], 0))
+        .collect();
     while let Some((tri, depth)) = stack.pop() {
         let e = [d2(&out, tri[0], tri[1]), d2(&out, tri[1], tri[2]), d2(&out, tri[2], tri[0])];
         let (k, &emax) = e.iter().enumerate().max_by(|a, b| a.1.total_cmp(b.1)).unwrap();
@@ -1577,11 +1583,7 @@ pub fn report(
         for d in md.elem_dofs(ae) {
             let t = theta[d as usize];
             match el.part {
-                PART_PCB => {
-                    if t > board.0 {
-                        board = (t, d);
-                    }
-                }
+                PART_PCB if t > board.0 => board = (t, d),
                 PART_DISPLAY => disp = disp.max(t),
                 PART_AIR => airmax = airmax.max(t),
                 _ => {}
@@ -1773,7 +1775,9 @@ pub fn report(
         surfaces,
         inner,
         voxel_surface: want.voxels.then(|| voxel_surface(pm, theta, ta)),
-        volume: want.surfaces.then(|| volume(md, theta, &dilation_order(md), ta, t_hi.max(ta + 0.01))),
+        volume: want
+            .surfaces
+            .then(|| volume(md, theta, &dilation_order(md), ta, t_hi.max(ta + 0.01))),
         slices: want.slices.then(|| slices(pm, theta, ta, t_hi)),
         bbox_min: lo,
         bbox_max: hi,

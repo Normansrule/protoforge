@@ -26,7 +26,7 @@ function HeatPaths() {
   ];
   return (
     <div>
-      <svg ref={svg} viewBox="0 0 300 190" className="fl-diagram" role="img" aria-label="heat path from the chip through the board, cavity air and shell into the surrounding air">
+      <svg ref={svg} viewBox="0 0 300 194" className="fl-diagram" role="img" aria-label="heat path from the chip through the board, cavity air and shell into the surrounding air">
         <rect x="40" y="52" width="220" height="110" rx="14" className="fl-d-shell" />
         <rect x="52" y="64" width="196" height="86" rx="9" className="fl-d-air" />
         <rect x="70" y="128" width="160" height="8" rx="2" className="fl-d-pcb" />
@@ -41,14 +41,25 @@ function HeatPaths() {
             ))}
           </g>
         ))}
-        <text x="150" y="182" textAnchor="middle" className="lbl">chip → board (spreads in copper) → cavity air (conduction + radiation)</text>
-        <text x="150" y="44" textAnchor="middle">plastic shell (k ≈ 0.2 W/m K): heat crosses it, barely spreads</text>
-        <text x="8" y="80">convection</text>
-        <text x="236" y="10">radiation</text>
+        <text x="150" y="30" textAnchor="middle" className="fl-d-sm">shell k ≈ 0.2 W/m K</text>
+        <text x="150" y="40" textAnchor="middle" className="fl-d-sm">heat crosses it, barely spreads</text>
+        <text x="150" y="114" textAnchor="middle" className="fl-d-sm">sealed cavity air</text>
+        <text x="150" y="176" textAnchor="middle" className="lbl fl-d-sm">chip → board (copper spreads it)</text>
+        <text x="150" y="187" textAnchor="middle" className="lbl fl-d-sm">→ cavity air (conduction + radiation) → shell</text>
+        <text x="6" y="80" className="fl-d-sm">convection</text>
+        <text x="294" y="80" textAnchor="end" className="fl-d-sm">convection</text>
+        <text x="8" y="10" className="fl-d-sm">radiation</text>
+        <text x="292" y="10" textAnchor="end" className="fl-d-sm">radiation</text>
       </svg>
       <button className="btn small" onClick={() => setPlay((p) => !p)}>{play ? '❚❚ Pause' : '▶ Animate'}</button>
     </div>
   );
+}
+
+function sci(v: number) {
+  const e = Math.floor(Math.log10(Math.abs(v)));
+  const sup = String(e).split('').map((c) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+c] ?? '⁻').join('');
+  return `${(v / 10 ** e).toFixed(1)} × 10${sup}`;
 }
 
 function Lattice() {
@@ -73,7 +84,7 @@ function Lattice() {
       )}
       <circle r="5" fill="var(--series-2)" />
       {cx.map((x, i) => (
-        <text key={i} x={x * 50 + (i === 0 ? 10 : 0)} y={-cy[i] * 50 + (i === 0 ? -8 : 4)} textAnchor="middle" fontSize="9">
+        <text key={i} x={x * 54 + (i === 0 ? 14 : 0)} y={-cy[i] * 54 + (i === 0 ? -8 : 3)} textAnchor="middle" style={{ fontSize: 7 }}>
           {i}:{w[i]}
         </text>
       ))}
@@ -101,18 +112,20 @@ export function LearnTab() {
           </p>
         </Card>
         <Card title="The numbers that decide (on Iris)">
+          <div className="table-wrap">
           <table className="table">
             <thead><tr><th>Number</th><th>Meaning</th><th>Iris</th></tr></thead>
             <tbody>
-              <tr><td>Biot <i>Bi = h L / k</i></td><td>surface vs internal resistance; lumped models need Bi ≪ 0.1</td><td className="tnum">{fmt(bi, 1)} (pod length, PETG)</td></tr>
-              <tr><td>Rayleigh <i>Ra = gβΔT L³/(να)</i></td><td>buoyancy vs diffusion; sets natural-convection Nu</td><td className="tnum">{ra ? ra.toExponential(1) : '—'} (pod side at the skin limit)</td></tr>
-              <tr><td>Reynolds <i>Re = V D / ν</i></td><td>inertia vs viscosity; above ≈ 47 a cylinder sheds vortices</td><td className="tnum">{fmt(re, 0)} (pod at 1.4 m/s)</td></tr>
+              <tr><td>Biot <i>Bi = h L / k</i></td><td>surface vs internal resistance; lumped models need Bi ≪ 0.1</td><td><span className="tnum">{fmt(bi, 1)}</span><div className="small muted">pod length, PETG</div></td></tr>
+              <tr><td>Rayleigh <i>Ra = gβΔT L³/(να)</i></td><td>buoyancy vs diffusion; sets natural-convection Nu</td><td><span className="tnum">{ra ? sci(ra) : '—'}</span><div className="small muted">pod side at the skin limit</div></td></tr>
+              <tr><td>Reynolds <i>Re = V D / ν</i></td><td>inertia vs viscosity; above ≈ 47 a cylinder sheds vortices</td><td><span className="tnum">{fmt(re, 0)}</span><div className="small muted">pod at 1.4 m/s</div></td></tr>
               <tr><td>Nusselt <i>Nu = h L / k</i></td><td>convective vs conductive transfer in the air</td><td className="tnum">{fmt(conv?.rows[0]?.nu, 2)}</td></tr>
               <tr><td>Prandtl <i>Pr = ν / α</i></td><td>momentum vs heat diffusion in the fluid</td><td className="tnum">{fmt(air?.pr, 3)}</td></tr>
-              <tr><td>Strouhal <i>St = f D / U</i></td><td>vortex-shedding frequency, dimensionless</td><td className="tnum">≈ 0.2 for bluff bodies</td></tr>
-              <tr><td>Mach <i>Ma = U / c_s</i></td><td>LBM accuracy needs Ma ≲ 0.1–0.2 (c_s = 1/√3)</td><td className="tnum">0.17 at U = 0.1</td></tr>
+              <tr><td>Strouhal <i>St = f D / U</i></td><td>vortex-shedding frequency, dimensionless</td><td><span className="tnum">≈ 0.2</span><div className="small muted">bluff bodies</div></td></tr>
+              <tr><td>Mach <i>Ma = U / c_s</i></td><td>LBM accuracy needs Ma ≲ 0.1–0.2 (c_s = 1/√3)</td><td><span className="tnum">0.17</span><div className="small muted">at U = 0.1</div></td></tr>
             </tbody>
           </table>
+          </div>
         </Card>
       </div>
 

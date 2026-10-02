@@ -411,8 +411,20 @@ mod tests {
         assert!(s.triangle_count() > 20 * m.triangle_count());
         // the drawn Iris surfaces stay light enough for software WebGL
         let p = Project::iris();
-        let cfg = pod::PodConfig { voxel_mm: Some(1.5), ..Default::default() }.resolve(&p);
-        let o = pod::steady(&p, &cfg, pod::Want { surfaces: true, ..Default::default() }).unwrap();
+        let cfg = pod::PodConfig {
+            voxel_mm: Some(1.5),
+            ..Default::default()
+        }
+        .resolve(&p);
+        let o = pod::steady(
+            &p,
+            &cfg,
+            pod::Want {
+                surfaces: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let tris: usize = o.surfaces.iter().chain(o.inner.iter()).map(|s| s.triangles).sum();
         assert!(tris < 20_000, "{tris} triangles");
         let v = o.volume.unwrap();
@@ -474,5 +486,54 @@ mod tests {
         let g = &o.sweeps[0].peak_skin_c;
         assert!(g[1] <= g[0] + 0.05);
         assert_eq!(o.hotspot_location, "floor");
+    }
+
+    #[test]
+    fn trade_with_brackets_that_change_the_mesh() {
+        // Page settings: display heat in the optics housing, 1.5 mm voxels. The 0.5 / 1 mm
+        // aluminium brackets fill voxels the baseline left empty, so the baseline warm start
+        // has a different length — regression test for an out-of-bounds panic in WebAssembly.
+        let p = Project::iris();
+        let o = pod::trade(pod::TradeIn {
+            config: pod::PodConfig {
+                voxel_mm: Some(1.5),
+                display_heat_in: Some("optics".into()),
+                ..Default::default()
+            },
+            thicknesses_um: vec![25.0],
+            ..Default::default()
+        })
+        .unwrap();
+        assert_eq!(o.rows.len(), 9);
+        assert_eq!(o.hotspot_location, "optics");
+        let base = pod::build(
+            &p,
+            &pod::PodConfig {
+                voxel_mm: Some(1.5),
+                ..Default::default()
+            }
+            .resolve(&p),
+        )
+        .unwrap();
+        let al = pod::build(
+            &p,
+            &pod::PodConfig {
+                voxel_mm: Some(1.5),
+                spreader: Some("aluminium".into()),
+                spreader_um: Some(1000.0),
+                spreader_location: Some("optics".into()),
+                ..Default::default()
+            }
+            .resolve(&p),
+        )
+        .unwrap();
+        assert!(al.model.ndof() >= base.model.ndof());
+        // every sheet behind the display helps a lot; thicker aluminium at least as much
+        let opt: Vec<&pod::TradeRow> = o.rows.iter().filter(|r| r.location == "optics").collect();
+        assert_eq!(opt.len(), 5);
+        for r in &opt {
+            assert!(r.gain_c > 5.0, "{} {}", r.label, r.gain_c);
+        }
+        assert!(opt[4].peak_skin_c <= opt[3].peak_skin_c + 0.05);
     }
 }

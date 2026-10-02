@@ -135,7 +135,7 @@ export function TransientCard({ ctl }: { ctl: PodControls }) {
           <p className="small muted">{r.note} {fmt(r.iterations_per_step, 1)} conjugate-gradient iterations per step (warm-started).</p>
           <Explainer title="Implicit (backward) Euler" refs={[{ label: 'Hughes, The Finite Element Method (2000), ch. 7' }, { label: 'Patankar (1980), §4.3' }]}>
             <Formula>(C/Δt + K + H) θ<sup>n+1</sup> = C/Δt θ<sup>n</sup> + Q(t<sub>n+1</sub>)</Formula>
-            Unconditionally stable, so Δt = {fmt(r.dt_s, 0)} s is fine even though a 1 mm voxel of plastic has a diffusion time of milliseconds. C is the lumped heat capacity (ρc V/8 per node, plus each
+            Unconditionally stable, so Δt = {fmt(r.dt_s, 0)} s is fine even though an explicit scheme would need Δt ≲ ρc h²/(6k) — tens of milliseconds in the copper-rich board voxels. C is the lumped heat capacity (ρc V/8 per node, plus each
             component's mass × 750 J/kg K). The slow rise is the frame's thermal mass; the lumped model's two time constants come from the same physics with hand-picked R and C.
           </Explainer>
         </>

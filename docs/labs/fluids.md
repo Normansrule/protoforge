@@ -120,6 +120,7 @@ warning (raise the resolution for higher Re).
 * Pin fin with an adiabatic tip: base and mid-length temperatures within 2 % of `θ_b = Q/(√(hPkA) tanh mL)`, `cosh` profile (Incropera §3.6).
 * Lumped capacitance: a copper cube (Bi ≪ 0.1) cools as `e^{−t/τ}`, τ = ρcV/(hA), within 1 %; the backward-Euler discrete solution within 0.2 %.
 * SSOR needs fewer iterations than Jacobi for the same answer.
+* Spreader trade at the page's settings (display heat in the optics housing, 1.5 mm voxels): all nine rows solve, every sheet behind the display gains > 5 °C, the 1 mm bracket at least as much as the 0.5 mm one — a regression test for brackets that add voxels (the baseline warm start is then skipped).
 * Iris pod: placed heat = Power Lab pod heat; heat out = heat in to 10⁻⁴; cavity sealed; like-for-like (display heat in the pod) the 3-D mean is far below the lumped 39 °C while the hotspot reaches about it; a graphite sheet lowers the pod hotspot; the transient rises monotonically to the steady state while the lumped network reaches its own 39 °C.
 * Correlations: Churchill–Chu Nu = 122.8 at Ra = 10⁹ (hand calculation) and its conduction limits; within 12 % of Holman's simplified air equation for a 0.3 m plate; cylinder within 12 % of Morgan's power law and 20 % of Holman's; Churchill–Bernstein 53.3 at Re = 10⁴ and within 10 % of Hilpert; radiation `4σT³ = 6.12 W/m² K` at 300 K; air properties at the Table A.4 points.
 * LBM: equilibrium moments; Poiseuille channel within 1 % (L2) of `u = F y(H − y)/(2ν)`; mass conserved to 10⁻¹² with bounce-back and free-slip walls; Schäfer–Turek 2D-1 (Re 20) C_D within 10 % of 5.58 at only 10 cells per diameter (≈ 6.0 — the staircase cylinder reads high); FFT peak of a test sine; NACA 0012 thickness; session step / paint round trip.
@@ -142,15 +143,18 @@ because it smears all 164 mW over one shell node with R = 55 °C/W. The BOM,
 however, puts the display and its driver (140 mW with the display always on)
 in the small plastic optics housing at the front, not in the pod. There the
 heat enters a 1.2 mm PETG wall over the display's 8.4 × 5.3 mm footprint and
-cannot spread — the spreading length √(k t / h) is only ≈ 4.5 mm — so the end
+cannot spread — the spreading length √(k t / h) is only ≈ 4.3 mm — so the end
 wall of the optics housing reaches ≈ 63 °C while the pod itself stays near
 31 °C. Even like for like (all heat in the pod, as the lumped model assumes)
 the 3-D mean is ≈ 31 °C but the hotspot over the board's warm parts reaches
 ≈ 40 °C — close to the lumped value only by coincidence of the chosen R.
-Fixes, from the trade tab: a 25 µm graphite sheet or a 0.5 mm aluminium
-bracket behind the display brings the peak to ≈ 40–41 °C (borderline); wrapping
-the sheet further round the housing, lowering the display's duty or power, or
-moving the display driver onto the main board would add margin.
+Fixes, from the trade tab (1.5 mm voxels): a 25 µm graphite sheet behind the
+display brings the peak to ≈ 40.1 °C (0.014 g), 70 µm graphite or a 0.5 mm
+aluminium bracket to ≈ 39.6 °C, a 1 mm bracket to ≈ 39.4 °C — all under 41 °C
+but with only 1–1.5 °C of margin. Sheets inside the pod do nothing for this
+hotspot (≈ 0 °C gain). Wrapping the sheet further round the housing, lowering
+the display's duty or power, or moving the display driver onto the main board
+would add margin.
 
 Recommended defaults at `design.extra.fluids`:
 `{ "spreader": "none", "spreader_um": 25, "spreader_location": "floor", "display_heat_in": "optics", "air_speed_m_s": 0 }`.
@@ -172,6 +176,12 @@ Recommended defaults at `design.extra.fluids`:
 * Contact resistances (board to ribs, sheet adhesive) are not modelled; a
   real graphite sheet's adhesive adds through-plane resistance.
 * The transient linearises h about the hottest steady state.
+* The metrics cost two 3-D steady solves (baseline and spreader variant, ≈ 8.5k
+  unknowns each), measured at ≈ 150–300 ms in WebAssembly on a shared machine —
+  well above the ~20 ms budget for other labs' metrics. They are memoised on
+  every input they read, so they rerun only when the frame, optics, PCB,
+  thermal, power, battery, components or `design.extra.fluids` change. A 2 mm
+  voxel would roughly halve the cost but moves the peak by ≈ +1.7 °C.
 * The LBM tunnel is 2-D with BGK collisions and staircase obstacles: τ ≥ 0.505
   caps Re for a given resolution, C_D reads ≈ 8 % high at 10 cells per
   diameter, side walls (blockage) raise C_D and St. Real wakes above

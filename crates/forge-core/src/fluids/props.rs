@@ -96,6 +96,7 @@ impl ThermalMaterial {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // one row of the material table
 fn m(id: &str, name: &str, k_in: f64, k_through: f64, rho: f64, cp: f64, eps: f64, note: &str) -> ThermalMaterial {
     ThermalMaterial {
         id: id.into(),

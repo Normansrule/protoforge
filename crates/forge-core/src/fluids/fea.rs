@@ -65,6 +65,7 @@ pub const OFFS: [[usize; 3]; 8] = [
 pub const DIRS: [[i32; 3]; 6] = [[-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1]];
 
 /// Unit-cube conduction matrices K̂_d (d = x, y, z).
+#[allow(clippy::needless_range_loop)] // several arrays indexed by the same axis / node
 pub fn unit_k() -> [[[f64; 8]; 8]; 3] {
     let mut out = [[[0.0; 8]; 8]; 3];
     for (d, kd) in out.iter_mut().enumerate() {
@@ -508,6 +509,7 @@ pub struct PcgStats {
     pub history: Vec<f64>,
 }
 
+#[allow(clippy::needless_range_loop)] // several arrays indexed by the same axis / node
 fn apply_pc(a: &Csr, d: &[f64], pc: Precond, r: &[f64], z: &mut [f64]) {
     match pc {
         Precond::Jacobi => {
@@ -663,11 +665,11 @@ mod tests {
         let st = pcg(&a, &hd, &b, &mut x, Precond::Ssor(1.4), 1e-12, 500);
         assert!(st.converged);
         let l = nx as f64 * h * 1e-3;
-        for d in 0..m.ndof() {
+        for (d, &xd) in x.iter().enumerate() {
             let c = m.ncoord(m.node_of[d] as usize);
             let xpos = (c[0] as f64 - 1.0) * h * 1e-3;
             let exact = qflux * ((l - xpos) / 0.2 + 1.0 / 10.0);
-            assert!((x[d] - exact).abs() / exact < 1e-8, "x={xpos} {} vs {exact}", x[d]);
+            assert!((xd - exact).abs() / exact < 1e-8, "x={xpos} {xd} vs {exact}");
         }
     }
 
