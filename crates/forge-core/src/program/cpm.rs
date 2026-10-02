@@ -154,8 +154,13 @@ pub fn driving_path(net: &Net, p: &Pass) -> Vec<usize> {
     if net.n == 0 {
         return vec![];
     }
+    // Start from a task that finishes the project; when several tie, prefer one
+    // with no successors (a lead can let a successor finish together with its
+    // predecessor, and the path must then run through to that last task).
+    let finish = (0..net.n).map(|i| p.ef[i]).fold(f64::NEG_INFINITY, f64::max);
     let mut k = (0..net.n)
-        .max_by(|&a, &b| p.ef[a].partial_cmp(&p.ef[b]).unwrap().then(b.cmp(&a)))
+        .filter(|&i| (p.ef[i] - finish).abs() < EPS)
+        .min_by_key(|&i| (!net.succs[i].is_empty(), i))
         .unwrap();
     let mut path = vec![k];
     loop {
@@ -607,6 +612,29 @@ mod tests {
         assert_eq!(s.critical_path, vec!["A", "D", "F"]);
         assert_eq!(s.critical_count, 3);
         assert!(s.mermaid.contains("crit, A, 2026-10-05, 21d"), "{}", s.mermaid);
+    }
+
+    #[test]
+    fn critical_path_runs_through_a_task_that_ties_the_finish() {
+        // D finishes at 10; E starts 1 week before D ends (lead) and also ends at 10.
+        let t = |id: &str, d: f64, preds: &[&str]| Task {
+            id: id.into(),
+            optimistic: d,
+            likely: d,
+            pessimistic: d,
+            preds: preds.iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
+        };
+        let tasks = vec![
+            t("A", 3.0, &[]),
+            t("B", 2.0, &["A"]),
+            t("C", 4.0, &["A"]),
+            t("D", 2.0, &["B+3", "C"]),
+            t("E", 1.0, &["D-1"]),
+        ];
+        let s = schedule(None, &tasks, &Config::default()).unwrap();
+        assert!((s.finish_weeks - 10.0).abs() < 1e-9);
+        assert_eq!(s.critical_path, vec!["A", "B", "D", "E"]);
     }
 
     #[test]
