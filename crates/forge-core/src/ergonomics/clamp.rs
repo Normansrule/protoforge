@@ -315,9 +315,14 @@ impl ClampModel {
         self.s0 + self.spread_for(f)
     }
 
-    /// Splay that centres the comfort band on head width `h` for a target force.
-    pub fn splay_for(&self, h: f64, f_target: f64, inner_x: f64) -> f64 {
-        let s0 = h - self.spread_for(f_target);
+    /// Splay that puts the comfort band's head-width interval centre at `c`.
+    ///
+    /// Splay only moves the unloaded spread `S₀`, so the band of head widths
+    /// `[width_for(f_lo), width_for(f_hi)]` slides rigidly with it. (Centring
+    /// on the force mid-band instead goes wrong with a spring hinge, whose
+    /// force is nearly flat over most head widths.)
+    pub fn splay_centring(&self, c: f64, f_lo: f64, f_hi: f64, inner_x: f64) -> f64 {
+        let s0 = c - 0.5 * (self.spread_for(f_lo) + self.spread_for(f_hi));
         ((s0 / 2.0 - inner_x) / self.l_c).atan().to_degrees()
     }
 

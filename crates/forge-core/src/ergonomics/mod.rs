@@ -815,8 +815,16 @@ fn clamp_api(i: BaseIn) -> Result<ClampOut, String> {
     let lo = cm.width_for(a.band.min_n);
     let hi = cm.width_for(a.band.max_n);
     let cov = 100.0 * comb.prob_between(lo, hi);
-    let target = 0.5 * (a.band.min_n + a.band.max_n);
-    let best_splay = cm.splay_for(comb.quantile(0.5), target, a.fg.temple_inner_x);
+    // Slide the band's head-width interval (width hi − lo, fixed by the frame) to
+    // where it holds the most heads, then find the splay that puts it there.
+    let w = hi - lo;
+    let (q05, q95) = (comb.quantile(0.05), comb.quantile(0.95));
+    let centre = (0..=200)
+        .map(|k| q05 + (q95 - q05) * k as f64 / 200.0)
+        .map(|c| (c, comb.prob_between(c - w / 2.0, c + w / 2.0)))
+        .fold((comb.quantile(0.5), -1.0), |b, x| if x.1 > b.1 + 1e-12 { x } else { b })
+        .0;
+    let best_splay = cm.splay_centring(centre, a.band.min_n, a.band.max_n, a.fg.temple_inner_x);
     let cm2 = ClampModel::new(&a.fg, best_splay, cfg.contact_before_bend_mm).with_hinge(a.hinge.clone());
     let cov2 = 100.0 * comb.prob_between(cm2.width_for(a.band.min_n), cm2.width_for(a.band.max_n));
     let defl = cm.deflections(h95);
@@ -1133,6 +1141,12 @@ mod tests {
             "best splay {} → {} %, band {:?}, p95 {}",
             c["best_splay_deg"], c["best_splay_coverage_pct"], c["band_heads_mm"], c["force_p95_n"]
         );
+        // the recommended splay never holds fewer heads in the band than the current one
+        let (now, best) = (
+            c["band_coverage_pct"].as_f64().unwrap(),
+            c["best_splay_coverage_pct"].as_f64().unwrap(),
+        );
+        assert!(best >= now - 1e-6, "best splay {best} % < now {now} %");
         let d = dispatch("ergonomics.defaults", &Value::Null).unwrap().unwrap();
         assert_eq!(d["female_fraction"], 0.5);
         // null input works (Iris default)
