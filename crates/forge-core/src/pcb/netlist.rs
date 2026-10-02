@@ -97,8 +97,12 @@ pub const PINS: &[(&str, &str, &str)] = &[
     ("U1", "34", "1V8"),
     ("U1", "EP", "GND"),
     ("U1", "2", "RF"),
-    ("U1", "9", "SWDCLK"),
-    ("U1", "10", "SWDIO"),
+    // Serial-wire debug on the right-hand side, away from the crystal pins:
+    // their test pads sit under the package behind the pins (see
+    // `place::place_features`) and the left side stays free for the crystal,
+    // the RF feed and the display bus coming from the hinge.
+    ("U1", "30", "SWDCLK"),
+    ("U1", "31", "SWDIO"),
     ("C3", "1", "1V8"),
     ("C3", "2", "GND"),
     ("AE1", "1", "RF"),
@@ -108,7 +112,9 @@ pub const PINS: &[(&str, &str, &str)] = &[
     ("L2", "2", "RF_ANT"),
     ("L3", "1", "RF_ANT"),
     ("L3", "2", "GND"),
-    // optional 32 MHz crystal + load capacitors on the SoC's XC1/XC2 pins
+    // optional 32 MHz crystal + load capacitors on the SoC's XC1/XC2 pins (the
+    // last two pins of the left side: the crystal sits in the free corner
+    // below the display-bus channel, its load capacitors hang on its pads)
     ("U1", "11", "XC1"),
     ("U1", "12", "XC2"),
     ("Y1", "1", "XC1"),
@@ -204,7 +210,7 @@ pub const GPIO_NETS: &[&str] = &[
 ];
 
 /// SoC pins that are not available as GPIO (power, RF, crystal, debug).
-pub const SOC_RESERVED: &[&str] = &["1", "2", "3", "9", "10", "11", "12", "27", "34", "EP"];
+pub const SOC_RESERVED: &[&str] = &["1", "2", "3", "11", "12", "27", "30", "31", "34", "EP"];
 
 /// Decoupling relationships: (capacitor, IC, IC pin) — the placer puts the
 /// capacitor right next to that pin.
@@ -216,8 +222,8 @@ pub const DECOUPLING: &[(&str, &str, &str)] = &[
     ("C5", "U4", "4"),
     ("C6", "R2", "1"),
     ("Y1", "U1", "11"),
-    ("C7", "U1", "11"),
-    ("C8", "U1", "12"),
+    ("C7", "Y1", "1"),
+    ("C8", "Y1", "3"),
     ("L2", "AE1", "1"),
     ("L3", "AE1", "1"),
 ];
@@ -231,6 +237,17 @@ pub fn net_class(name: &str) -> NetClass {
         "VBUS" | "VBAT" | "1V8" | "3V3_DISP" | "SW" => NetClass::Power,
         "RF" | "RF_ANT" => NetClass::Rf,
         _ => NetClass::Signal,
+    }
+}
+
+/// Wire-length weight of a net in the placer's cost: nets whose length is
+/// electrically critical (the 2.4 GHz feed, the crystal oscillator loop, the
+/// buck switch node) pull their parts closer than ordinary signals.
+pub fn placement_weight(name: &str) -> f64 {
+    match name {
+        "RF" | "RF_ANT" | "XC1" | "XC2" => 3.0,
+        "SW" => 2.0,
+        _ => 1.0,
     }
 }
 

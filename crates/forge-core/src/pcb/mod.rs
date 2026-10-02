@@ -273,8 +273,34 @@ fn notes_for(p: &Project) -> Vec<String> {
     if has("L2") {
         v.push("RF feed: the autorouter uses the minimum trace width everywhere. Re-route RF and RF_ANT by hand as the grounded coplanar waveguide the RF & Antenna Lab specifies (the KiCad export carries it as the RF net class).".into());
     }
+    if let Some(n) = grid_note(&board::Rules::from(&p.design.pcb)) {
+        v.push(n);
+    }
     v.push("CHG_STAT is open-drain: enable the SoC's internal pull-up on that GPIO.".into());
     v
+}
+
+/// The router samples the board every `grid ÷ 2`; two neighbouring tracks
+/// can only sit a whole number of grid steps apart. When the track pitch
+/// (trace + clearance) is not a multiple of that step, every channel loses
+/// the difference — e.g. 0.15/0.15 mm rules on a 0.25 mm grid put tracks
+/// 0.375 mm apart instead of 0.30 mm (20 % fewer tracks per channel).
+pub fn grid_note(r: &board::Rules) -> Option<String> {
+    let step = r.grid_mm / 2.0;
+    let pitch = r.trace_mm + r.clearance_mm;
+    let k = (pitch / step - 1e-6).ceil().max(1.0);
+    let used = k * step;
+    if used - pitch < 0.005 {
+        return None;
+    }
+    Some(format!(
+        "Routing grid: tracks can only sit {:.3} mm apart on the {:.3} mm routing grid although the rules allow {:.3} mm ({:.0} % of every routing channel lost). A grid of {:.3} mm (= trace + clearance) makes the two agree.",
+        used,
+        step,
+        pitch,
+        100.0 * (1.0 - pitch / used),
+        pitch
+    ))
 }
 
 /// Full layout for the project (placement → fan-out → routing → pour → DRC).
@@ -332,7 +358,7 @@ fn baked_route() -> Option<Routed> {
 }
 
 /// Bump when routing behaviour changes so stale baked routes are ignored.
-pub const ROUTER_VERSION: &str = "nc-pinswap-1";
+pub const ROUTER_VERSION: &str = "nc-pinswap-2";
 
 /// FNV-1a hash of every input that influences the routed copper.
 pub fn cache_key_hex(p: &Project) -> String {
@@ -698,11 +724,16 @@ fn ground_connect(b: &board::Board, rt: &mut route::Router) -> (pour::Pour, pour
                     nodes.push(n + c);
                 }
             }
-            let ok = if nodes.is_empty() {
+            let mut ok = if nodes.is_empty() {
                 pads.first().map(|&pi| rt.connect_pad(pi, &main_nodes)).unwrap_or(false)
             } else {
                 rt.stitch(&nodes, &main_nodes)
             };
+            // 3) walled in by signal copper: rip-up and re-route around a bridge
+            if !ok {
+                let smd: Vec<usize> = pads.iter().copied().filter(|&pi| b.pads[pi].is_smd()).collect();
+                ok = rt.ground_bridge_repair(&nodes, &smd, &main_nodes);
+            }
             progress |= ok;
         }
         top = pour::compute(b, &rt.tracks, &rt.vias, 0);
@@ -908,6 +939,23 @@ mod tests {
     }
 
     #[test]
+    fn grid_note_flags_incommensurate_grids() {
+        let mut p = Project::iris();
+        assert!(
+            grid_note(&board::Rules::from(&p.design.pcb)).is_none(),
+            "Iris grid matches its rules"
+        );
+        p.design.pcb.min_trace_mm = 0.15;
+        p.design.pcb.min_clearance_mm = 0.15;
+        p.design.pcb.grid_mm = 0.25;
+        // 0.30 mm pitch on a 0.125 mm step → 3 steps = 0.375 mm, 20 % lost
+        let n = grid_note(&board::Rules::from(&p.design.pcb)).unwrap();
+        assert!(n.contains("0.375") && n.contains("20 %"), "{n}");
+        p.design.pcb.grid_mm = 0.3;
+        assert!(grid_note(&board::Rules::from(&p.design.pcb)).is_none());
+    }
+
+    #[test]
     fn iris_board_routes_clean() {
         let p = Project::iris();
         let l = layout_with(&p, None);
@@ -934,7 +982,17 @@ mod tests {
             let r = route_phase(&p, &pr.parts, &pr.gpio, s);
             let l = finalize(&p, &pr.parts, &r);
             let clean = l.stats.routed_pct >= 100.0 && l.stats.drc_violations == 0;
-            eprintln!("{}: routed {:.1} %, {} DRC {:?}", s.name, l.stats.routed_pct, l.stats.drc_violations, l.nets.iter().filter(|n| !n.unconnected.is_empty()).map(|n| n.name.clone()).collect::<Vec<_>>());
+            eprintln!(
+                "{}: routed {:.1} %, {} DRC {:?}",
+                s.name,
+                l.stats.routed_pct,
+                l.stats.drc_violations,
+                l.nets
+                    .iter()
+                    .filter(|n| !n.unconnected.is_empty())
+                    .map(|n| n.name.clone())
+                    .collect::<Vec<_>>()
+            );
             if out.is_none() || clean {
                 out = Some(r);
             }

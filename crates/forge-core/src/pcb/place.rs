@@ -17,7 +17,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::board::{part_footprint, place_box, PartPos};
+use super::board::{feature_footprint, part_footprint, place_box, PartPos};
 use super::footprints::{rot_pt, Footprint};
 use super::netlist::{self, DECOUPLING, GPIO_NETS, SOC_RESERVED};
 use crate::math::Rng;
@@ -145,7 +145,17 @@ pub fn constructive(p: &Project) -> PlaceResult {
     if let Some(i) = find("ANT", &items) {
         let c = items[i].fp.courtyard;
         let right = soc_box.map(|b| b[0]).unwrap_or(w / 2.0);
-        let x = snap(right - c[2] - 0.6, g);
+        // A matching network attached to the antenna feed sits between the
+        // keep-out and the SoC: reserve a column for it (its narrow side plus
+        // the SoC fan-out halo) so it does not land in front of other SoC pins.
+        let ant_ref = items[i].refdes.as_str();
+        let column = items
+            .iter()
+            .filter(|it| DECOUPLING.iter().any(|(r, ic, _)| *r == it.refdes && *ic == ant_ref))
+            .map(|it| (it.fp.courtyard[2] - it.fp.courtyard[0]).min(it.fp.courtyard[3] - it.fp.courtyard[1]))
+            .fold(0.0f64, f64::max);
+        let column = if column > 0.0 { column + 0.5 + 0.2 } else { 0.0 };
+        let x = snap(right - c[2] - 0.6 - column, g);
         let y = ((h - c[3] - 0.2) / g).floor() * g;
         // rotate 180° so the feed pad (pin 1) faces the SoC
         fixed(i, x, y, 180.0, &mut placed, &items);
@@ -233,6 +243,20 @@ pub fn constructive(p: &Project) -> PlaceResult {
         .filter(|&i| !placed.iter().any(|(pp, _)| pp.refdes == items[i].refdes))
         .collect();
     let soc_ref = main.map(|i| items[i].refdes.clone());
+    // parts fixed by the constraint-driven anchors above
+    let fixed_refs: Vec<String> = placed.iter().map(|(pp, _)| pp.refdes.clone()).collect();
+    // functional zones along the temple: charger by the USB port, the buck
+    // converter next to it; everything else follows its connections.
+    let zone_of = |r: &str| -> Option<(f64, f64)> {
+        let my_nets: Vec<&str> = pin_nets.iter().filter(|(pr, _, _)| pr == r).map(|(_, _, n)| n.as_str()).collect();
+        if my_nets.iter().any(|n| *n == "VBUS" || *n == "PROG") {
+            Some((w - 17.0, w))
+        } else if my_nets.contains(&"SW") || dec(r).map(|(ic, _)| ic).as_deref() == Some("U5") {
+            Some((w - 24.0, w - 6.0))
+        } else {
+            None
+        }
+    };
     while !remaining.is_empty() {
         // pick the part with most connections to placed parts (ICs before passives)
         let score = |i: usize| -> (i64, i64) {
@@ -253,14 +277,23 @@ pub fn constructive(p: &Project) -> PlaceResult {
                 }
             }
             let pads = items[i].fp.pads.len() as i64;
-            let pri = if pads >= 5 {
-                3000 + conn * 30 + pads
-            } else if let Some((ic, _)) = dec(r) {
-                if placed.iter().any(|(pp, _)| pp.refdes == ic) {
-                    2000 + conn
-                } else {
+            // Parts hanging on a fixed anchor's pin (the SoC's crystal and
+            // decoupling, the antenna's matching network — and, in turn, the
+            // crystal's load capacitors) go first, as a designer places them
+            // before anything else around the SoC; other ICs follow, then the
+            // remaining passives (their own decoupling right after them).
+            let pri = if let Some((ic, _)) = dec(r) {
+                let early = fixed_refs.contains(&ic) || dec(&ic).map(|(a, _)| fixed_refs.contains(&a)).unwrap_or(false);
+                if !placed.iter().any(|(pp, _)| pp.refdes == ic) {
                     500 + conn
+                } else if early {
+                    4000 + conn
+                } else {
+                    2000 + conn
                 }
+            } else if pads >= 5 {
+                // ICs bound to a functional zone are the most constrained: first
+                3000 + conn * 30 + pads
             } else {
                 1000 + conn * 10
             };
@@ -286,23 +319,38 @@ pub fn constructive(p: &Project) -> PlaceResult {
                 .filter_map(|(r2, p2, _)| placed_pin(r2, p2))
                 .collect();
             if !pts.is_empty() {
-                targets.push((pin.clone(), pts, 1.0));
+                targets.push((pin.clone(), pts, netlist::placement_weight(net)));
             }
         }
         let gpio_mine: Vec<String> = netlist_gpio_nets(&r).map(|(pin, _)| pin.to_string()).collect();
-        let decouple = dec(&r).and_then(|(ic, pin)| placed_pin(&ic, &pin).map(|pt| (pt, ic)));
-        // functional zones along the temple: charger by the USB port, the buck
-        // converter next to it; everything else follows its connections.
-        let my_nets: Vec<&str> = pin_nets.iter().filter(|(pr, _, _)| *pr == r).map(|(_, _, n)| n.as_str()).collect();
+        // Pin-attached parts (decoupling capacitors, crystals, matching
+        // networks): every one of my pads that shares a (non-ground) net with
+        // the anchor IC is pulled hard to that IC pin — e.g. both crystal
+        // terminals to XC1/XC2, the series inductor's far end to the antenna.
+        let mut decouple: Vec<(String, Vec<(f64, f64)>)> = Vec::new();
+        if let Some((ic, pin)) = dec(&r) {
+            for (_, mine, net) in pin_nets.iter().filter(|(pr, _, _)| *pr == r) {
+                let pts: Vec<(f64, f64)> = pin_nets
+                    .iter()
+                    .filter(|(r2, _, n2)| *r2 == ic && n2 == net)
+                    .filter_map(|(r2, p2, _)| placed_pin(r2, p2))
+                    .collect();
+                if !pts.is_empty() {
+                    decouple.push((mine.clone(), pts));
+                }
+            }
+            if decouple.is_empty() {
+                if let Some(pt) = placed_pin(&ic, &pin) {
+                    decouple.push((it.fp.pads[0].num.clone(), vec![pt]));
+                }
+            }
+        }
         let dec_ic = dec(&r).map(|(ic, _)| ic);
-        let zone: Option<(f64, f64)> = if my_nets.iter().any(|n| *n == "VBUS" || *n == "PROG") {
-            Some((w - 17.0, w))
-        } else if my_nets.contains(&"SW") || dec_ic.as_deref() == Some("U5") {
-            Some((w - 24.0, w - 6.0))
-        } else {
-            None
-        };
+        let zone = zone_of(&r);
         let is_ic = it.fp.pads.len() >= 5;
+        // A pin-attached part's position is dictated by its pin (loop area,
+        // trace length): it yields to routing demand far less than a free part.
+        let demand_scale = if decouple.is_empty() { 1.0 } else { 0.25 };
         // fan-out halo: keep 0.5 mm around the SoC courtyard free for pin escapes
         let halo: f64 = 0.5;
         let ic_boxes: Vec<[f64; 4]> = placed
@@ -316,7 +364,7 @@ pub fn constructive(p: &Project) -> PlaceResult {
             })
             .map(|(_, b)| *b)
             .collect();
-        let mut best: Option<(f64, PartPos, [f64; 4])> = None;
+        let mut cands: Vec<(f64, PartPos, [f64; 4])> = Vec::new();
         let step = if it.fp.pads.len() > 4 { 0.5 } else { 0.25 };
         let nx = (w / step) as i64;
         let ny = (h / step) as i64;
@@ -358,7 +406,7 @@ pub fn constructive(p: &Project) -> PlaceResult {
                                 dsum += demand[j * dnx + i];
                             }
                         }
-                        cost += demand_w * dsum * dc * dc;
+                        cost += demand_scale * demand_w * dsum * dc * dc;
                     }
                     if let Some((z0, z1)) = zone {
                         cost += 40.0 * ((z0 - x).max(x - z1).max(0.0));
@@ -384,29 +432,119 @@ pub fn constructive(p: &Project) -> PlaceResult {
                             }
                         }
                     }
-                    if let Some(((tx, ty), _)) = decouple {
-                        let pd = &it.fp.pads[0];
+                    for (pin, pts) in &decouple {
+                        let Some(pd) = it.fp.pads.iter().find(|pd| &pd.num == pin) else {
+                            continue;
+                        };
                         let (dx, dy) = rot_pt(pd.x, pd.y, rot);
-                        cost += 6.0 * ((tx - x - dx).abs() + (ty - y - dy).abs());
+                        let d = pts
+                            .iter()
+                            .map(|(tx, ty)| (tx - x - dx).abs() + (ty - y - dy).abs())
+                            .fold(f64::INFINITY, f64::min);
+                        cost += 6.0 * d;
                     }
                     // mild preference for the board mid-line (keeps routing channels on both edges)
                     cost += 0.02 * (y - h / 2.0).abs() + 0.001 * rot;
-                    if best.as_ref().map(|b| cost < b.0 - 1e-9).unwrap_or(true) {
-                        best = Some((
-                            cost,
-                            PartPos {
-                                refdes: r.clone(),
-                                x,
-                                y,
-                                rot,
-                                side: "top".into(),
-                            },
-                            cy,
-                        ));
-                    }
+                    cands.push((
+                        cost,
+                        PartPos {
+                            refdes: r.clone(),
+                            x,
+                            y,
+                            rot,
+                            side: "top".into(),
+                        },
+                        cy,
+                    ));
                 }
             }
         }
+        // stable: equal costs keep the scan order (deterministic)
+        cands.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        // Cluster look-ahead: a part that others hang on (a crystal and its
+        // load capacitors, a regulator and its capacitors) only takes a spot
+        // where every one of those satellites still fits next to its pin.
+        let satellites: Vec<(usize, String, String)> = DECOUPLING
+            .iter()
+            .filter(|(c, ic, _)| *ic == r && !placed.iter().any(|(pp, _)| pp.refdes == *c))
+            .filter_map(|(c, _, pin)| items.iter().position(|x| x.refdes == *c).map(|k| (k, pin.to_string())))
+            .filter_map(|(k, pin)| {
+                // the satellite pad on the anchor pin's net
+                let net = pin_nets.iter().find(|(pr, pp, _)| *pr == r && *pp == pin).map(|x| x.2.clone())?;
+                let spin = pin_nets
+                    .iter()
+                    .find(|(pr, _, n)| *pr == items[k].refdes && *n == net)
+                    .map(|x| x.1.clone())?;
+                Some((k, pin, spin))
+            })
+            .collect();
+        let mut best: Option<(f64, PartPos, [f64; 4])> = None;
+        if !satellites.is_empty() {
+            let soc_exempt = soc_ref.as_deref() == Some(r.as_str());
+            let mut best_total = f64::INFINITY;
+            for c in cands.iter().take(400) {
+                if c.0 >= best_total {
+                    break; // sorted by own cost: nothing later can win
+                }
+                let mut taken: Vec<[f64; 4]> = vec![c.2];
+                let mut total = c.0;
+                for (k, pin, spin) in &satellites {
+                    let Some(apd) = it.fp.pads.iter().find(|pd| &pd.num == pin) else {
+                        continue;
+                    };
+                    let (ax, ay) = rot_pt(apd.x, apd.y, c.1.rot);
+                    let (ax, ay) = (c.1.x + ax, c.1.y + ay);
+                    let sfp = &items[*k].fp;
+                    let Some(spd) = sfp.pads.iter().find(|pd| &pd.num == spin) else {
+                        continue;
+                    };
+                    let mut fit: Option<(f64, [f64; 4])> = None;
+                    for rot in [0.0, 90.0, 180.0, 270.0] {
+                        let (sx, sy) = rot_pt(spd.x, spd.y, rot);
+                        let cyl = super::footprints::rot_box(sfp.courtyard, rot);
+                        for jy in -12..=12 {
+                            for ix in -12..=12 {
+                                let (x, y) = (snap(ax - sx, 0.25) + ix as f64 * 0.25, snap(ay - sy, 0.25) + jy as f64 * 0.25);
+                                let d = (x + sx - ax).abs() + (y + sy - ay).abs();
+                                if fit.map(|f| d >= f.0).unwrap_or(false) {
+                                    continue;
+                                }
+                                let cy = [x + cyl[0], y + cyl[1], x + cyl[2], y + cyl[3]];
+                                if cy[0] < 0.1 || cy[1] < 0.1 || cy[2] > w - 0.1 || cy[3] > h - 0.1 {
+                                    continue;
+                                }
+                                if placed.iter().any(|(_, b)| overlaps(cy, *b, 0.0))
+                                    || taken.iter().any(|b| overlaps(cy, *b, 0.0))
+                                    || keepouts.iter().any(|kb| overlaps(cy, *kb, 0.0))
+                                {
+                                    continue;
+                                }
+                                if let Some(sb) = soc_box {
+                                    if !soc_exempt && overlaps(cy, sb, halo) {
+                                        continue;
+                                    }
+                                }
+                                fit = Some((d, cy));
+                            }
+                        }
+                    }
+                    // the satellite's own pull (see `decouple` above), or a
+                    // stiff penalty when it cannot sit within 3 mm at all
+                    match fit {
+                        Some((d, cy)) => {
+                            total += 6.0 * d;
+                            taken.push(cy);
+                        }
+                        None => total += 60.0,
+                    }
+                }
+                if total < best_total {
+                    best_total = total;
+                    best = Some(c.clone());
+                }
+            }
+        }
+        let best = best.or_else(|| cands.first().cloned());
         if let Some((_, pp, cy)) = best {
             placed.push((pp, cy));
         } else {
@@ -463,23 +601,70 @@ fn place_features(p: &Project, parts: &mut Vec<PartPos>) {
             side: "bottom".into(),
         });
     }
-    if let Some(soc) = get("U1", parts) {
+    if let (Some(soc), Some(sfp)) = (get("U1", parts), part_footprint(p, "U1")) {
         if feats.contains(&"TP1") {
-            // on the bottom copper under the SoC body, next to its debug pins
-            parts.push(PartPos {
-                refdes: "TP1".into(),
-                x: snap(soc.x - 2.25, g),
-                y: snap(soc.y - 2.25, g),
-                rot: 0.0,
-                side: "bottom".into(),
-            });
-            parts.push(PartPos {
-                refdes: "TP2".into(),
-                x: snap(soc.x - 2.25, g),
-                y: snap(soc.y + 2.25, g),
-                rot: 0.0,
-                side: "bottom".into(),
-            });
+            // On the bottom copper under the SoC body, each pad directly behind
+            // the pin it probes: the signal drops through one via just outside
+            // the pin row and runs a short way back under the package, and the
+            // bottom layer in front of the other pins stays free for escapes.
+            let tps: Vec<(&str, &str)> = netlist::PINS
+                .iter()
+                .filter(|(r, _, _)| *r == "TP1" || *r == "TP2")
+                .map(|(r, _, n)| (*r, *n))
+                .collect();
+            let r_tp = feature_footprint("TP1").map(|f| f.pads[0].w / 2.0).unwrap_or(0.5);
+            let pitch = feature_footprint("TP1").map(|f| f.courtyard[2] - f.courtyard[0]).unwrap_or(1.2) + 0.05;
+            // (refdes, normal offset, along-side offset, side key)
+            let mut spots: Vec<(String, f64, f64, (i32, i32))> = Vec::new();
+            for (tp, net) in tps {
+                let Some(pin) = netlist::PINS.iter().find(|(r, _, n)| *r == "U1" && *n == net).map(|x| x.1) else {
+                    continue;
+                };
+                let Some(pd) = sfp.pads.iter().find(|pd| pd.num == pin) else {
+                    continue;
+                };
+                // side of the package the pin sits on, in the footprint frame
+                let (normal, along, key, inner) = if pd.x.abs() > pd.y.abs() {
+                    (pd.x.signum(), pd.y, (pd.x.signum() as i32, 0), pd.x.abs() - pd.w / 2.0)
+                } else {
+                    (pd.y.signum(), pd.x, (0, pd.y.signum() as i32), pd.y.abs() - pd.h / 2.0)
+                };
+                spots.push((tp.to_string(), normal * (inner - r_tp), along, key));
+            }
+            // spread pads on the same side so their courtyards do not touch
+            let lim = sfp.body[2].min(sfp.body[3]) - pitch / 2.0;
+            let keys: Vec<(i32, i32)> = spots.iter().map(|s| s.3).collect();
+            for key in keys {
+                let mut idx: Vec<usize> = (0..spots.len()).filter(|&i| spots[i].3 == key).collect();
+                idx.sort_by(|&a, &b| spots[a].2.partial_cmp(&spots[b].2).unwrap());
+                if idx.len() < 2 {
+                    continue;
+                }
+                let mean = idx.iter().map(|&i| spots[i].2).sum::<f64>() / idx.len() as f64;
+                let half = pitch * (idx.len() as f64 - 1.0) / 2.0;
+                let start = (mean - half).clamp(-lim, lim - 2.0 * half);
+                let mut last = f64::NEG_INFINITY;
+                for (k, &i) in idx.iter().enumerate() {
+                    let v = if k == 0 {
+                        spots[i].2.min(start)
+                    } else {
+                        spots[i].2.max(last + pitch)
+                    };
+                    spots[i].2 = v;
+                    last = v;
+                }
+            }
+            for (tp, normal, along, key) in spots {
+                let (lx, ly) = if key.0 != 0 { (normal, along) } else { (along, normal) };
+                let (dx, dy) = rot_pt(lx, ly, soc.rot);
+                parts.push(PartPos {
+                    refdes: tp,
+                    x: soc.x + dx,
+                    y: soc.y + dy,
+                    rot: 0.0,
+                    side: "bottom".into(),
+                });
+            }
         }
     }
 }
@@ -1000,37 +1185,65 @@ pub fn anneal(p: &Project, iterations: usize, seed: u64) -> AnnealResult {
 }
 
 fn legalize(parts: &mut [PartPos], fps: &[Footprint], movable: &[usize], keepouts: &[[f64; 4]], w: f64, h: f64) {
-    for &i in movable {
-        let bx = |pp: &PartPos, fp: &Footprint| place_box(fp.courtyard, pp.x, pp.y, pp.rot);
-        let bad = |parts: &[PartPos], i: usize| {
-            let b = bx(&parts[i], &fps[i]);
-            b[0] < 0.1
-                || b[1] < 0.1
-                || b[2] > w - 0.1
-                || b[3] > h - 0.1
-                || keepouts.iter().any(|k| overlaps(b, *k, 0.0))
-                || (0..parts.len()).any(|j| j != i && parts[j].side == parts[i].side && overlaps(b, bx(&parts[j], &fps[j]), 0.0))
-        };
-        if !bad(parts, i) {
+    let bx = |pp: &PartPos, fp: &Footprint| place_box(fp.courtyard, pp.x, pp.y, pp.rot);
+    // parts lifted off the board while they wait for a new spot
+    let mut lifted = vec![false; parts.len()];
+    let bad = |parts: &[PartPos], lifted: &[bool], i: usize| {
+        let b = bx(&parts[i], &fps[i]);
+        b[0] < 0.1
+            || b[1] < 0.1
+            || b[2] > w - 0.1
+            || b[3] > h - 0.1
+            || keepouts.iter().any(|k| overlaps(b, *k, 0.0))
+            || (0..parts.len()).any(|j| j != i && !lifted[j] && parts[j].side == parts[i].side && overlaps(b, bx(&parts[j], &fps[j]), 0.0))
+    };
+    // Lift every offending part plus every smaller movable part, then put
+    // them back largest first: the big packages find a hole before the
+    // passives settle around them (each passive returns to its own spot when
+    // it is still free).
+    let area = |i: usize| {
+        let c = fps[i].courtyard;
+        (c[2] - c[0]) * (c[3] - c[1])
+    };
+    let offending: Vec<usize> = movable.iter().copied().filter(|&i| bad(parts, &lifted, i)).collect();
+    let big = offending.iter().map(|&i| area(i)).fold(0.0, f64::max);
+    let mut todo: Vec<usize> = movable
+        .iter()
+        .copied()
+        .filter(|&i| offending.contains(&i) || area(i) < big)
+        .collect();
+    for &i in &todo {
+        lifted[i] = true;
+    }
+    todo.sort_by(|&a, &b| area(b).partial_cmp(&area(a)).unwrap().then(a.cmp(&b)));
+    for i in todo {
+        lifted[i] = false;
+        if !bad(parts, &lifted, i) {
             continue;
         }
-        let (x0, y0) = (parts[i].x, parts[i].y);
+        let (x0, y0, r0) = (parts[i].x, parts[i].y, parts[i].rot);
         let mut found = false;
-        'outer: for rad in 1..80 {
+        // nearest free spot on growing rings, trying all four rotations (a
+        // crowded board may only have room for the part turned by 90°)
+        'outer: for rad in 1..240 {
             let r = rad as f64 * 0.25;
             for k in 0..(8 * rad) {
                 let a = k as f64 / (8 * rad) as f64 * std::f64::consts::TAU;
                 parts[i].x = snap(x0 + r * a.cos(), 0.25);
                 parts[i].y = snap(y0 + r * a.sin(), 0.25);
-                if !bad(parts, i) {
-                    found = true;
-                    break 'outer;
+                for q in 0..4 {
+                    parts[i].rot = (r0 + 90.0 * q as f64) % 360.0;
+                    if !bad(parts, &lifted, i) {
+                        found = true;
+                        break 'outer;
+                    }
                 }
             }
         }
         if !found {
             parts[i].x = x0;
             parts[i].y = y0;
+            parts[i].rot = r0;
         }
     }
 }

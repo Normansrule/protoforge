@@ -2439,11 +2439,11 @@
       "height_mm": 10,
       "layers": 2,
       "thickness_mm": 0.8,
-      "min_trace_mm": 0.15,
-      "min_clearance_mm": 0.15,
+      "min_trace_mm": 0.127,
+      "min_clearance_mm": 0.127,
       "via_drill_mm": 0.3,
       "via_pad_mm": 0.6,
-      "grid_mm": 0.25
+      "grid_mm": 0.254
     },
     "thermal": {
       "ambient_c": 30,

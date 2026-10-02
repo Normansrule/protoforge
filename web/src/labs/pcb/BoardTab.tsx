@@ -153,7 +153,7 @@ function RulesCard({ layout }: { layout: Layout }) {
       )}
       {err && <div className="small" style={{ color: 'var(--bad-text)' }}>{err}</div>}
       <div className="small muted" style={{ marginTop: 8 }}>
-        Routing grid = grid ÷ 2 ({fmtNum(layout.rules.grid_mm / 2)} mm). Strategy used: <i>{layout.stats.strategy}</i> ({layout.stats.attempts} of 4 tried){layout.stats.from_cache ? '; default Iris copper is pre-routed by this engine and re-verified live' : ''}.
+        Routing grid = grid ÷ 2 ({fmtNum(layout.rules.grid_mm / 2)} mm). Strategy used: <i>{layout.stats.strategy}</i> ({layout.stats.attempts} tried){layout.stats.from_cache ? '; default Iris copper is pre-routed by this engine and re-verified live' : ''}.
       </div>
     </Card>
   );
