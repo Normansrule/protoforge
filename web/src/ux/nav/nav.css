@@ -75,3 +75,10 @@
 @media (max-width: 400px) {
   .ux-mode button { padding: 4px 7px; font-size: 11.5px; }
 }
+
+/* project title: full name, or the short codename on phones */
+.tb-name-short { display: none; letter-spacing: 0.04em; }
+@media (max-width: 640px) {
+  .tb-name-full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .tb-name-short { display: inline; }
+}

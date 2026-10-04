@@ -241,7 +241,11 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
       <TabBridge />
       <button className="btn ghost menu-btn" onClick={onMenu} aria-label="Menu"><Icon name="menu" /></button>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{project.meta.name}</div>
+        <div style={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={project.meta.name}>
+          {/* phones show the short codename (e.g. IRIS): the full name only fits as "Iris …" */}
+          <span className={project.meta.codename ? 'tb-name-full' : undefined}>{project.meta.name}</span>
+          {project.meta.codename && <span className="tb-name-short" aria-hidden="true">{project.meta.codename}</span>}
+        </div>
         <div className="muted small hide-sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>v{project.meta.version} · {ready ? 'Rust engine loaded (WebAssembly)' : 'loading engine…'}</div>
       </div>
       {ev.data && (
