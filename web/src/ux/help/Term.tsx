@@ -87,7 +87,7 @@ export function Term({ k, children, showFull }: { k: string; children?: ReactNod
     [closeNow],
   );
 
-  const label = children ?? (showFull && t ? `${t.full} (${k})` : k);
+  const label = children ?? (showFull && t && t.full.toLowerCase() !== k.toLowerCase() ? `${t.full} (${k})` : k);
   if (!t) return <>{label}</>;
   return (
     <>
@@ -126,7 +126,7 @@ export function Term({ k, children, showFull }: { k: string; children?: ReactNod
           >
             <div className="ux-term-head">
               <b>{t.term}</b>
-              <span>{t.full}</span>
+              {t.full.toLowerCase() !== t.term.toLowerCase() && <span>{t.full}</span>}
             </div>
             <p>{t.def}</p>
             {t.lab && (

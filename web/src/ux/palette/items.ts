@@ -54,7 +54,7 @@ export interface Scored extends PItem {
 
 const LAB_KEYWORDS: Record<string, string> = {
   circuit: 'spice electronics schematic simulator ripple',
-  power: 'battery energy budget thermal heat skin',
+  power: 'battery energy budget thermal heat skin current consumption',
   pcb: 'printed circuit board layout routing gerber kicad',
   rf: 'radio frequency antenna bluetooth wireless smith link budget',
   dsp: 'digital signal processing audio filter fft microphone',
@@ -65,9 +65,9 @@ const LAB_KEYWORDS: Record<string, string> = {
   optics: 'lens display hud ray trace mtf',
   cad: 'frame model stl 3d geometry enclosure',
   print: '3d printing slicer gcode fdm bambu',
-  structures: 'fea stress strength fatigue tolerance',
-  mechanisms: 'linkage spring gear cam hinge',
-  fluids: 'heat conduction convection cfd wind tunnel',
+  structures: 'fea stress strength fatigue tolerance bolt screw press fit snap fit deflection stiffness vibration beam',
+  mechanisms: 'linkage spring gear cam hinge torque detent',
+  fluids: 'heat sink spreader conduction convection cfd wind tunnel hot spot temperature',
   ergonomics: 'human factors fit comfort anthropometry',
   molding: 'injection mould draft',
   build: 'settings process vendor compliance reflow feeds speeds',

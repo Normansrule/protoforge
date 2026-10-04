@@ -163,7 +163,7 @@ export default function PaletteDialog({ initialQuery, onClose }: { initialQuery:
                       <span className="pl-title">
                         {it.cat === 'Labs & tabs' && it.id.startsWith('tab:') && <span className="pl-parent">{it.sub} › </span>}
                         {it.title}
-                        {it.cat === 'Glossary' && it.sub && <span className="pl-full"> · {it.sub}</span>}
+                        {it.cat === 'Glossary' && it.sub && it.sub.toLowerCase() !== it.title.toLowerCase() && <span className="pl-full"> · {it.sub}</span>}
                       </span>
                       {it.detail ? <span className="pl-detail">{it.detail}</span> : it.sub && !it.id.startsWith('tab:') && it.cat !== 'Glossary' && <span className="pl-sub">{it.sub}</span>}
                     </span>
