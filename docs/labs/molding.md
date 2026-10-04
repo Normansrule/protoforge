@@ -114,7 +114,7 @@ Metrics (feed R-020):
 |---|---|
 | `molding.min_draft_deg` | **1.5°** (right lid, pull +Z) — R-020 (≥ 1°) ✓; the two temples carry 7 810 mm² of undercut that needs side actions |
 | `molding.clamp_tonnage_t` | **9.98 t** (front: 1 617 mm² × 55 MPa × 1.1) |
-| `molding.cycle_time_s` | **28.4 s** (front: fill 0.8 + pack 5.0 + cool 20.0 at a 4.10 mm wall + open/eject 2.7) |
+| `molding.cycle_time_s` | **19.5 s** (front: fill 0.8 + pack 3.2 + cool 12.8 at a 3.28 mm wall + open/eject 2.7) |
 
 ## How Iris uses it
 
@@ -124,15 +124,18 @@ pod wall, so R-020 passes; the clamp is set by the front's projected area
 (≈ 10 t, a 13 t press). What molding still needs is visible on the page: the
 temples, pulled along their length, have 5 065 mm² (right) and 2 744 mm²
 (left) of undercut surface — four side actions each — and the front has
-thick sections up to ≈ 3.3 mm (nominal 2.4 mm) that should be cored out to
+thick sections up to ≈ 3.3 mm (nominal 2.3 mm) that should be cored out to
 avoid sink. With six P20 tools the Analyse tab totals ≈ 60 k USD of tooling,
 so the Manufacturing Hub keeps fused deposition modelling (FDM) printing (≈ 7.0 USD per frame set) at the 1 000-unit
-target and finds molding cheaper only above ≈ 10 300 units.
+target and finds molding cheaper only above ≈ 10 200 units.
 
-Note: the metric's cycle time samples fewer faces for wall thickness than the
-Analyse tab (fast metric pass), so it reads the front's maximum wall as
-4.10 mm and gives 28.4 s, while the Analyse tab on the same front finds
-3.33 mm and ≈ 20.0 s. Use the tab's number for a quote request.
+The metric, the Analyse tab, the Thickness tab's statistics and the
+Manufacturing Hub's cost model all use one wall-thickness estimate per part
+(`molding::wall_estimate`: every face probed — up to 4 000, largest first —
+memoised per mesh), so they report the same wall (3.28 mm on the front, its
+95th-percentile thickness) and the same cycle time. The browser build can
+differ from the command line in the last digits (≈ 19.5–19.6 s) because the
+WebAssembly maths library rounds the frame geometry slightly differently.
 
 ## Limitations
 

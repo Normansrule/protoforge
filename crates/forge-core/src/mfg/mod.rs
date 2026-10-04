@@ -202,7 +202,7 @@ impl CostInputs {
         let molded: Vec<crate::molding::PartProcess> = parts
             .iter()
             .filter(|x| x.mesh.triangle_count() > 0)
-            .map(|x| crate::molding::process_part(x, &o, 300))
+            .map(|x| crate::molding::process_part(x, &o))
             .collect();
         CostInputs {
             frame_volume_cm3: vol,
@@ -660,7 +660,7 @@ fn produce_pcb(p: &Project) -> Vec<PackageFile> {
 
 pub fn molding_report(p: &Project) -> String {
     let o = crate::molding::ProcessOptions::from_project(p);
-    let a = crate::molding::analyze(p, &o, 1500);
+    let a = crate::molding::analyze(p, &o);
     let mut s = format!("# {} — injection-molding DFM report\n\n", p.meta.name);
     s += &format!("Material **{}** ({}), tool steel **{}**, {} cavity/cavities. Values are estimates from the Molding Lab — indicative, not a molder's quote.\n\n", a.material.name, a.material.id, a.steel.name, o.cavities);
     s += "| Part | Pull | Min draft | Undercut | Wall nom / max | Projected area | Clamp | Cycle | Tool (est.) | Piece (est.) |\n|---|---|---|---|---|---|---|---|---|---|\n";

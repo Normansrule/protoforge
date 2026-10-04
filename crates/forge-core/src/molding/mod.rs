@@ -253,6 +253,26 @@ impl Grid3 {
     /// Nearest hit t > eps along the ray (ignoring triangle `skip`), up to `tmax`.
     #[allow(clippy::too_many_arguments)]
     fn cast(&self, tris: &[Tri], o: V3, d: V3, skip: usize, tmax: f64, stamp: &mut [u32], gen: u32) -> Option<f64> {
+        self.cast_mode(tris, o, d, skip, tmax, stamp, gen, false)
+    }
+
+    /// Like [`Grid3::cast`], but with `any` it returns the first hit found
+    /// (enough to know the ray is blocked).
+    #[allow(clippy::too_many_arguments)]
+    fn cast_mode(&self, tris: &[Tri], o: V3, d: V3, skip: usize, tmax: f64, stamp: &mut [u32], gen: u32, any: bool) -> Option<f64> {
+        // nothing lies beyond the grid: stop marching where the ray leaves it
+        let mut t_exit = f64::INFINITY;
+        for k in 0..3 {
+            if d[k].abs() > 1e-12 {
+                let edge = if d[k] > 0.0 {
+                    self.lo[k] + self.n[k] as f64 * self.cell
+                } else {
+                    self.lo[k]
+                };
+                t_exit = t_exit.min(((edge - o[k]) / d[k]).max(0.0));
+            }
+        }
+        let tmax = tmax.min(t_exit + self.cell);
         let step = self.cell * 0.5;
         let mut best: Option<f64> = None;
         let mut s = 0.0;
@@ -282,6 +302,9 @@ impl Grid3 {
                     stamp[ti] = gen;
                     if let Some(t) = ray_tri(o, d, &tris[ti]) {
                         if t > 1e-4 && t <= tmax && best.map(|b| t < b).unwrap_or(true) {
+                            if any {
+                                return Some(t);
+                            }
                             best = Some(t);
                         }
                     }
@@ -364,7 +387,7 @@ fn undercuts(tris: &[Tri], grid: &Grid3, d: V3, diag: f64) -> Vec<bool> {
         let dir = if c >= 0.0 { d } else { scale(d, -1.0) };
         let o = add(t.centroid, scale(t.n, 1e-3));
         let gen = (i as u32).wrapping_add(1);
-        out[i] = grid.cast(tris, o, dir, i, diag, &mut stamp, gen).is_some();
+        out[i] = grid.cast_mode(tris, o, dir, i, diag, &mut stamp, gen, true).is_some();
     }
     out
 }
@@ -609,7 +632,9 @@ pub fn thickness(name: &str, mesh: &Mesh, max_samples: usize, with_mesh: bool) -
         let mut best: Option<f64> = None;
         for dir in dirs {
             gen = gen.wrapping_add(1);
-            if let Some(h) = grid.cast(&tris, o, dir, i, diag, &mut stamp, gen) {
+            // only a hit nearer than the best so far can change the minimum
+            let tmax = best.map(|b| b - 1e-3).unwrap_or(diag);
+            if let Some(h) = grid.cast(&tris, o, dir, i, tmax, &mut stamp, gen) {
                 let h = h + 1e-3; // the ray started 1 µm inside the wall
                 if best.map(|b| h < b).unwrap_or(true) {
                     best = Some(h);
@@ -688,6 +713,54 @@ pub fn thickness(name: &str, mesh: &Mesh, max_samples: usize, with_mesh: bool) -
         }
         r.mesh = Some(cm);
     }
+    r
+}
+
+/// Faces probed for the wall-thickness estimate (largest first). Every Iris
+/// frame part has fewer, so all faces are probed; the cap bounds the cost of
+/// very fine meshes.
+pub const WALL_SAMPLES: usize = 4000;
+
+thread_local! {
+    static WALL_CACHE: std::cell::RefCell<Vec<(u64, ThicknessResult)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// FNV-1a over the mesh's coordinates and indices (exact bits).
+fn mesh_hash(name: &str, m: &Mesh) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut eat = |b: u64| {
+        h ^= b;
+        h = h.wrapping_mul(0x0000_0100_0000_01b3);
+    };
+    for b in name.bytes() {
+        eat(b as u64);
+    }
+    for v in &m.positions {
+        eat(v.to_bits());
+    }
+    for &i in &m.indices {
+        eat(i as u64);
+    }
+    h
+}
+
+/// The one wall-thickness estimate the Molding Lab uses for a part — the
+/// metric (`molding.cycle_time_s`), the Analyse tab, the Thickness tab's
+/// statistics and the cost model all read it, so they cannot disagree.
+/// Memoised per mesh (the last few parts).
+pub fn wall_estimate(name: &str, mesh: &Mesh) -> ThicknessResult {
+    let key = mesh_hash(name, mesh);
+    if let Some(r) = WALL_CACHE.with(|c| c.borrow().iter().find(|(k, _)| *k == key).map(|(_, r)| r.clone())) {
+        return r;
+    }
+    let r = thickness(name, mesh, WALL_SAMPLES, false);
+    WALL_CACHE.with(|c| {
+        let mut c = c.borrow_mut();
+        if c.len() >= 24 {
+            c.remove(0);
+        }
+        c.push((key, r.clone()));
+    });
     r
 }
 
@@ -892,11 +965,11 @@ impl ProcessOptions {
     }
 }
 
-/// Full DFM + process estimate for one part (thickness sampled for speed).
-pub fn process_part(part: &Part, o: &ProcessOptions, samples: usize) -> PartProcess {
+/// Full DFM + process estimate for one part (wall from [`wall_estimate`]).
+pub fn process_part(part: &Part, o: &ProcessOptions) -> PartProcess {
     let m = material(&o.material);
     let dr = draft_analysis(&part.name, &part.mesh, None, o.min_draft_deg, false);
-    let th = thickness(&part.name, &part.mesh, samples, false);
+    let th = wall_estimate(&part.name, &part.mesh);
     let vol = volume(&part.mesh).abs() / 1000.0;
     let mass = vol * m.density_g_cm3;
     let area = projected_area(&part.mesh, dr.pull, 0.25);
@@ -1027,12 +1100,12 @@ impl Default for materials::Steel {
 }
 
 /// Analyse every frame part of the project.
-pub fn analyze(p: &Project, o: &ProcessOptions, samples: usize) -> Analysis {
+pub fn analyze(p: &Project, o: &ProcessOptions) -> Analysis {
     let parts = crate::cad::frame_parts_print(p);
     let pp: Vec<PartProcess> = parts
         .iter()
         .filter(|x| x.mesh.triangle_count() > 0)
-        .map(|x| process_part(x, o, samples))
+        .map(|x| process_part(x, o))
         .collect();
     let mut a = Analysis {
         material: material(&o.material).clone(),
@@ -1147,11 +1220,12 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         }),
         "molding.thickness" => handle(input, |i: PartIn| {
             let part = pick_part(&i.project, &i.part)?;
-            Ok(thickness(&part.name, &part.mesh, 0, i.mesh))
+            // same probe set as wall_estimate, so the statistics match the cycle time
+            Ok(thickness(&part.name, &part.mesh, WALL_SAMPLES, i.mesh))
         }),
         "molding.analyze" => handle(input, |i: AnalyzeIn| {
             let o = i.options.unwrap_or_else(|| ProcessOptions::from_project(&i.project));
-            Ok(analyze(&i.project, &o, 1500))
+            Ok(analyze(&i.project, &o))
         }),
         "molding.cooling" => handle(input, |i: CoolIn| {
             let m = material(if i.material.is_empty() { "PC" } else { &i.material });
@@ -1183,7 +1257,7 @@ pub fn metrics(p: &Project) -> Vec<Metric> {
 
 fn metrics_uncached(p: &Project) -> Vec<Metric> {
     let o = ProcessOptions::from_project(p);
-    let a = analyze(p, &o, 400);
+    let a = analyze(p, &o);
     if a.parts.is_empty() {
         return vec![];
     }
@@ -1297,6 +1371,33 @@ mod tests {
         assert!((t.nominal_mm - 2.5).abs() < 1e-6, "{}", t.nominal_mm);
     }
 
+    /// The metric, the Analyse tab and the Thickness tab use one wall
+    /// estimate: same slowest part, same wall, same cycle time.
+    #[test]
+    fn metric_and_tabs_share_the_wall_estimate() {
+        let p = Project::iris();
+        let o = ProcessOptions::from_project(&p);
+        let a = analyze(&p, &o);
+        let slow = a
+            .parts
+            .iter()
+            .max_by(|x, y| x.cycle.total_s.partial_cmp(&y.cycle.total_s).unwrap())
+            .unwrap();
+        let m = metrics(&p);
+        let cyc = m.iter().find(|x| x.key == "molding.cycle_time_s").unwrap();
+        assert_eq!(cyc.value, a.cycle_s);
+        assert!(cyc.note.contains(&format!("wall {:.2} mm", slow.wall_max_mm)), "{}", cyc.note);
+        // the Thickness tab's p95 (with the coloured mesh) is the wall the cycle uses
+        let part = pick_part(&p, &slow.part).unwrap();
+        let t = thickness(&part.name, &part.mesh, WALL_SAMPLES, true);
+        assert_eq!(t.p95_mm, slow.wall_max_mm);
+        assert!(t.sampled_faces == part.mesh.triangle_count(), "every Iris face is probed");
+        // cooling dominates and follows the wall: t_c ∝ s²
+        let mat = material(&o.material);
+        let cool = cooling_time_s(slow.wall_max_mm, mat.diffusivity_mm2_s, mat.t_melt_c, mat.t_mold_c, mat.t_eject_c);
+        assert!((slow.cycle.cool_s - cool).abs() < 1e-9);
+    }
+
     #[test]
     fn cooling_time_spot_check() {
         // PC, 2 mm wall: t = 4/(π²·0.13)·ln(0.8106·210/37) ≈ 3.118·1.5285 ≈ 4.77 s
@@ -1320,7 +1421,7 @@ mod tests {
             explode: [0.0; 3],
         };
         let o = ProcessOptions::default();
-        let r = process_part(&part, &o, 0);
+        let r = process_part(&part, &o);
         let expect_t = r.projected_area_mm2 * 55.0 * 1.1 / 9806.65;
         assert!((r.clamp_tonnes - expect_t).abs() < 1e-9);
         assert!((r.projected_area_mm2 - 800.0).abs() < 10.0);
