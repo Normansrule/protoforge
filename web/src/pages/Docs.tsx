@@ -187,7 +187,7 @@ export default function Docs() {
             </div>
           )}
         </aside>
-        <main className="dc-main" aria-live="polite">
+        <div className="dc-main" aria-live="polite">
           {!slug && <Index />}
           {slug && !doc && <EmptyState>No document “{slug}”. <Link to="/docs">All documents</Link></EmptyState>}
           {error && <div className="callout">{error}</div>}
@@ -202,7 +202,7 @@ export default function Docs() {
               </div>
             </Card>
           )}
-        </main>
+        </div>
       </div>
     </div>
   );
