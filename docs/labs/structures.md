@@ -124,7 +124,7 @@ metric list is memoised too). Values for Iris v0.6 (PETG):
 | `structures.drop_safety_factor` | 1.5 m drop on the pod, energy upper bound | 0.29× (298 N peak) — no requirement bounds it; see limitations |
 | `structures.pod_fit_yield_pct` | Monte Carlo assembly yield | 100 % |
 | `structures.first_mode_hz` | first bending mode of the right temple | ≈ 101 Hz |
-| `structures.hinge_fatigue_cycles` | open/close cycles to predicted failure | ≈ 1.3 × 10⁷ (no notch factor) |
+| `structures.hinge_fatigue_cycles` | open/close cycles until the **temple plastic** at the hinge fails (not the hinge spring — that is `mechanisms.hinge_life_cycles`) | ≈ 1.3 × 10⁷ (≈ 3000 years at 12 a day; no notch factor). A computed life, not a run-out cap: the 5 N wide spreads govern with N_f ≈ 2.2 × 10⁶, inside the PETG S-N data (quoted to 10⁷ cycles), and polymers have no endurance limit |
 | `structures.focus_error_worst_d` | worst-case display focus error | **0.09 D** vs a ±0.25 D allowance — R-028. In v0.5 this lab found the printed optics housing alone gave ±0.60 D, so a threaded focus cell set at assembly was added (0.05 mm adjustment step, ±0.01 mm lock shift) |
 
 The sharp step where each slim temple arm leaves its pod is a stress

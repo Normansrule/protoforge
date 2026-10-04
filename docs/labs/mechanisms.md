@@ -137,7 +137,7 @@ plastic hinge area). All of it is stored in `design.extra.mechanisms.hinge`.
 | Metric | Meaning | Iris value (v0.6) |
 |---|---|---|
 | `mechanisms.hinge_spring_sf` | Goodman (Zimmerli) fatigue safety factor, worst usage block | **2.03** (pulled to the stop: τ 380 → 567 MPa; S_se 659 MPa peened). Detent passes 2.08, worn on a 146 mm head 2.33 — R-041 (≥ 1.5) passes |
-| `mechanisms.hinge_life_cycles` | open/close uses to failure (10⁷ = runout cap) | **10⁷ (runout)** — every block is below the 10⁷-cycle allowable; need 13 140 (R-042) |
+| `mechanisms.hinge_life_cycles` | open/close uses until the **hinge spring** (stainless 302 wire) fails, 10⁷ = run-out cap — not the temple plastic, which is `structures.hinge_fatigue_cycles` (≈ 1.3 × 10⁷, uncapped) | **10⁷ (runout)** — every block is below the 10⁷-cycle allowable; need 13 140 (R-042) |
 | `mechanisms.hinge_open_torque_nmm` | torque to push the folded temple over the detent (with pin friction μ = 0.15) | **17.55 N·mm** (contact from 32°, hump at 56° with 0.28 mm slider travel); closing needs 9.7 N·mm — R-043 (3–30 N·mm) passes |
 
 Other numbers on the page: over-travel starts at 18.6 N·mm and rises about

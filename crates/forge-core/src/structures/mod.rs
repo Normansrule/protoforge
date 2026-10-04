@@ -537,18 +537,92 @@ fn metrics_uncached(p: &Project) -> Vec<Metric> {
     }
     if o.fatigue.has_data {
         m.push(
-            Metric::new("structures.hinge_fatigue_cycles", "Temple open/close cycles to fatigue failure", o.hinge_cycles.min(1e12), "cycles", src).with_note(&format!(
-                "Miner's rule on the usage spectrum (12 open/close per day + walking), Basquin + Goodman on the design stress (no notch factor): {:.1} years",
-                o.fatigue.life_years.min(1e9)
-            )),
+            Metric::new(
+                "structures.hinge_fatigue_cycles",
+                "Temple open/close cycles to fatigue failure",
+                o.hinge_cycles.min(1e12),
+                "cycles",
+                src,
+            )
+            .with_note(&hinge_fatigue_note(&o.fatigue)),
         );
     }
     m
 }
 
+/// `x` as "1.3 × 10⁷".
+fn sci(x: f64) -> String {
+    if !x.is_finite() {
+        return "∞".into();
+    }
+    if x.abs() < 1e4 {
+        return format!("{x:.0}");
+    }
+    let e = x.abs().log10().floor() as i32;
+    let sup: String = e
+        .to_string()
+        .chars()
+        .map(|c| match c {
+            '-' => '⁻',
+            d => ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'][d.to_digit(10).unwrap_or(0) as usize],
+        })
+        .collect();
+    format!("{:.1} × 10{sup}", x / 10f64.powi(e))
+}
+
+/// Note for `structures.hinge_fatigue_cycles`: what is analysed (the temple
+/// plastic, not the hinge spring), which load block governs and whether its
+/// life is inside the material's S-N data or extrapolated — so it reads next
+/// to `mechanisms.hinge_life_cycles`, whose 10⁷ is a spring-wire run-out cap.
+pub fn hinge_fatigue_note(f: &fatigue::FatigueOut) -> String {
+    let gov = f.blocks.iter().max_by(|a, b| a.damage.total_cmp(&b.damage));
+    let data_n = f.fatigue_point[0];
+    let governing = match gov {
+        Some(b) if b.damage > 0.0 && b.cycles_to_failure.is_finite() => format!(
+            "the damage comes from \"{}\" (N_f {} of those, {} the material's S-N data, quoted to {} cycles), so this is a computed life, not a run-out cap",
+            b.name,
+            sci(b.cycles_to_failure),
+            if b.cycles_to_failure <= data_n { "within" } else { "Basquin-extrapolated beyond" },
+            sci(data_n)
+        ),
+        _ => "no block causes damage".into(),
+    };
+    format!(
+        "temple plastic ({}) at the hinge under temple-spread loads — not the hinge spring, which is mechanisms.hinge_life_cycles (spring wire, reported as 10⁷ at run-out); Miner's rule on the usage spectrum (12 open/close per day + walking), Basquin + Goodman on the design stress (no notch factor; polymers have no endurance limit, so no run-out cap); {governing}: {} open/close cycles ≈ {:.0} years at 12 a day",
+        f.material,
+        sci(f.life_years.min(1e9) * 365.0 * iris::HINGE_CYCLES_PER_DAY),
+        f.life_years.min(1e9)
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The temple-fatigue note says what it analyses (the plastic, not the
+    /// hinge spring) and why it is not capped like the spring's run-out.
+    #[test]
+    fn hinge_fatigue_note_explains_itself() {
+        assert_eq!(sci(1.322e7), "1.3 × 10⁷");
+        assert_eq!(sci(2.2e6), "2.2 × 10⁶");
+        let p = Project::iris();
+        let o = iris::analyze(&p, iris::Fidelity::metric(&p)).unwrap();
+        let n = hinge_fatigue_note(&o.fatigue);
+        assert!(
+            n.contains("temple plastic") && n.contains("not the hinge spring") && n.contains("mechanisms.hinge_life_cycles"),
+            "{n}"
+        );
+        // Iris: the 5 N wide spreads govern, with a life inside the 10⁷-cycle S-N data
+        let gov = o.fatigue.blocks.iter().max_by(|a, b| a.damage.total_cmp(&b.damage)).unwrap();
+        assert!(gov.name.contains("wide spread") && gov.cycles_to_failure < o.fatigue.fatigue_point[0]);
+        assert!(
+            n.contains("within the material's S-N data, quoted to 1.0 × 10⁷ cycles") && n.contains("not a run-out cap"),
+            "{n}"
+        );
+        // open/close cycles = life in years × 365 × 12
+        assert!((o.hinge_cycles - o.fatigue.life_years * 365.0 * 12.0).abs() < 1e-6 * o.hinge_cycles);
+        assert!(n.contains(&sci(o.hinge_cycles)), "{n}");
+    }
 
     #[test]
     fn metrics_present_for_iris() {

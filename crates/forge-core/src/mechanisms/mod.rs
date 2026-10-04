@@ -213,7 +213,8 @@ fn metrics_uncached(p: &Project) -> Vec<Metric> {
             o.spring.material, h.wire_d_mm, h.mean_d_mm, h.active_coils, o.spring.rate_n_mm, o.spring.preload_n, o.spring.sse_mpa, o.spring.ssu_mpa
         )),
         Metric::new("mechanisms.hinge_life_cycles", "Hinge spring life, open/close uses", o.life_uses, "cycles", src).with_note(&format!(
-            "{}; Miner's rule on the Table 10-8 allowables; design need {:.0} uses ({} per day × {} years)",
+            "the hinge's barrel compression spring, {} wire — not the temple plastic, which is structures.hinge_fatigue_cycles (no run-out cap for polymers); {}; Miner's rule on the Shigley Table 10-8 allowables; design need {:.0} uses ({} per day × {} years)",
+            o.spring.material,
             if o.runout {
                 "every block below the 10⁷-cycle allowable: runout, reported as 10⁷".to_string()
             } else {
@@ -251,6 +252,24 @@ mod tests {
         let again = metrics(&Project::iris());
         assert_eq!(again, m);
         assert!(t.elapsed().as_millis() < 100);
+    }
+
+    /// The spring-life note names what it analyses and points to the temple-plastic metric.
+    #[test]
+    fn hinge_life_note_names_the_spring_not_the_temple() {
+        let m = metrics(&Project::iris());
+        let x = m.iter().find(|x| x.key == "mechanisms.hinge_life_cycles").unwrap();
+        assert!(
+            x.note.contains("barrel compression spring") && x.note.contains("structures.hinge_fatigue_cycles"),
+            "{}",
+            x.note
+        );
+        assert!(
+            x.note.contains("runout, reported as 10⁷") && x.value == 1e7,
+            "{} {}",
+            x.value,
+            x.note
+        );
     }
 
     #[test]
