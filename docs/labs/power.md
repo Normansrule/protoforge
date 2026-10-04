@@ -99,8 +99,10 @@ and v0.6's 4.5 mm rim; total 49.1 g today). The T-3 options: 120 mAh misses 8 h 
 180 mAh meets both (10.3 h, 47.8 g); 300 mAh breaks 50 g (50.4 g). v0.6 chose 240 mAh —
 inside the 139–281 mAh feasible interval but not one of T-3's listed options — because
 the Reliability & Test Lab showed the 180 mAh cell wearing out too fast for R-048 (2-year
-reliability 76 % → 90 %); the trade study's recorded decision in `project.json` still
-says 180 mAh.
+reliability 76 % → 90 %). T-3's recorded decision says so: 240 mAh for 2-year
+reliability, its 1.3 g paid for by the 4.5 mm rim. Because 240 mAh is not one of the
+scored options (the matrix predates the reliability criterion), the design-review gates
+note that the decision differs from the weighted winner (180 mAh).
 
 ## Iris tie-in
 

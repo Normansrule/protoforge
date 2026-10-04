@@ -2117,7 +2117,7 @@
     {
       "id": "T-3",
       "title": "Battery capacity",
-      "decision": "180 mAh",
+      "decision": "240 mAh — chosen in v0.6 (up from 180 mAh) for 2-year reliability: battery wear-out below 80 % capacity counts as a failure in R-048. The extra 1.3 g of cell is paid for by a 4.5 mm rim (was 5.0 mm). Not one of the scored options, which predate the reliability criterion.",
       "criteria": [
         {
           "name": "Battery life",

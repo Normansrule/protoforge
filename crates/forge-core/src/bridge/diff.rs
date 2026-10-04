@@ -665,6 +665,10 @@ pub fn iris_v05() -> Project {
         }
     }
     p.design.frame.rim_width_mm = 5.0;
+    // the battery trade's decision was still the 180 mAh cell
+    if let Some(t) = p.trades.iter_mut().find(|t| t.id == "T-3") {
+        t.decision = "180 mAh".into();
+    }
     // The board keeps v0.6's design rules (0.127 mm on a 0.254 mm grid). v0.5
     // shipped with 0.15 mm on a 0.25 mm grid, which today's placer and router
     // no longer close cleanly (the grid wastes a fifth of every channel).
@@ -916,6 +920,33 @@ mod tests {
             .expect("focus moved");
         assert!(focus.old.unwrap() > 0.25 && focus.new.unwrap() <= 0.25, "{focus:?}");
         assert!(h[3].description.contains("0.10 mm"));
+    }
+
+    /// T-3 records the cell v0.6 actually uses (240 mAh) and why; the v0.5
+    /// reconstruction restores the 180 mAh decision, so the history shows the change.
+    #[test]
+    fn battery_trade_decision_matches_the_design() {
+        let v6 = Project::iris();
+        let t3 = v6.trades.iter().find(|t| t.id == "T-3").unwrap();
+        let mah = |d: &str| d.split_whitespace().next().unwrap().parse::<f64>().unwrap();
+        assert_eq!(mah(&t3.decision), v6.design.battery.capacity_mah);
+        assert!(
+            t3.decision.contains("R-048") && t3.decision.contains("4.5 mm rim"),
+            "{}",
+            t3.decision
+        );
+        assert_eq!(v6.design.frame.rim_width_mm, 4.5);
+        let v5 = iris_v05();
+        let t3 = v5.trades.iter().find(|t| t.id == "T-3").unwrap();
+        assert_eq!(t3.decision, "180 mAh");
+        assert_eq!(mah(&t3.decision), v5.design.battery.capacity_mah);
+        let d = diff(&v5, &v6);
+        let trades = d.sections.iter().find(|s| s.id == "trades").unwrap();
+        assert!(
+            trades.items.iter().any(|i| i.key == "T-3"),
+            "{:?}",
+            trades.items.iter().map(|i| &i.key).collect::<Vec<_>>()
+        );
     }
 
     #[test]
