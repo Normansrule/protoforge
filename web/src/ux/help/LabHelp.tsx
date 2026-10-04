@@ -34,6 +34,8 @@ export function LabHelp() {
   const markSeen = usePrefs((s) => s.markHelpSeen);
   const [open, setOpen] = useState(false);
   const [focusOnOpen, setFocusOnOpen] = useState(false);
+  // On phones the panel would cover most of the lab: point at the button instead.
+  const [nudge, setNudge] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const panelId = useId();
 
@@ -41,8 +43,13 @@ export function LabHelp() {
   useEffect(() => {
     if (!lab || !data) return;
     if (mode === 'simple' && !seen) {
-      setFocusOnOpen(false);
-      setOpen(true);
+      const narrow = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 760px)').matches;
+      if (narrow) {
+        setNudge(true);
+      } else {
+        setFocusOnOpen(false);
+        setOpen(true);
+      }
     }
     if (!seen) markSeen(lab);
   }, [lab, data, mode, seen, markSeen]);
@@ -53,10 +60,11 @@ export function LabHelp() {
       <button
         ref={btn}
         type="button"
-        className={`btn ux-help-btn ${open ? 'on' : ''}`}
+        className={`btn ux-help-btn ${open ? 'on' : ''} ${nudge && !open ? 'nudge' : ''}`}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => {
+          setNudge(false);
           setFocusOnOpen(true);
           setOpen((o) => !o);
         }}

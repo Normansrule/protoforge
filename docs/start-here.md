@@ -83,7 +83,8 @@ The switch in the top bar changes the sidebar:
 * **Simple** (the default on a first visit) — *Start here* and *New
   product* at the top, then **Your labs** for your discipline, and every
   lab folded under **All labs (23)**. The lab help panel opens by itself the
-  first time you visit each lab.
+  first time you visit each lab (on a phone the Help button pulses instead,
+  so the lab stays visible).
 * **Expert** — the full grouped list of labs, as before; help opens only
   when you press **Help**.
 

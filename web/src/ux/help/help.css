@@ -71,3 +71,8 @@
 @media (prefers-reduced-motion: reduce) {
   .ux-help-panel, .ux-term-tip { animation: none; }
 }
+
+/* first visit on a phone: a gentle pulse on the Help button instead of a sheet over the lab */
+.ux-help-btn.nudge { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); animation: ux-help-nudge 1.6s ease-out 3; border-color: var(--accent); }
+@keyframes ux-help-nudge { to { box-shadow: 0 0 0 10px transparent; } }
+@media (prefers-reduced-motion: reduce) { .ux-help-btn.nudge { animation: none; } }
