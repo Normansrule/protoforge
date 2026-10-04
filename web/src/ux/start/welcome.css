@@ -1,0 +1,24 @@
+/* First-visit welcome card on the Overview page */
+.wc {
+  margin-bottom: 22px; padding: 20px 22px 22px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: radial-gradient(600px 220px at 0% 0%, var(--accent-soft), transparent 70%), var(--surface-1); box-shadow: var(--shadow);
+}
+.wc-head { display: flex; gap: 12px; align-items: flex-start; }
+.wc-head h2 { font-size: 24px; letter-spacing: -0.02em; }
+.wc-head p { color: var(--text-2); margin: 6px 0 0; max-width: 64ch; }
+.wc-close { margin-left: auto; font-size: 15px; }
+.wc-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.wc-choice {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; padding: 16px; border-radius: 15px;
+  border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--text-2); font: inherit; cursor: pointer; min-width: 0;
+}
+.wc-choice:hover { border-color: var(--accent); }
+.wc-choice:focus-visible, .wc-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wc-choice.primary { background: var(--accent); border-color: transparent; color: rgba(255, 255, 255, 0.88); }
+.wc-choice.primary .wc-title { color: #fff; }
+.wc-choice.primary .wc-icon { background: rgba(255, 255, 255, 0.18); color: #fff; border-color: transparent; }
+.wc-choice.primary:hover { filter: brightness(1.07); }
+.wc-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); margin-bottom: 4px; }
+.wc-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.wc-text { font-size: 13.5px; line-height: 1.45; }
+@media (max-width: 860px) { .wc-choices { grid-template-columns: minmax(0, 1fr); } .wc { padding: 16px; } }
