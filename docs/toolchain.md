@@ -231,7 +231,7 @@ Run on the Iris v0.4 defaults while building the page (September 2026):
 |---|---|---|
 | `.kicad_pcb` | [kiutils](https://github.com/mvnmgrx/kiutils) 1.4.8 parse + write + re-parse; TypeScript reader on the page; Rust pad-position test | 28 footprints, 181 pads, 427 segments, 87 vias, 5 zones (2 GND + 3 keep-outs), 31 nets; every pad on the engine's position and net |
 | `.kicad_mod`, `.kicad_pro`, `.net` | kiutils; JSON; Rust S-expression reader | 15 footprints; 4 net classes |
-| STEP | [gmsh](https://gmsh.info) 4.15.2 (OpenCASCADE STEP reader) | 20 solids, 5 148 faces, 24.741 cm³ — identical to CAD Studio's 24.741 cm³ |
+| STEP | [gmsh](https://gmsh.info) 4.15.2 (OpenCASCADE STEP reader) | 20 solids, 5 148 faces, 23.838 cm³ — identical to CAD Studio's `cad.frame_volume_cm3` (23.838 cm³); re-run on Iris v0.6 in October 2026 |
 | `.scad` | OpenSCAD compiled to WebAssembly (npm `openscad-wasm-prebuilt` 1.2.0) | renders without warnings, 3 770 facets in about 12 s |
 | Falstad links | reference lz-string 1.5.0 (JavaScript) | all 10 links decode to the exact text; Rust port = 7 reference vectors |
 | Ray Optics scene | keys checked against the app's source (DATA_VERSION 5) | 13 objects, no unknown keys |

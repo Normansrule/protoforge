@@ -109,9 +109,9 @@ Metrics (feed requirements R-017, R-018):
 |---|---|
 | `pcb.routed_pct` | **100 %** (108/108 connections, 34 nets, 32 parts) |
 | `pcb.drc_violations` | **0** |
-| `pcb.via_count` | 105 |
-| `pcb.track_length_mm` | 578 mm (398 top / 180 bottom) |
-| `pcb.hpwl_mm` | 384 mm |
+| `pcb.via_count` | 101 |
+| `pcb.track_length_mm` | 530 mm (352 top / 178 bottom) |
+| `pcb.hpwl_mm` | 381 mm |
 
 ## How Iris uses it
 

@@ -73,7 +73,7 @@ so **42 of 54 (78 %) pass with margin**. The engine lists 14 actions
 | 1 | 84.3 | Open goal | Raise lowest technology readiness level (TRL) to ≥ 6 (R-053; now 3, 50 % short) | Program & Business Lab → Readiness & reviews |
 | 2 | 82.8 | Open goal | Bring lateral colour down to ≤ 4.5 arcmin (R-030; now 5.79, 29 % short) | Optics Lab → Image quality |
 | 3 | 82.0 | Open goal | Raise ambient contrast ratio to ≥ 1.5 :1 (R-047; now 1.24, 18 % short) | Human Factors Lab → Legibility & eyebox |
-| 4 | 58.7 | Marginal | Peak frame surface temperature 40.37 °C vs ≤ 41 °C (R-039, safety, 1.5 %) | Thermal & Fluids Lab → 3-D conduction |
+| 4 | 58.6 | Marginal | Peak frame surface temperature 40.32 °C vs ≤ 41 °C (R-039, safety, 1.6 %) | Thermal & Fluids Lab → 3-D conduction |
 | 5 | 58.4 | Marginal | Structural safety factor 2.04 vs ≥ 2 (R-026, safety, 1.9 %) | Structures Lab → Strength |
 | 6 | 57.7 | Marginal | 2-year reliability 90.38 % vs ≥ 90 % (R-048, 0.4 %) | Reliability & Test Lab → System reliability |
 | 7 | 56.7 | Marginal | Total mass 49.09 g vs ≤ 50 g (R-001, 1.8 %) | CAD Studio → Mass & export |
@@ -85,7 +85,7 @@ so **42 of 54 (78 %) pass with margin**. The engine lists 14 actions
 | 13 | 40.7 | Stage gate | Preliminary design (M-2): "all analysis requirements green" — 51/54 | Systems Studio → Roadmap |
 | 14 | 10.7 | Wording | R-037: the text says "50 Ω ± 5 Ω" while the criterion is stored as the range 45…55 (the checker cannot match them) | Systems Studio → Requirements |
 
-Note how R-039 (1.5 %, safety) leads the marginal passes although R-048 has
+Note how R-039 (1.6 %, safety) leads the marginal passes although R-048 has
 the thinnest margin (0.4 %): safety adds importance.
 
 ## Levers: measured, not claimed

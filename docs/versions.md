@@ -128,8 +128,8 @@ tell what the simulations caught, and one experiment on its own branch:
   | What the labs caught in v0.5 | v0.5 | v0.6 fix | v0.6 |
   |---|---|---|---|
   | Antenna port return loss (R-036) — no matching network | 3.9 dB | L2 1.8 nH + L3 4.3 nH | 14.1 dB |
-  | Antenna feed impedance (R-037) — routed at minimum width | 99.7 Ω | 0.91 mm grounded coplanar waveguide (CPWG) | 49.9 Ω |
-  | Hottest frame surface, 3-D model (R-039) | 62.9 °C | 25 µm graphite sheet behind the display (TH1) | 40.4 °C |
+  | Antenna feed impedance (R-037) — routed at minimum width | 99.7 Ω | 0.91 mm grounded coplanar waveguide (CPWG), routed by PCB Studio as the RF_ANT net class | 49.9 Ω |
+  | Hottest frame surface, 3-D model (R-039) | 62.9 °C | 25 µm graphite sheet behind the display (TH1) | 40.3 °C |
   | Hotspot above the frame mean (R-040) | 31.6 °C | same sheet | 8.9 °C |
   | Hinge-spring fatigue factor (R-041) | 1.40 | shot-peened, stiffer spring (Ø0.6 mm, D 2.4 mm, 5 coils), 10° stop | 2.03 |
   | One-size fit (R-044) — Mechanisms hinge coupled into the Human Factors clamp model | 0 % | v0.5's hinge spring opened at 0.08 N, so every head was too loose; the stiffer v0.6 spring brings the clamp into the comfort band | 59.6 % |

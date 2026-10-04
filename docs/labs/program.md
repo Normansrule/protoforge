@@ -123,7 +123,7 @@ supplier documents) at DVT and the **radio certification** package at PVT
 pre-certified module would shorten it). The proof-of-concept stage (13 weeks)
 is longer than the roadmap's typical 4–12. The roadmap plans a hardened steel
 mold at PVT, but the Manufacturing Hub costs the frame by in-house FDM at the
-1 000-unit target (molding pays off above ≈ 10 300 units) — the default plan
+1 000-unit target (molding pays off above ≈ 10 200 units) — the default plan
 follows the cost model and the switch "frame tooling: hard steel mold" plans
 the $60k tool instead.
 
