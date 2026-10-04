@@ -53,6 +53,14 @@ export default function PowerLab() {
         ]}
       />
       <ErrorBox error={budget.error ?? scen.error} />
+      {!(project.design.battery.capacity_mah > 0) && (
+        <div className="callout small" role="note">
+          <strong>This product has no battery.</strong> Battery life, discharge and the battery trade do not apply
+          {budget.data && budget.data.load_mw > 0 ? '; the power budget and the thermal model still read its loads.' : ', and it has no powered parts for the budget to add up.'}{' '}
+          Battery-life figures here show the engine&apos;s cap, not a prediction. Add a power source in the <a href="#/new">new-product wizard</a> or the{' '}
+          <a href="#/systems?tab=budgets">Systems Studio</a> if the product needs one.
+        </div>
+      )}
       <div className="pw-root">
         {tab === 'budget' && <BudgetTab budget={budget.data} scenarios={scenarios} scenario={scenario} setScenario={setScenario} />}
         {tab === 'discharge' && <DischargeTab scenario={scenario} scenarioName={scenarioName} />}

@@ -148,14 +148,14 @@ export function BudgetTab({ budget, scenarios, scenario, setScenario }: { budget
     <div className="stack">
       <Card title="Usage scenario" subtitle="Duty cycles are the whole story: the same hardware lasts 4 h or 2 weeks depending on how it is used. Click to compare." actions={<DownloadButton small filename="iris-power-scenarios.csv" content={scenCsv} label="scenarios.csv" />}>
         <ScenarioStrip scenarios={scenarios} value={scenario} onChange={setScenario} lifeReq={lifeReq?.target ?? 8} />
-        {!isRef && <div className="small muted" style={{ marginTop: 8 }}>{scenarios.find((s) => s.id === scenario)?.description} The requirements (R-002, R-003) are always verified against the <b>reference</b> profile.</div>}
+        {!isRef && <div className="small muted" style={{ marginTop: 8 }}>{scenarios.find((s) => s.id === scenario)?.description} {lifeReq || powReq ? <>The requirements ({[lifeReq?.id, powReq?.id].filter(Boolean).join(', ')}) are</> : 'Requirements are'} always verified against the <b>reference</b> profile.</div>}
       </Card>
 
       <div className="pw-stats">
         <div className="pw-stat-big"><Stat label="Battery life" value={b.life_h.toFixed(2)} unit="h" tone={lifeOk ? 'pass' : 'fail'} note={`${fmtHours(b.life_h)} · ${lifeReq ? `${passWord(lifeOk)} ≥ ${lifeReq.target} h (${lifeReq.id})` : ''}`} /></div>
         <div className="pw-stat-big"><Stat label="Average power" value={b.avg_mw.toFixed(1)} unit="mW" tone={powOk ? 'pass' : 'fail'} note={powReq ? `${passWord(powOk)} ≤ ${powReq.target} mW (${powReq.id}) · ${b.avg_current_ma.toFixed(1)} mA` : ''} /></div>
         <div className="pw-stat-big"><Stat label="Usable energy" value={b.energy_mwh.toFixed(0)} unit="mWh" note={`${bat.capacity_mah} mAh × ${bat.nominal_v} V × ${(bat.usable_fraction * 100).toFixed(0)} %`} /></div>
-        <div className="pw-stat-big"><Stat label="Peak power" value={b.peak_mw.toFixed(0)} unit="mW" note={`everything on · ${b.peak_current_ma.toFixed(0)} mA · ${(b.peak_current_ma / bat.capacity_mah).toFixed(2)} C`} /></div>
+        <div className="pw-stat-big"><Stat label="Peak power" value={b.peak_mw.toFixed(0)} unit="mW" note={`everything on · ${b.peak_current_ma.toFixed(0)} mA${bat.capacity_mah > 0 ? ` · ${(b.peak_current_ma / bat.capacity_mah).toFixed(2)} C` : ''}`} /></div>
       </div>
 
       <div className="pw-main">
