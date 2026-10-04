@@ -25,8 +25,8 @@ fn pos(out: &NextActions, id: &str) -> usize {
 fn iris_open_goals_rank_above_marginal_passes() {
     let (_, out) = iris_actions();
     let s = &out.summary;
-    assert_eq!(s.requirements, 53);
-    assert_eq!(s.pass, 50);
+    assert_eq!(s.requirements, 54);
+    assert_eq!(s.pass, 51);
     assert_eq!(s.open_goals, 3);
     assert_eq!(s.failing, 0);
     assert!(s.marginal >= 5, "{s:?}");
@@ -379,82 +379,33 @@ fn describes_parameters() {
     assert_eq!(levers::step_for("pcb.layers", 2.0, true), (1.0, false));
 }
 
-/// The body of the ready-to-paste `protoforge next [project.json] [--all] [--levers all|none]`
-/// CLI command (forge-cli is owned elsewhere), kept here so it stays compiling.
-fn cli_next(p: &Project, all: bool, levers: Option<&str>) -> Result<(String, bool), String> {
-    let out = next_actions(&NextIn {
-        project: p.clone(),
-        evaluation: None,
-        levers: levers.map(String::from),
-        limit: None,
-    })?;
-    let s = &out.summary;
-    let mut o = format!("{} v{} — what to do next\n", p.meta.name, p.meta.version);
-    o += &format!(
-        "{:.0} % ready: {} of {} requirements pass with ≥ {:.0} % margin · {} marginal · {} open goal(s) · {} failing · {} unverified\n\n",
-        s.readiness_pct,
-        s.pass_with_margin,
-        s.requirements,
-        s.marginal_threshold * 100.0,
-        s.marginal,
-        s.open_goals,
-        s.failing,
-        s.unverified
-    );
-    let shown = if all { out.actions.len() } else { out.actions.len().min(10) };
-    for (k, a) in out.actions.iter().take(shown).enumerate() {
-        o += &format!(
-            "{:>2}. [{}] {} · score {:.1}\n",
-            k + 1,
-            a.severity.to_uppercase(),
-            a.kind.replace('_', " "),
-            a.score
-        );
-        o += &format!("    {}\n", a.title);
-        if let (Some(v), Some(c)) = (a.value, &a.criterion) {
-            o += &format!(
-                "    now {} {} → {}{}\n",
-                levers::fmt_num(v),
-                a.unit,
-                c,
-                a.margin.map(|m| format!(" (margin {:+.1} %)", m * 100.0)).unwrap_or_default()
-            );
-        }
-        o += &format!("    go to: {}  (#{})\n", a.location.label, a.location.href);
-        match a.levers_status.as_str() {
-            "measured" => {
-                for l in &a.levers {
-                    o += &format!(
-                        "    {} {}: +{} {} moves it {:+.4} {}{}\n",
-                        if l.direction == "increase" { "↑" } else { "↓" },
-                        l.label,
-                        levers::fmt_num(l.step),
-                        l.unit,
-                        l.delta,
-                        a.unit,
-                        l.estimate
-                            .map(|e| format!(" · ≈ {} {} reaches the target", levers::fmt_num(e), l.unit))
-                            .unwrap_or_default()
-                    );
-                }
-            }
-            "lazy" => o += "    levers: run with --levers all (re-runs a finite-element / layout model per parameter)\n",
-            "none" => o += "    levers: no numeric design parameter moves this metric measurably\n",
-            _ => {}
-        }
-        o += "\n";
-    }
-    if shown < out.actions.len() {
-        o += &format!("… {} more (use --all)\n", out.actions.len() - shown);
-    }
-    Ok((o, s.failing == 0))
-}
-
 #[test]
 fn cli_rendering_compiles_and_reads_well() {
-    let (text, ok) = cli_next(&Project::iris(), false, None).unwrap();
+    let (text, ok) = render_cli(&Project::iris(), false, None).unwrap();
     assert!(ok);
-    assert!(text.contains("77 % ready: 41 of 53"));
+    assert!(text.contains("78 % ready: 42 of 54"));
     assert!(text.contains("go to: Human Factors Lab → Legibility & eyebox  (#/ergonomics?tab=display)"));
     println!("{text}");
+}
+
+/// R-054 (see-through ≥ 60 %) was added because this solve used to look free:
+/// more combiner reflectance fixes outdoor contrast but darkens the street.
+#[test]
+fn reflectance_fix_for_contrast_trips_see_through() {
+    let s = levers::solve(&SolveIn {
+        project: Project::iris(),
+        requirement_id: "R-047".into(),
+        param: "optics.combiner_reflectance".into(),
+        lo: None,
+        hi: None,
+        couple: true,
+        margin: None,
+        evaluation: None,
+    })
+    .unwrap();
+    assert!(s.found, "{}", s.message);
+    let r54 = s.side_effects.iter().find(|x| x.id == "R-054").expect("R-054 moves");
+    assert!(r54.verdict_changed && !r54.better);
+    // hand check: see-through = 1 − R, so R ≈ 0.49 leaves about 51 %
+    assert!((r54.after_value.unwrap() - (1.0 - s.after_param) * 100.0).abs() < 1e-6);
 }

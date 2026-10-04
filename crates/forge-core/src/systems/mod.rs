@@ -28,12 +28,12 @@
 
 pub mod analysis;
 pub mod budgets;
+pub mod next;
 pub mod quality;
 pub mod report;
 pub mod sensitivity;
 pub mod templates;
 pub mod wizard;
-pub mod next;
 
 use std::collections::{BTreeMap, BTreeSet};
 

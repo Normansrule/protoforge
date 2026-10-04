@@ -1134,6 +1134,25 @@
         "target": 6,
         "unit": "TRL"
       }
+    },
+    {
+      "id": "R-054",
+      "text": "See-through transmission of the combiner shall be at least 60 %.",
+      "rationale": "The wearer must see the street through the display. Added after the next-actions solver showed that raising combiner reflectance fixes outdoor contrast (R-047) while silently dropping see-through to about 51 %; 60 % is a proposed value pending stakeholder agreement.",
+      "kind": "safety",
+      "derives_from": [
+        "N-3"
+      ],
+      "allocated_to": [
+        "SYS-OPT"
+      ],
+      "verification": {
+        "method": "analysis",
+        "metric": "optics.see_through_pct",
+        "cmp": "ge",
+        "target": 60,
+        "unit": "%"
+      }
     }
   ],
   "subsystems": [

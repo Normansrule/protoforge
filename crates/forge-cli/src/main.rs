@@ -2,6 +2,7 @@
 //!
 //! ```text
 //! protoforge evaluate [project.json]            verify every requirement
+//! protoforge next     [project.json] [--all]     what to do next: ranked actions with levers
 //! protoforge metrics  [project.json]            list every computed metric
 //! protoforge report   [project.json]            Markdown verification report
 //! protoforge package  [project.json] [--out DIR]  write the full fabrication package
@@ -27,7 +28,7 @@ use forge_core::systems::{self, Status};
 fn usage() -> ExitCode {
     eprintln!(
         "protoforge {} — idea to atoms\n\n\
-         USAGE:\n  protoforge evaluate [project.json]\n  protoforge metrics  [project.json]\n  protoforge report   [project.json]\n  \
+         USAGE:\n  protoforge evaluate [project.json]\n  protoforge next     [project.json] [--all] [--levers all|none]\n  protoforge metrics  [project.json]\n  protoforge report   [project.json]\n  \
          protoforge package  [project.json] [--out DIR]\n  protoforge lint     [project.json]\n  \
          protoforge call <method> [json | @file.json]\n  protoforge methods\n  protoforge new \"<name>\"\n  \
          protoforge new \"<name>\" --kind <kind> [--with cap,cap] [--idea TEXT] [--users TEXT]\n                 \
@@ -80,6 +81,7 @@ fn main() -> ExitCode {
         }
         "new" => new(rest),
         "wizard" => wizard(rest),
+        "next" => next(rest),
         "-h" | "--help" | "help" => return usage(),
         other => Err(format!("unknown command `{other}`")),
     };
@@ -421,6 +423,38 @@ fn quantity(s: &str, unit: Unit) -> Result<f64, String> {
         _ => return Err(format!("unknown unit `{suffix}` in `{s}`")),
     };
     Ok(x * k)
+}
+
+fn next(rest: &[String]) -> Result<bool, String> {
+    let p = load(positional_skipping(rest, &["--levers"]))?;
+    let all = rest.iter().any(|a| a == "--all");
+    let levers = rest
+        .iter()
+        .position(|a| a == "--levers")
+        .and_then(|i| rest.get(i + 1))
+        .map(String::as_str);
+    let (text, ok) = systems::next::render_cli(&p, all, levers)?;
+    print!("{text}");
+    Ok(ok)
+}
+
+/// First positional argument, skipping the values of the given `--flag value` options.
+fn positional_skipping<'a>(rest: &'a [String], flags: &[&str]) -> Option<&'a String> {
+    let mut skip = false;
+    for a in rest {
+        if skip {
+            skip = false;
+            continue;
+        }
+        if flags.contains(&a.as_str()) {
+            skip = true;
+            continue;
+        }
+        if !a.starts_with("--") {
+            return Some(a);
+        }
+    }
+    None
 }
 
 #[cfg(test)]

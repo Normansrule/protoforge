@@ -22,6 +22,9 @@ export interface DocInfo {
 const KNOWN: Record<string, { title: string; group: string; order: number; open?: { href: string; label: string } }> = {
   'getting-started.md': { title: 'Getting started', group: 'Start here', order: 0 },
   'architecture.md': { title: 'Architecture', group: 'Start here', order: 1 },
+  'start-here.md': { title: 'Start here (by discipline)', group: 'Start here', order: 0.5, open: { href: '#/start', label: 'Open Start here' } },
+  'new-product.md': { title: 'New-product wizard', group: 'Start here', order: 0.6, open: { href: '#/new', label: 'Open the wizard' } },
+  'next-actions.md': { title: 'What should I do next?', group: 'Start here', order: 0.7, open: { href: '#/systems', label: 'Open Systems Studio' } },
   'systems-studio.md': { title: 'Systems Studio', group: 'Guides', order: 10, open: { href: '#/systems', label: 'Open Systems Studio' } },
   'toolchain.md': { title: 'Web toolchain', group: 'Guides', order: 11, open: { href: '#/toolchain', label: 'Open the web toolchain' } },
   'versions.md': { title: 'Versions', group: 'Guides', order: 12, open: { href: '#/versions', label: 'Open Versions' } },

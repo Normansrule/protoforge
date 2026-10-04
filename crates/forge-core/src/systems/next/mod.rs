@@ -708,5 +708,76 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
     }
 }
 
+/// Plain-text rendering used by `protoforge next [project.json] [--all] [--levers all|none]`.
+/// Returns the text and whether no binding requirement fails.
+pub fn render_cli(p: &Project, all: bool, levers: Option<&str>) -> Result<(String, bool), String> {
+    let out = next_actions(&NextIn {
+        project: p.clone(),
+        evaluation: None,
+        levers: levers.map(String::from),
+        limit: None,
+    })?;
+    let s = &out.summary;
+    let mut o = format!("{} v{} — what to do next\n", p.meta.name, p.meta.version);
+    o += &format!(
+        "{:.0} % ready: {} of {} requirements pass with ≥ {:.0} % margin · {} marginal · {} open goal(s) · {} failing · {} unverified\n\n",
+        s.readiness_pct,
+        s.pass_with_margin,
+        s.requirements,
+        s.marginal_threshold * 100.0,
+        s.marginal,
+        s.open_goals,
+        s.failing,
+        s.unverified
+    );
+    let shown = if all { out.actions.len() } else { out.actions.len().min(10) };
+    for (k, a) in out.actions.iter().take(shown).enumerate() {
+        o += &format!(
+            "{:>2}. [{}] {} · score {:.1}\n",
+            k + 1,
+            a.severity.to_uppercase(),
+            a.kind.replace('_', " "),
+            a.score
+        );
+        o += &format!("    {}\n", a.title);
+        if let (Some(v), Some(c)) = (a.value, &a.criterion) {
+            o += &format!(
+                "    now {} {} → {}{}\n",
+                levers::fmt_num(v),
+                a.unit,
+                c,
+                a.margin.map(|m| format!(" (margin {:+.1} %)", m * 100.0)).unwrap_or_default()
+            );
+        }
+        o += &format!("    go to: {}  (#{})\n", a.location.label, a.location.href);
+        match a.levers_status.as_str() {
+            "measured" => {
+                for l in &a.levers {
+                    o += &format!(
+                        "    {} {}: +{} {} moves it {:+.4} {}{}\n",
+                        if l.direction == "increase" { "↑" } else { "↓" },
+                        l.label,
+                        levers::fmt_num(l.step),
+                        l.unit,
+                        l.delta,
+                        a.unit,
+                        l.estimate
+                            .map(|e| format!(" · ≈ {} {} reaches the target", levers::fmt_num(e), l.unit))
+                            .unwrap_or_default()
+                    );
+                }
+            }
+            "lazy" => o += "    levers: run with --levers all (re-runs a finite-element / layout model per parameter)\n",
+            "none" => o += "    levers: no numeric design parameter moves this metric measurably\n",
+            _ => {}
+        }
+        o += "\n";
+    }
+    if shown < out.actions.len() {
+        o += &format!("… {} more (use --all)\n", out.actions.len() - shown);
+    }
+    Ok((o, s.failing == 0))
+}
+
 #[cfg(test)]
 mod tests;

@@ -637,7 +637,7 @@ pub struct ExampleVersion {
 /// human factors, reliability, program).
 pub const V06_REQS: &[&str] = &[
     "R-036", "R-037", "R-038", "R-039", "R-040", "R-041", "R-042", "R-043", "R-044", "R-045", "R-046", "R-047", "R-048", "R-049", "R-050",
-    "R-051", "R-052", "R-053",
+    "R-051", "R-052", "R-053", "R-054",
 ];
 /// BOM lines Iris v0.6 added.
 pub const V06_PARTS: &[&str] = &["R6", "R7", "L2", "L3", "Y1", "C7", "C8", "TH1", "NP1"];
@@ -807,7 +807,7 @@ pub fn iris_history() -> Vec<ExampleVersion> {
         ExampleVersion {
             name: "Iris v0.6 — RF, thermal, hinge, fit, reliability and program".into(),
             description: format!(
-                "Six new labs added eighteen requirements, and v0.5 failed nine binding ones. The antenna had no matching network (return loss {rl5:.1} dB → {rl6:.1} dB with L2 1.8 nH + L3 4.3 nH) and a {z5:.0} Ω feed ({z6:.0} Ω as a grounded coplanar waveguide); the 3-D thermal model found {t5:.0} °C on the optics housing ({t6:.1} °C with a 25 µm graphite sheet); the hinge spring's fatigue factor was {sf5:.2} ({sf6:.2} shot-peened, stiffer, 10° stop); coupling the Mechanisms hinge into the Human Factors clamp model showed one size fitting {fit5:.0} % of adults ({fit6:.0} % now the hinge limits clamp force); nose pads {np5:.0} kPa → {np6:.1} kPa; eyebox coverage {eb5:.0} % → {eb6:.0} %; and 2-year reliability {rel5:.0} % → {rel6:.0} % with a 240 mAh cell, whose extra mass was paid for with a 4.5 mm rim ({mass6:.1} g). The crystal, matching network and USB-C CC resistors PCB Studio had flagged since v0.3 are on the board, still routed by the autorouter. Open goals: lateral colour (R-030), outdoor contrast (R-047) and readiness (R-053)."
+                "Six new labs added eighteen requirements (and the next-actions solver a nineteenth, R-054: see-through ≥ 60 %), and v0.5 failed nine binding ones. The antenna had no matching network (return loss {rl5:.1} dB → {rl6:.1} dB with L2 1.8 nH + L3 4.3 nH) and a {z5:.0} Ω feed ({z6:.0} Ω as a grounded coplanar waveguide); the 3-D thermal model found {t5:.0} °C on the optics housing ({t6:.1} °C with a 25 µm graphite sheet); the hinge spring's fatigue factor was {sf5:.2} ({sf6:.2} shot-peened, stiffer, 10° stop); coupling the Mechanisms hinge into the Human Factors clamp model showed one size fitting {fit5:.0} % of adults ({fit6:.0} % now the hinge limits clamp force); nose pads {np5:.0} kPa → {np6:.1} kPa; eyebox coverage {eb5:.0} % → {eb6:.0} %; and 2-year reliability {rel5:.0} % → {rel6:.0} % with a 240 mAh cell, whose extra mass was paid for with a 4.5 mm rim ({mass6:.1} g). The crystal, matching network and USB-C CC resistors PCB Studio had flagged since v0.3 are on the board, still routed by the autorouter. Open goals: lateral colour (R-030), outdoor contrast (R-047) and readiness (R-053)."
             ),
             branch: "main".into(),
             parent: Some(3),

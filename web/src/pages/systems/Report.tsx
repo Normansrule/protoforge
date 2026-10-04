@@ -1,6 +1,7 @@
 // Report & templates: the full systems-engineering report (rendered Markdown
 // + downloads) and starter projects for building something new.
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, DownloadButton, Explainer } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { call } from '../../engine/engine';
@@ -24,6 +25,12 @@ export function ReportTab() {
         subtitle="Templates are complete starting points — needs, requirements bound to lab metrics, subsystems, interfaces, parts, trades, risks and stage gates. Loading one replaces the current project."
       >
         <div className="ss-templates">
+          <Link to="/new" className="ss-template" style={{ textDecoration: 'none', color: 'inherit', borderStyle: 'dashed' }}>
+            <span className="ico"><Icon name="systems" size={20} /></span>
+            <b style={{ fontSize: 15 }}>Describe your own product →</b>
+            <span className="muted small" style={{ flex: 1 }}>The new-product wizard: pick a kind, capabilities and targets, and get a starter project with its battery sized and its requirements bound to metrics computed from your own bill of materials.</span>
+            <span className="small">10 kinds · 18 capabilities · live preview</span>
+          </Link>
           {(templates.data ?? []).map((t) => (
             <button key={t.id} className="ss-template" onClick={() => setPick(t)}>
               <div className="row" style={{ justifyContent: 'space-between', flexWrap: 'nowrap' }}>
