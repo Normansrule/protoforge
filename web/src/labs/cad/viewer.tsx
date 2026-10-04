@@ -9,6 +9,7 @@ import { ContactShadows, Environment, Grid, Lightformer, OrbitControls } from '@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { useInView } from '../../components/Scene3D';
 
 export type ViewPreset = 'iso' | 'front' | 'side' | 'top' | 'back' | 'below';
 
@@ -116,9 +117,10 @@ export function CadCanvas(props: {
   const size = Math.max(bounds.max[0] - bounds.min[0], bounds.max[1] - bounds.min[1], 40);
   const cell = theme === 'light' ? '#cfcfc8' : '#34343a';
   const section = theme === 'light' ? '#a9b7cc' : '#465676';
+  const [host, visible] = useInView<HTMLDivElement>();
   return (
-    <div className="scene3d cad-canvas" style={{ height, position: 'relative' }}>
-      <Canvas camera={{ position: [180, 120, 200], fov: 35, near: 0.5, far: 6000 }} dpr={[1, 2]} gl={{ antialias: true, preserveDrawingBuffer: true }}>
+    <div ref={host} className="scene3d cad-canvas" style={{ height, position: 'relative' }}>
+      <Canvas frameloop={visible ? 'always' : 'never'} camera={{ position: [180, 120, 200], fov: 35, near: 0.5, far: 6000 }} dpr={[1, 2]} gl={{ antialias: true, preserveDrawingBuffer: true }}>
         <ambientLight intensity={theme === 'light' ? 0.55 : 0.4} />
         <directionalLight position={[120, 220, 140]} intensity={1.4} />
         <directionalLight position={[-160, 90, -120]} intensity={0.5} />

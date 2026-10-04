@@ -2,6 +2,7 @@
 import { useMemo, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
+import { useInView } from '../../components/Scene3D';
 import { OrbitControls } from '@react-three/drei';
 
 /** Convert NED body Euler angles (deg, ZYX) to a three.js quaternion.
@@ -99,9 +100,10 @@ export function HeadModel(props: { truth: [number, number, number]; est?: [numbe
 /** Self-contained 3D viewport (no HDR environment download, so it also works offline). */
 export function MiniScene(props: { children: ReactNode; height?: number; camera?: [number, number, number]; target?: [number, number, number]; floor?: string }) {
   const { height = 330, camera = [230, 210, 300], target = [0, 110, 0] } = props;
+  const [host, visible] = useInView<HTMLDivElement>();
   return (
-    <div className="scene3d" style={{ height }}>
-      <Canvas camera={{ position: camera, fov: 40, near: 1, far: 5000 }} dpr={[1, 2]}>
+    <div ref={host} className="scene3d" style={{ height }}>
+      <Canvas frameloop={visible ? 'always' : 'never'} camera={{ position: camera, fov: 40, near: 1, far: 5000 }} dpr={[1, 2]}>
         <hemisphereLight args={['#ffffff', '#444455', 0.9]} />
         <directionalLight position={[150, 260, 180]} intensity={1.4} />
         <directionalLight position={[-200, 120, -150]} intensity={0.5} />

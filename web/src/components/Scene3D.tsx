@@ -3,13 +3,31 @@
 // triangle indices [a,b,c,...]; optional per-vertex colours [r,g,b,...] 0..1.
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Grid } from '@react-three/drei';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import * as THREE from 'three';
 
 export interface MeshData {
   positions: number[];
   indices: number[];
   colors?: number[];
+}
+
+/**
+ * True while the element is on (or within 200 px of) the screen. Every 3-D canvas
+ * sets `frameloop={visible ? 'always' : 'never'}` from it, so a view scrolled out of
+ * sight stops rendering — under software WebGL one live canvas can pin the main thread.
+ */
+export function useInView<T extends Element>(): [RefObject<T | null>, boolean] {
+  const ref = useRef<T>(null);
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((es) => setVisible(es.some((e) => e.isIntersecting)), { rootMargin: '200px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return [ref, visible];
 }
 
 export function Scene3D(props: {
@@ -21,9 +39,10 @@ export function Scene3D(props: {
   autoRotate?: boolean;
 }) {
   const { height = 420, camera = [160, 110, 180], target = [0, 0, 0], grid = true } = props;
+  const [host, visible] = useInView<HTMLDivElement>();
   return (
-    <div className="scene3d" style={{ height }}>
-      <Canvas camera={{ position: camera, fov: 40, near: 0.5, far: 5000 }} dpr={[1, 2]} shadows>
+    <div ref={host} className="scene3d" style={{ height }}>
+      <Canvas frameloop={visible ? 'always' : 'never'} camera={{ position: camera, fov: 40, near: 0.5, far: 5000 }} dpr={[1, 2]} shadows>
         <ambientLight intensity={0.55} />
         <directionalLight position={[120, 200, 100]} intensity={1.3} castShadow />
         <directionalLight position={[-150, 80, -120]} intensity={0.45} />
