@@ -34,7 +34,7 @@ fn usage() -> ExitCode {
          protoforge new \"<name>\" --kind <kind> [--with cap,cap] [--idea TEXT] [--users TEXT]\n                 \
          [--life 12h] [--mass 50g] [--cost 20] [--qty 1000] [--retail 99] [--size 45x38x14]\n                 \
          [--range 10m] [--set target=value]\n  protoforge wizard [@answers.json | json]\n  protoforge wizard --options\n\n\
-         Without a project path the built-in Iris smart-glasses project is used.",
+         Without a project path the built-in Iris smart-glasses project is used; `-` reads it from standard input.",
         env!("CARGO_PKG_VERSION")
     );
     ExitCode::from(2)
@@ -44,7 +44,12 @@ fn load(path: Option<&String>) -> Result<Project, String> {
     match path {
         None => Ok(Project::iris()),
         Some(p) => {
-            let text = std::fs::read_to_string(p).map_err(|e| format!("cannot read {p}: {e}"))?;
+            // `-` reads the project from standard input: `protoforge new … | protoforge evaluate -`
+            let text = if p == "-" {
+                std::io::read_to_string(std::io::stdin()).map_err(|e| format!("cannot read standard input: {e}"))?
+            } else {
+                std::fs::read_to_string(p).map_err(|e| format!("cannot read {p}: {e}"))?
+            };
             serde_json::from_str(&text).map_err(|e| format!("{p} is not a valid project: {e}"))
         }
     }
