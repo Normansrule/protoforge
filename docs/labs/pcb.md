@@ -128,12 +128,16 @@ radio-frequency (RF) matching network. **All three are on the v0.6 board** — R
 (5.1 kΩ configuration-channel (CC) pull-downs), Y1 (32 MHz crystal) with C7/C8 (12 pF load capacitors), and L2/L3
 (the 1.8 nH + 4.3 nH match the [RF & Antenna Lab](rf.md) synthesised) — and the
 board still routes 100 % with 0 DRC violations. The remaining notes: CHG_STAT
-is open-drain (enable the SoC's internal pull-up on that GPIO), and the
-autorouter uses the minimum trace width everywhere, so the RF feed must be
-re-routed by hand as the 0.91 mm grounded coplanar waveguide the RF & Antenna
-Lab specifies (the KiCad export carries it as the RF net class). Note that
-`rf.feed_z0_ohm` (R-037) checks the feed stored in `design.extra.rf.feed`, not
-the track this router draws.
+is open-drain (enable the SoC's internal pull-up on that GPIO). The antenna
+feed `RF_ANT` (matching network → antenna) has its own net-class width: the
+router lays it first, at the 0.91 mm grounded coplanar waveguide (CPWG) width
+the RF & Antenna Lab stored in `design.extra.rf.feed`, and freezes it before
+the other nets negotiate (the KiCad export carries it as the RF net class). The
+SoC side of the match (`RF`) stays at the minimum width because the 0.4 mm-pitch
+QFN pad cannot take a wide trace. If the wide feed cannot be routed it falls
+back to the minimum width and the board notes say so. `rf.feed_z0_ohm` (R-037)
+reads the width actually routed on `RF_ANT`, so it checks the board, not just
+the stored design.
 
 ## Limitations
 

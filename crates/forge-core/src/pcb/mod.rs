@@ -215,6 +215,14 @@ pub const STRATEGIES: &[Strategy] = &[
     },
 ];
 
+/// Nets with their own (wider) net-class width, routed first and frozen.
+fn wide_nets(b: &board::Board) -> Vec<u16> {
+    (0..b.nets.len())
+        .filter(|&i| b.nets[i].width_mm > b.rules.trace_mm + 1e-9 && b.pads.iter().filter(|p| p.net_id as usize == i).count() >= 2)
+        .map(|i| i as u16)
+        .collect()
+}
+
 fn net_order(b: &board::Board, power_first: bool) -> Vec<u16> {
     let hp = |ni: usize| -> f64 {
         let ps: Vec<&BoardPad> = b.pads.iter().filter(|p| p.net_id as usize == ni).collect();
@@ -255,7 +263,7 @@ fn net_order(b: &board::Board, power_first: bool) -> Vec<u16> {
     v.into_iter().map(|x| x.2).collect()
 }
 
-fn notes_for(p: &Project) -> Vec<String> {
+fn notes_for(p: &Project, b: &board::Board, tracks: &[Track]) -> Vec<String> {
     let has = |r: &str| p.components.iter().any(|c| c.refdes == r && c.on_pcb);
     let mut v = vec![
         "Land patterns are typical approximations — verify every footprint against the part datasheet / IPC-7351 before ordering.".to_string(),
@@ -271,13 +279,39 @@ fn notes_for(p: &Project) -> Vec<String> {
         v.push("BOM gap: no RF matching network between the SoC's ANT pin and the chip antenna. Add L2 (series) and L3 (shunt) — see the RF & Antenna Lab for values; the lab connects them automatically.".into());
     }
     if has("L2") {
-        v.push("RF feed: the autorouter uses the minimum trace width everywhere. Re-route RF and RF_ANT by hand as the grounded coplanar waveguide the RF & Antenna Lab specifies (the KiCad export carries it as the RF net class).".into());
+        v.push(rf_feed_note(b, tracks));
     }
     if let Some(n) = grid_note(&board::Rules::from(&p.design.pcb)) {
         v.push(n);
     }
     v.push("CHG_STAT is open-drain: enable the SoC's internal pull-up on that GPIO.".into());
     v
+}
+
+/// What the router did with the antenna feed (`RF_ANT`) and its net-class width.
+fn rf_feed_note(b: &board::Board, tracks: &[Track]) -> String {
+    let want = b
+        .nets
+        .iter()
+        .find(|n| n.name == "RF_ANT")
+        .map(|n| n.width_mm)
+        .unwrap_or(b.rules.trace_mm);
+    let ws: Vec<f64> = tracks.iter().filter(|t| t.net == "RF_ANT").map(|t| t.width).collect();
+    let routed = ws.iter().copied().fold(f64::INFINITY, f64::min);
+    if want <= b.rules.trace_mm + 1e-9 {
+        "RF feed: no feed line is stored in the RF & Antenna Lab, so RF_ANT routes at the minimum trace width. Store the lab's grounded coplanar waveguide (CPWG) feed and PCB Studio routes RF_ANT at its width.".into()
+    } else if ws.is_empty() {
+        format!("RF feed: RF_ANT (the {want:.2} mm feed line from the RF & Antenna Lab) is not routed.")
+    } else if routed + 1e-9 < want {
+        format!(
+            "RF feed: RF_ANT could not be routed at its {want:.2} mm net-class width on this board and fell back to {routed:.3} mm — the RF & Antenna Lab reports the impedance of the routed width. Re-route it by hand as the grounded coplanar waveguide (CPWG) the lab specifies."
+        )
+    } else {
+        format!(
+            "RF feed: RF_ANT is routed first, at the {want:.2} mm width of the RF & Antenna Lab's grounded coplanar waveguide (CPWG) feed (RF net class), with the top ground pour held {:.2} mm off as its gap. The SoC side of the match (RF) stays at the {:.3} mm minimum width because the 0.4 mm-pitch QFN pad cannot take a wide trace — keep it short.",
+            b.rules.pour_clearance_mm, b.rules.trace_mm
+        )
+    }
 }
 
 /// The router samples the board every `grid ÷ 2`; two neighbouring tracks
@@ -330,6 +364,24 @@ pub fn layout(p: &Project) -> Arc<Layout> {
     l
 }
 
+/// The layout for this project if it is already known — cached in memory
+/// (computed or adopted from a Web Worker) or baked — without running the
+/// autorouter. Cheap analyses (the RF metrics) read routed copper this way.
+pub fn layout_if_ready(p: &Project) -> Option<Arc<Layout>> {
+    let key = cache_key(p);
+    if let Ok(g) = CACHE.lock() {
+        if let Some((k, l)) = g.as_ref() {
+            if *k == key {
+                return Some(l.clone());
+            }
+        }
+    }
+    if baked_route_for(p).is_some() {
+        return Some(layout(p));
+    }
+    None
+}
+
 fn cache_key(p: &Project) -> u64 {
     // component names feed the BOM/labels, so they are part of the in-memory key
     let mut s = cache_key_hex(p);
@@ -371,7 +423,7 @@ fn baked_projects() -> Vec<Project> {
 }
 
 /// Bump when routing behaviour changes so stale baked routes are ignored.
-pub const ROUTER_VERSION: &str = "nc-pinswap-2";
+pub const ROUTER_VERSION: &str = "nc-pinswap-3-netclass";
 
 /// FNV-1a hash of every input that influences the routed copper.
 pub fn cache_key_hex(p: &Project) -> String {
@@ -381,6 +433,9 @@ pub fn cache_key_hex(p: &Project) -> String {
     }
     s += &serde_json::to_string(&p.design.pcb).unwrap_or_default();
     s += &format!("|mic{}", p.design.audio.mic_spacing_mm);
+    // the RF feed's net-class width (design.extra.rf.feed) shapes the copper too
+    let rules = Rules::from(&p.design.pcb);
+    s += &format!("|rfw{}", board::net_width_mm(p, "RF_ANT", &rules));
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in s.bytes() {
         h ^= b as u64;
@@ -465,8 +520,14 @@ pub fn route_phase(p: &Project, parts: &[PartPos], gpio: &[(String, String)], st
     let mut rt = route::Router::with_pool(&b0, &pool, &swap);
     rt.bot_cost = strat.bot_cost;
     rt.gnd_fanout(true);
-    let order = net_order(&b0, strat.power_first);
+    let fixed = rt.route_fixed(&wide_nets(&b0));
+    let order: Vec<u16> = net_order(&b0, strat.power_first)
+        .into_iter()
+        .filter(|n| !fixed.contains(n))
+        .collect();
     rt.route_negotiated(&order, strat.iterations);
+    let fixed_status = std::mem::take(&mut rt.fixed_status);
+    rt.status.extend(fixed_status);
     let _ = ground_connect(&b0, &mut rt);
     let tracks = rt.tracks.clone();
     let vias = rt.vias.clone();
@@ -606,6 +667,7 @@ pub fn finalize(p: &Project, parts: &[PartPos], r: &Routed) -> Layout {
         unique_parts: uniq.len(),
         ..Default::default()
     };
+    let notes = notes_for(p, &b, &tracks);
     Layout {
         board: BoardInfo {
             width: b.width,
@@ -627,7 +689,7 @@ pub fn finalize(p: &Project, parts: &[PartPos], r: &Routed) -> Layout {
         connectivity: conn,
         stats,
         gpio,
-        notes: notes_for(p),
+        notes,
     }
 }
 
@@ -780,7 +842,11 @@ pub fn route_trace(p: &Project, net: &str, placement_override: Option<Vec<PartPo
     let mut rt = route::Router::with_pool(&b, &pool, &swap);
     rt.bot_cost = strat.bot_cost;
     rt.gnd_fanout(true);
-    let order = net_order(&b, strat.power_first);
+    let fixed = rt.route_fixed(&wide_nets(&b));
+    let order: Vec<u16> = net_order(&b, strat.power_first)
+        .into_iter()
+        .filter(|n| !fixed.contains(n))
+        .collect();
     rt.route_negotiated(&order, strat.iterations);
     Ok(rt.trace_net(ni))
 }
@@ -979,6 +1045,50 @@ mod tests {
         eprintln!("stats {:?}", l.stats);
         assert_eq!(l.stats.routed_pct, 100.0);
         assert_eq!(l.stats.drc_violations, 0);
+    }
+
+    /// The antenna feed RF_ANT carries the RF & Antenna Lab's feed width as its
+    /// net class; the router lays it first at that width (the SoC-side RF net
+    /// stays at the minimum), and a width that cannot fit falls back honestly.
+    #[test]
+    fn rf_ant_routes_at_its_net_class_width() {
+        let route_rf = |p: &Project| {
+            let pr = place::constructive(p);
+            let b = board::build(p, &pr.parts, &pr.gpio);
+            let (pool, swap) = swap_pool(&b, &pr.gpio);
+            let mut rt = route::Router::with_pool(&b, &pool, &swap);
+            rt.gnd_fanout(true);
+            let wide = wide_nets(&b);
+            let fixed = rt.route_fixed(&wide);
+            let ws: Vec<f64> = rt.tracks.iter().filter(|t| t.net == "RF_ANT").map(|t| t.width).collect();
+            let names = |v: &[u16]| v.iter().map(|&i| b.nets[i as usize].name.clone()).collect::<Vec<_>>();
+            (names(&wide), names(&fixed), ws)
+        };
+        let p = Project::iris();
+        let r = board::Rules::from(&p.design.pcb);
+        assert!((board::net_width_mm(&p, "RF_ANT", &r) - 0.91).abs() < 1e-9);
+        assert_eq!(board::net_width_mm(&p, "RF", &r), r.trace_mm);
+        let (wide, fixed, ws) = route_rf(&p);
+        assert_eq!(wide, vec!["RF_ANT".to_string()]);
+        assert_eq!(fixed, wide);
+        assert!(!ws.is_empty() && ws.iter().all(|w| (w - 0.91).abs() < 1e-9), "{ws:?}");
+        // a 5 mm "feed" cannot reach the 0402 pads on a 10 mm board: no wide copper is left behind
+        let mut q = p.clone();
+        q.design.extra.get_mut("rf").unwrap()["feed"]["width_mm"] = serde_json::json!(5.0);
+        let (wide, fixed, ws) = route_rf(&q);
+        assert_eq!(wide, vec!["RF_ANT".to_string()]);
+        assert!(fixed.is_empty() && ws.is_empty(), "{fixed:?} {ws:?}");
+        // the width is part of the routing key, so a stale baked route is never reused
+        assert_ne!(cache_key_hex(&p), cache_key_hex(&q));
+        // the shipped (baked) board: RF_ANT at 0.91 mm, fully routed, DRC clean
+        let l = layout(&p);
+        assert!(l.tracks.iter().filter(|t| t.net == "RF_ANT").all(|t| (t.width - 0.91).abs() < 1e-9));
+        assert!(
+            l.notes.iter().any(|n| n.contains("RF_ANT is routed first, at the 0.91 mm")),
+            "{:?}",
+            l.notes
+        );
+        assert_eq!((l.stats.routed_pct, l.stats.drc_violations), (100.0, 0));
     }
 
     /// Regenerate the baked default route (run after changing the router):

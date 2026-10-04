@@ -45,6 +45,22 @@ impl Rules {
     }
 }
 
+/// Routing width of a net (its net-class width). Every net routes at the
+/// minimum trace width except the antenna feed `RF_ANT` (matching network →
+/// antenna), which takes the width of the feed line the RF & Antenna Lab
+/// designed (`design.extra.rf.feed`) so the copper is the transmission line
+/// the impedance was computed for. The SoC side of the match (`RF`) stays at
+/// the minimum width: a 0.4 mm-pitch QFN pad cannot take a wide trace.
+pub fn net_width_mm(p: &Project, net: &str, r: &Rules) -> f64 {
+    if net != "RF_ANT" {
+        return r.trace_mm;
+    }
+    match crate::rf::IrisRf::from_project(p).feed {
+        Some(f) if f.kind != crate::rf::tline::LineKind::DiffMicrostrip && f.width_mm.is_finite() => f.width_mm.max(r.trace_mm),
+        _ => r.trace_mm,
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlacedPart {
     pub refdes: String,
@@ -127,6 +143,9 @@ pub struct NetInfo {
     pub pins: Vec<String>,
     pub current_a: f64,
     pub description: String,
+    /// Routing width (net class); see [`net_width_mm`].
+    #[serde(default)]
+    pub width_mm: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -266,6 +285,7 @@ pub fn build(p: &Project, pos: &[PartPos], gpio: &[(String, String)]) -> Board {
             pins: d.pins.iter().map(|(r, pin)| format!("{r}.{pin}")).collect(),
             current_a: d.current_a,
             description: d.description.clone(),
+            width_mm: net_width_mm(p, &d.name, &rules),
         })
         .collect();
     let mut next_id = nets.len() as u16;

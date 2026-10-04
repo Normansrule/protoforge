@@ -223,6 +223,10 @@ pub struct Router<'a> {
     access_cache: HashMap<(usize, u16), Vec<Access>>,
     /// Bottom-layer step costs along x / y (the bottom carries the ground pour).
     pub bot_cost: (u32, u32),
+    /// Routing width per net id (net class); nets without one use `w`.
+    net_w: Vec<f64>,
+    /// Status of the nets routed and frozen by [`Router::route_fixed`].
+    pub fixed_status: Vec<NetRoute>,
 }
 
 const POOL_ZONE: u32 = 30;
@@ -380,6 +384,12 @@ impl<'a> Router<'a> {
             dir_of: vec![4; 2 * n],
             access_cache: HashMap::new(),
             bot_cost: (40, 16),
+            net_w: b
+                .nets
+                .iter()
+                .map(|x| if x.width_mm > 0.0 { x.width_mm } else { r.trace_mm })
+                .collect(),
+            fixed_status: vec![],
         };
         for (k, &pi) in pool.iter().enumerate() {
             rt.pool_pad.push(pi);
@@ -395,6 +405,18 @@ impl<'a> Router<'a> {
         rt.edg = rt.s_edg.clone();
         rt.via = rt.s_via.clone();
         rt
+    }
+
+    /// Track width `net` routes at (its net-class width).
+    #[inline]
+    pub fn width_of(&self, net: u16) -> f64 {
+        self.net_w.get(net as usize).copied().unwrap_or(self.w)
+    }
+
+    /// Does `net` route wider than the grid's occupancy maps assume?
+    #[inline]
+    fn is_wide(&self, net: u16) -> bool {
+        self.width_of(net) > self.w + EPS
     }
 
     #[inline]
@@ -726,9 +748,11 @@ impl<'a> Router<'a> {
     // geometric checks against real copper
     // -----------------------------------------------------------------
 
-    /// Is a zero-width segment on `layer` at least trace-clearance away from
-    /// every object `net` must avoid?
+    /// Is a centre-line segment on `layer`, drawn at `net`'s track width, at
+    /// least trace-clearance away from every object `net` must avoid?
     fn seg_clear(&self, layer: u8, net: u16, s: Stub, include_dynamic: bool) -> bool {
+        let w = self.width_of(net);
+        let r_trk = self.b.rules.clearance_mm + w / 2.0;
         let bb = [
             s.x0.min(s.x1) - 1.0,
             s.y0.min(s.y1) - 1.0,
@@ -743,9 +767,9 @@ impl<'a> Router<'a> {
                 continue;
             }
             let need = match o.kind {
-                Kind::Copper if !self.own(o.net, net) => self.r_trk,
-                Kind::Keep if o.net != net => self.w / 2.0 + 0.02,
-                Kind::Hole => self.b.rules.hole_clearance_mm + self.w / 2.0,
+                Kind::Copper if !self.own(o.net, net) => r_trk,
+                Kind::Keep if o.net != net => w / 2.0 + 0.02,
+                Kind::Hole => self.b.rules.hole_clearance_mm + w / 2.0,
                 _ => continue,
             };
             if o.shape.dist_seg(s.x0, s.y0, s.x1, s.y1) < need - EPS {
@@ -767,11 +791,11 @@ impl<'a> Router<'a> {
             if !(if layer == 0 { o.top } else { o.bot }) || o.net == net {
                 continue;
             }
-            if o.shape.dist_seg(s.x0, s.y0, s.x1, s.y1) < self.r_trk - EPS {
+            if o.shape.dist_seg(s.x0, s.y0, s.x1, s.y1) < r_trk - EPS {
                 return false;
             }
         }
-        let e = self.b.rules.edge_clearance_mm + self.w / 2.0 - EPS;
+        let e = self.b.rules.edge_clearance_mm + w / 2.0 - EPS;
         for (x, y) in [(s.x0, s.y0), (s.x1, s.y1)] {
             if x.min(y).min(self.b.width - x).min(self.b.height - y) < e {
                 return false;
@@ -917,8 +941,9 @@ impl<'a> Router<'a> {
                     // stub from the closest point inside the pad
                     let (qx, qy) = match sh {
                         Shape::Rect { cx, cy, hw, hh } => {
-                            let sx = (hw - self.w / 2.0).max(0.0);
-                            let sy = (hh - self.w / 2.0).max(0.0);
+                            let half = self.width_of(net) / 2.0;
+                            let sx = (hw - half).max(0.0);
+                            let sy = (hh - half).max(0.0);
                             (x.clamp(cx - sx, cx + sx), y.clamp(cy - sy, cy + sy))
                         }
                         Shape::Capsule { ax, ay, .. } => (ax, ay),
@@ -1125,6 +1150,26 @@ impl<'a> Router<'a> {
         for &t in targets.keys() {
             tgt_stamp[t] = gen;
         }
+        // A net wider than the grid's track width (an RF net class) also needs
+        // its own clearance: every step is checked against the real copper
+        // (all of it in a strict search; static + locked copper while nets
+        // negotiate, where the other nets' occupancy maps see the wide track).
+        let wide = self.is_wide(net);
+        let g = self.g;
+        let wide_ok = |layer: usize, a: usize, b: usize| -> bool {
+            if !wide {
+                return true;
+            }
+            let (ia, ja) = ((a % nx) as f64 * g, (a / nx) as f64 * g);
+            let (ib, jb) = ((b % nx) as f64 * g, (b / nx) as f64 * g);
+            let s = Stub {
+                x0: ia,
+                y0: ja,
+                x1: ib,
+                y1: jb,
+            };
+            self.seg_clear(layer as u8, net, s, mode == Mode::Normal)
+        };
         let mut found: Option<usize> = None;
         let mut rec = rec;
         let mut expanded = 0u64;
@@ -1177,6 +1222,9 @@ impl<'a> Router<'a> {
                 let Some(pe) = gate(1, eidx) else { continue };
                 let nnode = layer * n + nc;
                 let Some(pc) = gate(0, nnode) else { continue };
+                if !wide_ok(layer, c, nc) {
+                    continue;
+                }
                 let bend = if d != dir && dir < 4 { BEND } else { 0 };
                 let ng = gcost + step + bend + pe + pc;
                 let ns = nnode;
@@ -1199,6 +1247,9 @@ impl<'a> Router<'a> {
                     gate(2, c)
                 };
                 if let (Some(pv), Some(po)) = (via_gate, gate(0, other)) {
+                    if !wide_ok(1 - layer, c, c) {
+                        continue;
+                    }
                     let ng = gcost + if reuse { 4 } else { VIA_COST } + pv + po;
                     let ns = other;
                     if stamp[ns] != gen || ng < dist[ns] {
@@ -1295,7 +1346,7 @@ impl<'a> Router<'a> {
                 y0,
                 x1,
                 y1,
-                width: self.w,
+                width: self.width_of(net),
             });
             k = e;
         }
@@ -1311,7 +1362,7 @@ impl<'a> Router<'a> {
             y0: s.y0,
             x1: s.x1,
             y1: s.y1,
-            width: self.w,
+            width: self.width_of(net),
         });
     }
 
@@ -1746,6 +1797,30 @@ impl<'a> Router<'a> {
             }
         }
         self.lock();
+    }
+
+    /// Route nets with their own net-class width (the RF feed) before
+    /// anything else, strictly, and freeze them like the ground fan-out — the
+    /// way a layout engineer lays the RF feed first. A net that cannot be
+    /// routed at its width is ripped up and falls back to the minimum width
+    /// in the normal flow. Returns the nets that were routed and frozen.
+    pub fn route_fixed(&mut self, nets: &[u16]) -> Vec<u16> {
+        let mut done = Vec::new();
+        for &net in nets {
+            let st = self.route_net(net);
+            if st.failed_pins.is_empty() && st.connected_pins == st.pins {
+                self.lock();
+                self.fixed_status.push(st);
+                done.push(net);
+            } else {
+                self.rip_up(net);
+                self.rebuild();
+                if let Some(w) = self.net_w.get_mut(net as usize) {
+                    *w = self.w;
+                }
+            }
+        }
+        done
     }
 
     /// Route all signal/power nets in the given order with rip-up and re-route.

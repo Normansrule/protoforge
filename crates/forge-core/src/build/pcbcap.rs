@@ -449,10 +449,7 @@ pub fn check_with(p: &Project, m: &Measured, t: &'static Tier) -> Dfm {
         unit: "",
         status: "info",
         source: "tier",
-        note: format!(
-            "{} — the Iris BLE antenna feed uses a vendor reference layout; controlled impedance matters on 4+ layer stackups",
-            t.impedance
-        ),
+        note: format!("{} — {}", t.impedance, impedance_note(p)),
     });
     let violations = items.iter().filter(|i| i.status == "fail").count();
     let warnings = items.iter().filter(|i| i.status == "warn").count();
@@ -465,6 +462,22 @@ pub fn check_with(p: &Project, m: &Measured, t: &'static Tier) -> Dfm {
         has_layout: m.has_layout,
         min_pitch_mm: pitch,
     }
+}
+
+/// What the board's one impedance-critical line is, as routed.
+fn impedance_note(p: &Project) -> String {
+    if !p.components.iter().any(|c| c.on_pcb && c.refdes == "AE1") {
+        return "no controlled-impedance line on this board; it matters on 4+ layer stack-ups with thin dielectrics".into();
+    }
+    let rf = crate::rf::IrisRf::from_project(p);
+    let (f, src) = crate::rf::feed_as_built(p, &rf);
+    let (z0, _) = crate::rf::feed_z0(p, &rf, &f);
+    format!(
+        "the antenna feed is a {:.2} mm grounded coplanar waveguide (CPWG) with {:.2} mm gaps on the {:.2} mm dielectric → {z0:.0} Ω computed ({src}); etch-width and εr spread move it by a few ohms, so order impedance control with a test coupon where offered (check the fab's tolerance)",
+        f.width_mm,
+        f.gap_mm,
+        crate::rf::stack_h_mm(p, &rf)
+    )
 }
 
 pub fn check(p: &Project, tier_id: &str) -> Dfm {
@@ -489,6 +502,24 @@ mod tests {
         for w in TIERS.windows(2) {
             assert!(w[1].trace_mm <= w[0].trace_mm && w[1].drill_mm <= w[0].drill_mm && w[1].annular_mm <= w[0].annular_mm);
         }
+    }
+
+    #[test]
+    fn impedance_note_states_the_routed_feed() {
+        let p = Project::iris();
+        let d = check(&p, "standard");
+        let n = &d.items.iter().find(|i| i.rule == "Impedance control").unwrap().note;
+        assert!(!n.contains("vendor reference layout"), "{n}");
+        assert!(
+            n.contains("0.91 mm grounded coplanar waveguide") && n.contains("as routed by PCB Studio"),
+            "{n}"
+        );
+        let z = crate::rf::metrics(&p)
+            .into_iter()
+            .find(|m| m.key == "rf.feed_z0_ohm")
+            .unwrap()
+            .value;
+        assert!(n.contains(&format!("→ {z:.0} Ω")), "{n}");
     }
 
     #[test]

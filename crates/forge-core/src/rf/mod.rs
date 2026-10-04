@@ -195,6 +195,61 @@ pub fn routed_feed(p: &Project) -> Feed {
     }
 }
 
+/// The antenna feed as it is on the board, and where that comes from.
+///
+/// The antenna sits on `RF_ANT` when the matching network is fitted (else on
+/// `RF`). When PCB Studio's layout for these inputs is known (cached or
+/// baked) the feed is the routed copper: its narrowest segment (the highest
+/// impedance on the line), its routed length and the top ground pour's
+/// clearance as the coplanar gap. Before the board is routed it is the width
+/// the router routes that net at — the RF net class, which for `RF_ANT` is
+/// the stored `design.extra.rf.feed`. A project without the antenna on the
+/// board falls back to the stored design (or the minimum-width default).
+pub fn feed_as_built(p: &Project, rf: &IrisRf) -> (Feed, String) {
+    let on = |r: &str| p.components.iter().any(|c| c.on_pcb && c.refdes == r);
+    let rules = crate::pcb::board::Rules::from(&p.design.pcb);
+    let length = rf.feed.as_ref().map(|f| f.length_mm).unwrap_or(Feed::default().length_mm);
+    if !on("AE1") {
+        return match &rf.feed {
+            Some(f) => (f.clone(), "design.extra.rf.feed (no antenna on the board)".into()),
+            None => (
+                routed_feed(p),
+                "as routed by PCB Studio (minimum trace width, pour clearance as gap)".into(),
+            ),
+        };
+    }
+    let net = if on("L2") { "RF_ANT" } else { "RF" };
+    let line = |w: f64, len: f64| Feed {
+        kind: LineKind::Cpwg,
+        width_mm: w,
+        gap_mm: rules.pour_clearance_mm,
+        length_mm: len,
+    };
+    if let Some(l) = crate::pcb::layout_if_ready(p) {
+        let ts: Vec<&crate::pcb::route::Track> = l.tracks.iter().filter(|t| t.net == net).collect();
+        let routed = l.nets.iter().any(|n| n.name == net && n.routed);
+        if routed && !ts.is_empty() {
+            let w = ts.iter().map(|t| t.width).fold(f64::INFINITY, f64::min);
+            let len: f64 = ts.iter().map(|t| t.length()).sum();
+            return (
+                line(w, len),
+                format!(
+                    "as routed by PCB Studio: {net} {w:.2} mm (narrowest of {} segments, {len:.1} mm of track), top pour {:.2} mm off as the gap",
+                    ts.len(),
+                    rules.pour_clearance_mm
+                ),
+            );
+        }
+    }
+    let w = crate::pcb::board::net_width_mm(p, net, &rules);
+    let src = if w > rules.trace_mm + 1e-9 {
+        format!("design.extra.rf.feed — the {net} net-class width PCB Studio routes at (board not routed for these inputs yet)")
+    } else {
+        format!("PCB Studio routes {net} at the minimum trace width (board not routed for these inputs yet), pour clearance as gap")
+    };
+    (line(w, length), src)
+}
+
 pub fn feed_z0(p: &Project, rf: &IrisRf, f: &Feed) -> (f64, f64) {
     let h = stack_h_mm(p, rf);
     let t = rf.cu_um * 1e-3;
@@ -289,13 +344,7 @@ pub fn iris(p: &Project) -> Result<IrisOut, String> {
     let cur = matching::band_summary(&net, &rf.antenna);
     let rec = matching::recommend(&rf.antenna, &rf.series, rf.q_l, rf.q_c);
     let rec_s = matching::band_summary(&rec, &rf.antenna);
-    let (feed, feed_src) = match &rf.feed {
-        Some(f) => (f.clone(), "design.extra.rf.feed"),
-        None => (
-            routed_feed(p),
-            "as routed by PCB Studio (minimum trace width, pour clearance as gap)",
-        ),
-    };
+    let (feed, feed_src) = feed_as_built(p, &rf);
     let (z0, eeff) = feed_z0(p, &rf, &feed);
     let rfeed = recommended_feed(p, &rf);
     let (rz0, _) = feed_z0(p, &rf, &rfeed);
@@ -358,13 +407,19 @@ pub fn iris(p: &Project) -> Result<IrisOut, String> {
             rec_s.worst_rl_db
         ));
     }
+    if let Some(f) = rf.feed.as_ref().filter(|f| feed.width_mm + 1e-9 < f.width_mm) {
+        notes.push(format!(
+            "The stored feed is {:.2} mm wide but the board's antenna feed is {:.3} mm ({feed_src}) → {z0:.0} Ω. Fit the matching network (L2 series, L3 shunt) so the antenna gets its own RF_ANT net, which PCB Studio routes at the feed width.",
+            f.width_mm, feed.width_mm
+        ));
+    }
     if rf.feed.is_none() {
         notes.push(format!(
             "The RF feed is routed at {:.2} mm with {:.2} mm pour clearance → {:.0} Ω. A {:.2} mm CPWG trace with {:.2} mm gaps on this {:.2} mm stack-up is {:.1} Ω.",
             feed.width_mm, feed.gap_mm, z0, rfeed.width_mm, rfeed.gap_mm, stack_h_mm(p, &rf), rz0
         ));
     }
-    let out_metrics = build_metrics(&rf, &cur, z0, feed_src, &feed, &lk, gain, match_loss, stack_h_mm(p, &rf));
+    let out_metrics = build_metrics(&rf, &cur, z0, &feed_src, &feed, &lk, gain, match_loss, stack_h_mm(p, &rf));
     Ok(IrisOut {
         design: rf.clone(),
         stored,
@@ -376,7 +431,7 @@ pub fn iris(p: &Project) -> Result<IrisOut, String> {
         recommended_network: rec,
         recommended_summary: rec_s,
         current_feed: feed,
-        current_feed_source: feed_src.into(),
+        current_feed_source: feed_src.clone(),
         current_feed_z0: z0,
         current_feed_eeff: eeff,
         recommended_feed: rfeed,
@@ -450,7 +505,9 @@ thread_local! {
 
 /// Metrics feeding requirement verification.
 pub fn metrics(p: &Project) -> Vec<Metric> {
-    let key = crate::memo::key(&(&p.design.pcb, p.design.extra.get("rf")));
+    // the feed is read from the routed board when its layout is known
+    let ready = p.components.iter().any(|c| c.on_pcb) && crate::pcb::layout_if_ready(p).is_some();
+    let key = crate::memo::key(&(&p.design.pcb, p.design.extra.get("rf"), crate::pcb::cache_key_hex(p), ready));
     crate::memo::memo(&METRICS, key, || iris(p).map(|o| o.metrics).unwrap_or_default())
 }
 
@@ -532,18 +589,59 @@ mod tests {
         assert!(o.current_feed_z0 > 70.0, "{}", o.current_feed_z0);
         assert!(o.recommended_summary.worst_rl_db > 10.0);
         assert!((o.recommended_feed_z0 - 50.0).abs() < 1.5);
-        // applying the suggestion makes the metrics pass
+        // storing the suggestion alone fixes the match model, but the antenna
+        // still sits on the SoC's RF net, which routes at the minimum width
         let mut q = p.clone();
         q.design.extra.insert("rf".into(), o.suggested_extra.clone());
         let m = metrics(&q);
-        let get = |k: &str| m.iter().find(|x| x.key == k).unwrap().value;
-        assert!(get("rf.match_return_loss_db") > 10.0);
-        assert!((get("rf.feed_z0_ohm") - 50.0).abs() < 5.0);
-        assert!(get("rf.link_margin_db") > o.link.margin_db);
+        let get = |m: &[Metric], k: &str| m.iter().find(|x| x.key == k).unwrap().value;
+        assert!(get(&m, "rf.match_return_loss_db") > 10.0);
+        assert!(get(&m, "rf.feed_z0_ohm") > 70.0, "{}", get(&m, "rf.feed_z0_ohm"));
+        // fitting the matching parts too gives the antenna its RF_ANT net, routed at the feed width
+        for c in Project::iris()
+            .components
+            .into_iter()
+            .filter(|c| c.refdes == "L2" || c.refdes == "L3")
+        {
+            q.components.push(c);
+        }
+        let m = metrics(&q);
+        assert!((get(&m, "rf.feed_z0_ohm") - 50.0).abs() < 5.0, "{}", get(&m, "rf.feed_z0_ohm"));
+        assert!(get(&m, "rf.link_margin_db") > o.link.margin_db);
         // v0.5 has no matching parts: the rows are new refdes; v0.6 already carries L2 (series) and L3 (shunt)
         assert!(o.bom.iter().all(|b| !b.in_bom));
         let rows: Vec<(&str, bool)> = v6.bom.iter().map(|b| (b.refdes.as_str(), b.in_bom)).collect();
         assert_eq!(rows, vec![("L2", true), ("L3", true)], "{:?}", v6.bom);
+    }
+
+    /// R-037 checks the board: the metric reads the width PCB Studio routed
+    /// RF_ANT at (the baked Iris route), and that width is the stored feed's.
+    #[test]
+    fn feed_metric_reads_the_routed_width() {
+        let p = Project::iris();
+        let l = crate::pcb::layout(&p);
+        let ws: Vec<f64> = l.tracks.iter().filter(|t| t.net == "RF_ANT").map(|t| t.width).collect();
+        assert!(!ws.is_empty());
+        let stored = IrisRf::from_project(&p).feed.unwrap().width_mm;
+        assert!(ws.iter().all(|w| (w - stored).abs() < 1e-9), "{ws:?}");
+        let rf = IrisRf::from_project(&p);
+        let (f, src) = feed_as_built(&p, &rf);
+        assert!(src.starts_with("as routed by PCB Studio: RF_ANT"), "{src}");
+        assert!((f.width_mm - stored).abs() < 1e-9);
+        // hand check: a 0.91 mm CPWG with 0.20 mm gaps on 0.73 mm FR-4 is ≈ 50 Ω,
+        // the 0.127 mm minimum width ≈ 100 Ω
+        let (z, _) = feed_z0(&p, &rf, &f);
+        assert!((z - 50.0).abs() < 3.0, "{z}");
+        let mut narrow = f.clone();
+        narrow.width_mm = 0.127;
+        assert!(feed_z0(&p, &rf, &narrow).0 > 90.0);
+        let m = metrics(&p);
+        let x = m.iter().find(|x| x.key == "rf.feed_z0_ohm").unwrap();
+        assert!(
+            (x.value - z).abs() < 1e-9 && x.note.contains("as routed by PCB Studio"),
+            "{}",
+            x.note
+        );
     }
 
     #[test]
