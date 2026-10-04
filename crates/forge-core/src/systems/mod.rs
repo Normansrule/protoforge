@@ -32,6 +32,8 @@ pub mod quality;
 pub mod report;
 pub mod sensitivity;
 pub mod templates;
+pub mod wizard;
+pub mod next;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -773,7 +775,7 @@ pub fn dispatch(method: &str, input: &Value) -> Option<ApiResult> {
         "systems.template" => handle(input, |i: TemplateIn| {
             templates::template(&i.id).ok_or_else(|| format!("unknown template `{}`", i.id))
         }),
-        _ => None,
+        _ => wizard::dispatch(method, input).or_else(|| next::dispatch(method, input)),
     }
 }
 

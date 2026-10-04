@@ -1,6 +1,7 @@
 // Mission control: the verification ring, the "run full verification" sweep
 // through every lab, status by subsystem, budget margins and top risks.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { NextActions } from '../../ux/next/NextActions';
 import { Link } from 'react-router-dom';
 import { Card, Explainer } from '../../components/ui';
 import { Icon } from '../../components/Icon';
@@ -152,6 +153,10 @@ export function Overview() {
             )}
           </div>
         </div>
+      </Card>
+
+      <Card title="What should I do next?" subtitle="Open issues ranked by importance, each with the lab tab and the design parameters that move it">
+        <NextActions limit={8} />
       </Card>
 
       <div className="grid grid-2">

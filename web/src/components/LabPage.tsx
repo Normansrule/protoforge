@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { useEvaluation, useProject } from '../state/project';
 import { Chip } from './ui';
 import { fmtNum } from './Plot';
+import { LabHelp } from '../ux/help/LabHelp';
 
 export function LabPage(props: {
   kicker: string;
@@ -24,6 +25,7 @@ export function LabPage(props: {
           <div className="page-sub">{props.subtitle}</div>
           {props.metricPrefixes && <RequirementStrip prefixes={props.metricPrefixes} />}
         </div>
+        <LabHelp />
         {props.actions && <div className="row">{props.actions}</div>}
       </div>
       {props.children}

@@ -14,6 +14,8 @@ import { Architecture } from './home/Architecture';
 import { GROUPS, LABS, fmt } from './home/status';
 import { useCountUp, useNearViewport } from './home/motion';
 import './home/home.css';
+import { WelcomeCard } from '../ux/start/WelcomeCard';
+import { NextActions } from '../ux/next/NextActions';
 
 const HeroModel = lazy(() => import('./home/HeroModel'));
 
@@ -189,7 +191,12 @@ export default function Home() {
   const [filter, setFilter] = useState('All');
   return (
     <div className="hm">
+      <WelcomeCard />
       <Hero ev={ev} />
+
+      <Section id="hm-next" kicker="Next steps" title="What should I do next?" sub="The open issues on this product, most important first — each links to the lab and tab that fixes it.">
+        <NextActions limit={6} compact />
+      </Section>
 
       <Section
         id="pipeline"
