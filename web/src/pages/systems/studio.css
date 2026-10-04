@@ -48,8 +48,9 @@
 
 /* ---------- generic ---------- */
 .ss-eyebrow { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; margin: 2px 0 8px; }
-.ss-grid-hero { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; }
-@media (max-width: 1100px) { .ss-grid-hero { grid-template-columns: minmax(0, 1fr); } }
+/* verification card: ring + console on top, the lab sweep full width below (a side-by-side
+   layout centred the ring in a column as tall as the 23-lab grid, leaving a gap above it) */
+.ss-grid-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
 .ss-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; font-size: 13px; }
 .ss-kv dt { color: var(--muted); }
 .ss-kv dd { margin: 0; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
