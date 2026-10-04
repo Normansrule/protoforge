@@ -1,0 +1,157 @@
+/* Start here */
+.st { display: flex; flex-direction: column; gap: 34px; max-width: 1180px; }
+.st h2 { font-size: 22px; letter-spacing: -0.015em; }
+.st h3 { font-size: 15px; }
+
+.st-hero h1 { font-size: clamp(30px, 4.4vw, 44px); letter-spacing: -0.03em; font-weight: 800; max-width: 24ch; line-height: 1.05; }
+.st-lede { color: var(--text-2); font-size: 16px; max-width: 68ch; margin: 12px 0 0; line-height: 1.6; }
+.st-how-wrap h2 { margin-bottom: 12px; }
+
+/* How it works: one connected flow, not three loose cards */
+.st-how { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 16px; background: var(--surface-1); overflow: hidden; }
+.st-how-step { padding: 14px 18px 16px; position: relative; min-width: 0; }
+.st-how-step + .st-how-step { border-left: 1px solid var(--border); }
+.st-how-top { display: flex; align-items: center; gap: 10px; }
+.st-how-top b { font-size: 15px; }
+.st-how-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); }
+.st-how-arrow { position: absolute; right: -9px; top: 22px; width: 16px; height: 16px; z-index: 1; background: var(--surface-1); border-top: 1px solid var(--border); border-right: 1px solid var(--border); transform: rotate(45deg); }
+.st-how-step p { color: var(--text-2); font-size: 13.5px; margin: 8px 0 8px; }
+.st-how-links { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; font-weight: 600; }
+
+/* Discipline picker */
+.st-pick h2 { margin-bottom: 14px; }
+.st-roles { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 10px; }
+.st-role {
+  --role: var(--accent);
+  display: grid; grid-template-columns: 42px 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; text-align: left;
+  padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text);
+  font: inherit; cursor: pointer; transition: border-color 0.15s, background 0.15s, transform 0.15s; min-width: 0;
+}
+.st-role:hover { border-color: color-mix(in srgb, var(--role) 60%, transparent); }
+.st-role:focus-visible { outline: 2px solid var(--role); outline-offset: 2px; }
+.st-role.on { border-color: var(--role); background: color-mix(in srgb, var(--role) 12%, var(--surface-1)); box-shadow: 0 0 0 1px var(--role) inset; }
+.st-role-icon {
+  grid-row: 1 / 3; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px;
+  color: var(--role); background: color-mix(in srgb, var(--role) 14%, transparent); border: 1px solid color-mix(in srgb, var(--role) 35%, transparent);
+}
+.st-role.on .st-role-icon { background: var(--role); color: #fff; border-color: transparent; }
+.st-role-name { font-weight: 700; font-size: 14px; line-height: 1.25; }
+.st-role-labs { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+.st-norole { display: flex; gap: 10px; align-items: center; color: var(--text-2); padding: 14px 16px; border-radius: 12px; border: 1px dashed var(--border-strong); }
+.st-panel-anchor { scroll-margin-top: 70px; }
+
+/* Role panel */
+.st-panel {
+  --role: var(--accent);
+  border-radius: 20px; border: 1px solid color-mix(in srgb, var(--role) 40%, var(--border)); background: var(--surface-1); box-shadow: var(--shadow); overflow: hidden;
+  animation: st-reveal 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes st-reveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.st-panel-head {
+  display: flex; gap: 16px; align-items: flex-start; padding: 20px 22px;
+  background: linear-gradient(120deg, color-mix(in srgb, var(--role) 16%, transparent), transparent 65%); border-bottom: 1px solid var(--border);
+}
+.st-panel-head p { color: var(--text-2); margin: 6px 0 0; max-width: 72ch; font-size: 15px; }
+.st-panel-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 15px; background: var(--role); color: #fff; flex: 0 0 52px; }
+.st-panel-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 22px; padding: 20px 22px; }
+.st-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* Path: a real sequence, so it is numbered and joined by a line */
+.st-steps { list-style: none; margin: 0; padding: 0; position: relative; }
+.st-step { display: flex; gap: 14px; position: relative; padding-bottom: 16px; }
+.st-step:not(:last-child)::before { content: ''; position: absolute; left: 13px; top: 30px; bottom: 2px; width: 2px; background: color-mix(in srgb, var(--role) 35%, var(--border)); border-radius: 2px; }
+.st-step-n { flex: 0 0 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 750; font-size: 13px; color: var(--role); background: var(--surface-1); border: 2px solid var(--role); }
+.st-step-body { min-width: 0; flex: 1; }
+.st-step-where { display: inline-flex; align-items: center; gap: 6px; font-weight: 650; font-size: 14px; color: var(--text); }
+.st-step-where:hover { color: var(--accent); }
+.st-step-body p { margin: 3px 0 7px; color: var(--text-2); font-size: 13.5px; }
+.st-step-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.st-step-meta .chip { white-space: normal; text-decoration: none; }
+.st-min { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Quest */
+.st-quest {
+  align-self: start; position: sticky; top: 70px; border-radius: 16px; padding: 16px; background: var(--surface-2);
+  border: 1px solid color-mix(in srgb, var(--role) 30%, var(--border));
+}
+.st-quest.done { border-color: var(--good); }
+.st-quest-head { display: flex; gap: 12px; align-items: center; }
+.st-quest-kicker { font-size: 12px; color: var(--role); font-weight: 700; }
+.st-quest-head h3 { font-size: 17px; margin-top: 2px; }
+.st-ring-bg { fill: none; stroke: var(--border-strong); stroke-width: 5; }
+.st-ring-fg { fill: none; stroke: var(--role); stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 0.4s ease; }
+.st-quest.done .st-ring-fg { stroke: var(--good); }
+.st-ring text { fill: var(--text); font-size: 12.5px; font-weight: 700; font-family: var(--font); }
+.st-quest-goal { color: var(--text-2); font-size: 13.5px; margin: 10px 0 12px; }
+.st-quest-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.st-quest-list li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: var(--surface-1); border: 1px solid var(--border); }
+.st-quest-list li.checked label { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.st-quest-list input { accent-color: var(--role); width: 17px; height: 17px; margin: 2px 0 0; flex: 0 0 auto; cursor: pointer; }
+.st-quest-list label { flex: 1; font-size: 13.5px; color: var(--text); cursor: pointer; }
+.st-quest-go { font-size: 12.5px; font-weight: 650; flex: 0 0 auto; padding: 1px 8px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+.st-quest-go:hover { text-decoration: none; background: var(--accent-soft); }
+.st-quest-foot { margin-top: 12px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 13px; }
+.st-quest.done .st-quest-foot { color: var(--good-text); font-weight: 600; }
+
+/* Extras */
+.st-extras { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 28px; padding: 18px 22px 22px; border-top: 1px solid var(--border); }
+.st-extras h3 + p { margin: 2px 0 10px; }
+.st-labs { display: flex; flex-wrap: wrap; gap: 8px; }
+.st-lab { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; font-weight: 600; }
+.st-lab:hover { border-color: var(--role); text-decoration: none; }
+.st-lab svg { color: var(--role); }
+.st-terms { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; font-weight: 600; }
+.st-tools, .st-guides { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.st-tools li { display: flex; flex-direction: column; font-size: 13px; }
+.st-tools a, .st-tools b { font-weight: 650; font-size: 13.5px; }
+.st-tools span { color: var(--muted); }
+.st-guides a { display: inline-flex; gap: 7px; align-items: center; font-weight: 600; font-size: 13.5px; }
+
+/* Task finder */
+.st-finder { display: flex; flex-direction: column; gap: 14px; }
+.st-finder-head p { margin: 4px 0 0; }
+.st-finder-search { display: flex; align-items: center; gap: 10px; padding: 0 14px; border-radius: 14px; background: var(--surface-1); border: 1px solid var(--border-strong); color: var(--muted); max-width: 640px; }
+.st-finder-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.st-finder-search input { border: 0; background: none; padding: 12px 0; font-size: 15px; outline: none; }
+.st-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-filter button {
+  --role: var(--accent);
+  font: inherit; font-size: 12.5px; font-weight: 600; padding: 4px 11px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--surface-1); color: var(--text-2);
+}
+.st-filter button:hover { color: var(--text); border-color: var(--role); }
+.st-filter button.on { background: var(--role); border-color: transparent; color: #fff; }
+.st-filter button:focus-visible, .st-task:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.st-finder-empty { color: var(--text-2); padding: 12px 0; }
+.st-task-group h3 { --role: var(--accent); display: flex; align-items: center; gap: 8px; margin: 8px 0 8px; font-size: 14px; color: var(--text-2); }
+.st-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--role); }
+.st-tasks { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+.st-task { display: flex; flex-direction: column; gap: 3px; padding: 10px 13px; border-radius: 12px; background: var(--surface-1); border: 1px solid var(--border); color: var(--text-2); height: 100%; }
+.st-task:hover { text-decoration: none; border-color: var(--accent); }
+.st-task-title { color: var(--text); font-weight: 650; font-size: 14px; }
+.st-task-how { font-size: 13px; }
+.st-task-where { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--accent); font-weight: 600; margin-top: 2px; }
+
+@media (max-width: 960px) {
+  .st-panel-grid { grid-template-columns: minmax(0, 1fr); }
+  .st-quest { position: static; }
+}
+@media (max-width: 760px) {
+  .st-how { grid-template-columns: minmax(0, 1fr); }
+  .st-how-step + .st-how-step { border-left: 0; border-top: 1px solid var(--border); }
+  .st-how-arrow { right: auto; left: 30px; top: auto; bottom: -9px; transform: rotate(135deg); }
+  .st-extras { grid-template-columns: minmax(0, 1fr); }
+  .st-panel-head, .st-panel-grid, .st-extras { padding-left: 16px; padding-right: 16px; }
+  .st-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .st-role { grid-template-columns: 32px 1fr; grid-template-rows: auto; column-gap: 9px; padding: 9px 10px; min-height: 58px; }
+  .st-role-icon { grid-row: auto; width: 32px; height: 32px; border-radius: 10px; }
+  .st-role-icon svg { width: 18px; height: 18px; }
+  .st-role-name { font-size: 13px; }
+  .st-role-labs { display: none; }
+  .st-tasks { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-panel { animation: none; }
+  .st-ring-fg, .st-role { transition: none; }
+}
