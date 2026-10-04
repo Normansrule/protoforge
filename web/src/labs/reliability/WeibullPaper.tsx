@@ -78,6 +78,9 @@ export function WeibullPaper(props: {
   const minor: number[] = [];
   for (let e = dom.x0; e < dom.x1; e++) for (const k of [2, 3, 5, 7]) minor.push(k * 10 ** e);
   const shown = props.points.slice(0, props.reveal ?? props.points.length);
+  // While the points are being placed one by one, every fitted line, the bounds and the
+  // B-life marker wait; they appear once the last point is down (fit after data).
+  const building = props.reveal != null && props.reveal < props.points.length;
   const hv = hover && main
     ? (() => {
         const t = 10 ** (dom.x0 + ((hover.x - m.l) / iw) * (dom.x1 - dom.x0));
@@ -120,10 +123,10 @@ export function WeibullPaper(props: {
         <text x={m.l + iw / 2} y={H - 4} textAnchor="middle" className="rl-axis-label">time to failure ({props.unit || 'units'}) — log scale</text>
         <text x={12} y={m.t + ih / 2} textAnchor="middle" transform={`rotate(-90 12 ${m.t + ih / 2})`} className="rl-axis-label">unreliability F, %</text>
         {props.bounds && (
-          <>
+          <g className={building ? 'rl-hidden' : 'rl-fade'}>
             <path d={boundPath(props.bounds.lo)} fill="none" stroke="var(--series-1)" strokeWidth={1.2} strokeDasharray="5 4" opacity={0.8} />
             <path d={boundPath(props.bounds.hi)} fill="none" stroke="var(--series-1)" strokeWidth={1.2} strokeDasharray="5 4" opacity={0.8} />
-          </>
+          </g>
         )}
         {props.lines.map((l, i) => (
           <path
@@ -133,11 +136,12 @@ export function WeibullPaper(props: {
             stroke={l.color}
             strokeWidth={i === 0 ? 2.4 : 1.4}
             strokeDasharray={l.dash}
-            className={i === 0 && props.reveal != null && props.reveal < props.points.length ? 'rl-hidden' : l.dash ? undefined : 'rl-draw'}
+            className={building ? 'rl-hidden' : l.dash ? 'rl-fade' : 'rl-draw'}
+            style={!building && i > 0 ? { animationDelay: '0.35s' } : undefined}
           />
         ))}
         {bt && inside(bt) && (
-          <g>
+          <g className={building ? 'rl-hidden' : 'rl-fade'}>
             <line x1={sx(bt)} x2={sx(bt)} y1={sy(b!)} y2={m.t + ih} stroke="var(--series-2)" strokeDasharray="3 3" />
             <line x1={m.l} x2={sx(bt)} y1={sy(b!)} y2={sy(b!)} stroke="var(--series-2)" strokeDasharray="3 3" />
             <text x={sx(bt) + 4} y={m.t + ih - 5} className="rl-axis" style={{ fill: 'var(--series-2)' }}>B{+(b! * 100).toFixed(1)} = {fmt(bt)}</text>

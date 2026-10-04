@@ -19,6 +19,8 @@
 @keyframes rl-draw { from { stroke-dashoffset: 1600; } to { stroke-dashoffset: 0; } }
 .rl-draw[stroke-dasharray] { animation: none; }
 .rl-hidden { opacity: 0; }
+.rl-fade { animation: rl-fade 0.6s ease both; }
+@keyframes rl-fade { from { opacity: 0; } to { opacity: 1; } }
 
 .rl-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; color: var(--text-2); }
 .rl-legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -96,7 +98,7 @@
 .rl-wire.cut { background: repeating-linear-gradient(90deg, var(--bad) 0 2px, transparent 2px 5px); background-size: 5px 2px; opacity: 0.7; }
 .rl-rbd.flow .rl-wire:not(.cut) { animation: rl-flow 0.5s linear infinite; }
 @keyframes rl-flow { from { background-position-x: 0; } to { background-position-x: 10px; } }
-@media (prefers-reduced-motion: reduce) { .rl-rbd.flow .rl-wire { animation: none; } .rl-pt, .rl-draw { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .rl-rbd.flow .rl-wire { animation: none; } .rl-pt, .rl-draw, .rl-fade { animation: none; } }
 .rl-grp {
   border: 1px solid var(--border-strong); border-radius: 10px; padding: 6px; background: var(--surface-1); width: 186px; display: flex; flex-direction: column; gap: 4px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
