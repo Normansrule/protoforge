@@ -6,9 +6,13 @@
 //! d_i = nominal_i + [−lo_i, +hi_i]:
 //! * **worst case** — every part at its most unfavourable limit:
 //!   G_min = Σ (s_i > 0 ? d_i,min : d_i,max) … guaranteed but pessimistic;
-//! * **RSS** (root sum square) — independent, centred, normally distributed
-//!   dimensions whose ± tolerance is `k_i` standard deviations:
-//!   σ_G = √Σ (t_i / k_i)²; G = G_mean ± 3 σ_G covers 99.73 % of assemblies;
+//! * **RSS** (root sum square) — independent, centred dimensions; a normal
+//!   one whose ± tolerance t_i is `k_i` standard deviations has σ_i = t_i/k_i,
+//!   a uniform one σ_i = t_i/√3: σ_G = √Σ σ_i²; G = G_mean ± 3 σ_G covers
+//!   99.73 % of assemblies of a near-normal sum. The band is capped at the
+//!   worst case: every part lies inside its limits, so no assembly can fall
+//!   outside them — with one uniform contributor ±3σ = ±√3·t would (and
+//!   with few uniform ones the sum is not near-normal yet);
 //! * **Monte Carlo** — sample every dimension from its distribution (normal
 //!   or uniform) and count how many assemblies land inside the limits.
 //!
@@ -108,8 +112,11 @@ pub struct StackOut {
     pub worst_min: f64,
     pub worst_max: f64,
     pub rss_sigma: f64,
+    /// G_mean ∓ 3σ_G, capped at the worst-case limits.
     pub rss_min: f64,
     pub rss_max: f64,
+    /// True when ±3σ_G reached past the worst case and was capped.
+    pub rss_capped: bool,
     pub mc_mean: f64,
     pub mc_sigma: f64,
     pub mc_min: f64,
@@ -176,6 +183,9 @@ pub fn stackup(i: StackIn) -> Result<StackOut, String> {
         ranges.push(hi - lo);
     }
     let sigma = var.sqrt();
+    // ±3σ never extends past the worst case (bounded parts → bounded gap)
+    let (rss_min, rss_max) = ((mean - 3.0 * sigma).max(wmin), (mean + 3.0 * sigma).min(wmax));
+    let rss_capped = mean - 3.0 * sigma < wmin - 1e-12 || mean + 3.0 * sigma > wmax + 1e-12;
     let n = i.samples.clamp(100, 200_000);
     let mut rng = Rng::new(i.seed.max(1));
     let mut samples = Vec::with_capacity(n);
@@ -236,8 +246,9 @@ pub fn stackup(i: StackIn) -> Result<StackOut, String> {
         worst_min: wmin,
         worst_max: wmax,
         rss_sigma: sigma,
-        rss_min: mean - 3.0 * sigma,
-        rss_max: mean + 3.0 * sigma,
+        rss_min,
+        rss_max,
+        rss_capped,
         mc_mean,
         mc_sigma,
         mc_min,
@@ -924,6 +935,49 @@ mod tests {
         assert!((norm_cdf(1.0) - 0.841_344_7).abs() < 1e-6);
     }
 
+    /// A single uniform contributor: σ = t/√3, so ±3σ = ±1.73 t would lie
+    /// outside the part's own limits — the RSS band is capped at ±t.
+    #[test]
+    fn rss_never_exceeds_worst_case() {
+        let one = |dist: &str| {
+            stackup(StackIn {
+                dims: vec![Dim {
+                    nominal: 20.0,
+                    plus: 0.035,
+                    minus: 0.035,
+                    dist: dist.into(),
+                    ..Default::default()
+                }],
+                samples: 20_000,
+                ..Default::default()
+            })
+            .unwrap()
+        };
+        let u = one("uniform");
+        assert!((u.rss_sigma - 0.035 / 3f64.sqrt()).abs() < 1e-12);
+        assert!(u.rss_capped);
+        assert!((u.rss_min - u.worst_min).abs() < 1e-12 && (u.rss_max - u.worst_max).abs() < 1e-12);
+        assert!(u.mc_min >= u.worst_min && u.mc_max <= u.worst_max);
+        // one normal contributor at ±3σ: the band is exactly the worst case, not capped
+        let n = one("normal");
+        assert!(!n.rss_capped && (n.rss_max - n.worst_max).abs() < 1e-12);
+        // four equal uniforms: 3σ = √3·√4·t = 3.46 t < 4 t — RSS inside the worst case
+        let dims = (0..4)
+            .map(|_| Dim {
+                nominal: 1.0,
+                dist: "uniform".into(),
+                ..Default::default()
+            })
+            .collect();
+        let f = stackup(StackIn {
+            dims,
+            ..Default::default()
+        })
+        .unwrap();
+        assert!(!f.rss_capped && f.rss_max < f.worst_max);
+        assert!((f.rss_max - f.mean - 3.0 * 0.1 / 3f64.sqrt() * 2.0).abs() < 1e-12);
+    }
+
     #[test]
     fn focus_adjustment_absorbs_the_chain() {
         let p = crate::project::Project::iris();
@@ -945,6 +999,9 @@ mod tests {
             adj.worst_diopters
         );
         assert!(adj.worst_diopters < fixed.worst_diopters);
+        // the adjusted chain is one uniform residual: RSS is capped at the worst case
+        assert!(adj.stack.rss_capped && adj.rss_diopters <= adj.worst_diopters + 1e-12);
+        assert!(!fixed.stack.rss_capped && fixed.rss_diopters < fixed.worst_diopters);
     }
 
     #[test]

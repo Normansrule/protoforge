@@ -135,6 +135,8 @@ export interface StackOut {
   rss_sigma: number;
   rss_min: number;
   rss_max: number;
+  /** ±3σ reached past the worst case and was capped there. */
+  rss_capped?: boolean;
   mc_mean: number;
   mc_sigma: number;
   mc_min: number;

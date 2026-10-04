@@ -510,10 +510,19 @@ fn metrics_uncached(p: &Project) -> Vec<Metric> {
         Metric::new("structures.first_mode_hz", "First bending mode of the right temple", o.modal.first_mode_hz, "Hz", src)
             .with_note("Euler–Bernoulli beam from voxel slices, clamped at the hinge, electronics as added mass"),
         Metric::new("structures.focus_error_worst_d", "Display focus error, worst case", o.focus.worst_diopters, "D", src).with_note(&format!(
-            "display-to-lens chain ±{:.2} mm worst case × {:.2} D/mm; RSS {:.2} D; allowance ±{:.2} D",
+            "display-to-lens chain ±{:.3} mm worst case × {:.2} D/mm; RSS {:.2} D{}; allowance ±{:.2} D",
             0.5 * (o.focus.stack.worst_max - o.focus.stack.worst_min),
             o.focus.sensitivity_d_per_mm,
             o.focus.rss_diopters,
+            if o.focus.stack.rss_capped {
+                format!(
+                    " (= worst case: {}, σ = half-range/√3, so ±3σ would lie outside {} own limits and is capped there)",
+                    if o.focus.dims.len() == 1 { "one uniform contributor".to_string() } else { format!("{} contributors", o.focus.dims.len()) },
+                    if o.focus.dims.len() == 1 { "its" } else { "the parts'" }
+                )
+            } else {
+                String::new()
+            },
             o.focus.allowable_d
         )),
     ];

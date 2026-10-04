@@ -198,7 +198,7 @@ function Results({ stack: s, focus }: { stack: StackOut; focus: FocusStackOut | 
       <Card title="Results" subtitle={`Limits: ${s.lower != null ? `≥ ${fmt(s.lower, 3)} mm` : ''}${s.lower != null && s.upper != null ? ' and ' : ''}${s.upper != null ? `≤ ${fmt(s.upper, 3)} mm` : ''}`}>
         <div className="grid grid-2">
           <Stat label="Worst case" value={`${fmt(s.worst_min, 3)} … ${fmt(s.worst_max, 3)}`} unit="mm" tone={passWorst ? 'pass' : 'fail'} note={passWorst ? '✓ always inside the limits' : '✕ some combinations fall outside'} />
-          <Stat label="RSS ±3σ" value={`${fmt(s.rss_min, 3)} … ${fmt(s.rss_max, 3)}`} unit="mm" note={`σ = ${fmt(s.rss_sigma * 1000, 1)} µm, yield ${fmt(s.rss_yield_pct, 3)} %`} />
+          <Stat label="RSS ±3σ" value={`${fmt(s.rss_min, 3)} … ${fmt(s.rss_max, 3)}`} unit="mm" note={`σ = ${fmt(s.rss_sigma * 1000, 1)} µm, yield ${fmt(s.rss_yield_pct, 3)} %${s.rss_capped ? ' · capped at the worst case' : ''}`} />
           <Stat label="Monte Carlo yield" value={fmt(s.yield_pct, 3)} unit="%" tone={s.yield_pct >= 99.73 ? 'pass' : s.yield_pct >= 95 ? 'warn' : 'fail'} note={`${fmt(s.mc_mean, 3)} ± ${fmt(s.mc_sigma * 1000, 1)} µm (1σ)`} />
           <Stat label="Process capability C_pk" value={fmt(s.cpk, 2)} tone={s.cpk >= 1.33 ? 'pass' : s.cpk >= 1 ? 'warn' : 'fail'} note="≥ 1.33 is a common target" />
         </div>
