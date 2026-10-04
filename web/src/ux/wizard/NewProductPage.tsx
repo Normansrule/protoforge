@@ -2,7 +2,7 @@
 // project whose requirements are bound only to metrics the engine really
 // computes from that project's own data (systems.wizard in Rust). The live
 // preview evaluates the generated project in the Web Worker.
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Chip, DownloadButton, Explainer, Slider } from '../../components/ui';
 import { Icon } from '../../components/Icon';
@@ -121,6 +121,8 @@ function Wizard({ o }: { o: WizardOptions }) {
   const input = useMemo(() => ({ ...answers, name: answers.name.trim() || undefined }), [answers]);
   const out = useCompute<WizardOut>('systems.wizard', input, !!answers.kind);
   const gen = out.data;
+  // useCompute defers its input; this matches it, so `genFresh` is false while the preview catches up
+  const genFresh = useDeferredValue(input) === input;
   const evalState = usePreviewEvaluation(gen?.project ?? null);
 
   const kind = o.kinds.find((k) => k.id === answers.kind) ?? o.kinds[0];
@@ -187,7 +189,7 @@ function Wizard({ o }: { o: WizardOptions }) {
           </h2>
           {step === 0 && <Describe answers={answers} setAnswers={setAnswers} o={o} onLoad={(p, label) => setConfirm({ project: p, label })} />}
           {step === 1 && <KindStep o={o} kind={kind} pick={pickKind} />}
-          {step === 2 && <CapStep o={o} answers={answers} resolved={gen?.capabilities ?? answers.capabilities} toggle={toggleCap} />}
+          {step === 2 && <CapStep o={o} answers={answers} resolved={gen?.capabilities ?? answers.capabilities} fresh={genFresh && !!gen} toggle={toggleCap} />}
           {step === 3 && (
             <TargetStep o={o} answers={answers} set={setTarget} reset={() => setAnswers((a) => ({ ...a, targets: { ...kind.defaults } }))} />
           )}
@@ -358,7 +360,7 @@ function KindStep({ o, kind, pick }: { o: WizardOptions; kind: KindOption; pick:
 // Step 3 — capabilities
 // ---------------------------------------------------------------------------
 
-function CapStep({ o, answers, resolved, toggle }: { o: WizardOptions; answers: Answers; resolved: string[]; toggle: (c: CapOption) => void }) {
+function CapStep({ o, answers, resolved, fresh, toggle }: { o: WizardOptions; answers: Answers; resolved: string[]; fresh: boolean; toggle: (c: CapOption) => void }) {
   const [focus, setFocus] = useState<CapOption | null>(null);
   const groups = useMemo(() => {
     const g: { name: string; caps: CapOption[] }[] = [];
@@ -380,10 +382,12 @@ function CapStep({ o, answers, resolved, toggle }: { o: WizardOptions; answers: 
             {g.caps.map((c) => {
               const chosen = answers.capabilities.includes(c.id);
               const auto = !chosen && resolved.includes(c.id);
+              // chosen but swapped out by the wizard (e.g. a coin cell too small for the energy needed)
+              const replaced = fresh && chosen && !resolved.includes(c.id);
               return (
                 <button
                   key={c.id}
-                  className={`wz-cap ${auto ? 'auto' : ''}`}
+                  className={`wz-cap ${auto ? 'auto' : ''} ${replaced ? 'replaced' : ''}`}
                   aria-pressed={chosen || auto}
                   aria-describedby="wz-cap-help"
                   title={c.help}
@@ -393,8 +397,9 @@ function CapStep({ o, answers, resolved, toggle }: { o: WizardOptions; answers: 
                   onMouseLeave={() => setFocus(null)}
                 >
                   <span className="tick" aria-hidden="true">{chosen || auto ? '✓' : ''}</span>
-                  {c.name}
+                  <span className="nm">{c.name}</span>
                   {auto && <span className="auto-tag">auto</span>}
+                  {replaced && <span className="auto-tag" title="The wizard replaced this choice — see the warnings in the preview">replaced</span>}
                 </button>
               );
             })}
@@ -408,7 +413,7 @@ function CapStep({ o, answers, resolved, toggle }: { o: WizardOptions; answers: 
             {shown.excludes.length > 0 && <span className="muted"> Replaces {shown.excludes.map((x) => o.capabilities.find((c) => c.id === x)?.name.toLowerCase()).join(', ')}.</span>}
           </>
         ) : (
-          <span className="muted">Point at or focus a capability to read what it adds. Dashed chips marked “auto” were added by the wizard (a power source, a charge input or an enclosure process chosen from your quantity).</span>
+          <span className="muted">Point at or focus a capability to read what it adds. Dashed chips marked “auto” were added by the wizard (a power source, a charge input or an enclosure process chosen from your quantity); “replaced” marks a choice it had to swap, with the reason in the warnings.</span>
         )}
       </div>
     </>
@@ -488,22 +493,24 @@ function Preview({ gen, o, ev }: { gen: WizardOut | null | undefined; o: WizardO
   const results = new Map<string, ReqResult>((ev.ev?.results ?? []).map((r) => [r.id, r]));
   const bound = p.requirements.filter((r) => r.verification.metric);
   const npass = ev.fresh ? bound.filter((r) => results.get(r.id)?.status === 'pass').length : null;
-  const nfail = ev.fresh ? bound.filter((r) => results.get(r.id)?.status === 'fail').length : null;
-  const tabs: { id: PvTab; label: string; n?: number }[] = [
-    { id: 'arch', label: 'Architecture', n: p.subsystems.length },
-    { id: 'bom', label: 'Parts', n: p.components.length },
-    { id: 'reqs', label: 'Requirements', n: p.requirements.length },
-    { id: 'why', label: 'Why?', n: gen.explanations.length },
-    { id: 'labs', label: 'Labs' },
+  const nfail = ev.fresh ? bound.filter((r) => results.get(r.id)?.status === 'fail' && r.kind !== 'goal').length : null;
+  const ngoal = ev.fresh ? bound.filter((r) => results.get(r.id)?.status === 'fail' && r.kind === 'goal').length : 0;
+  // `short` labels are shown when the preview column is narrow (container query in wizard.css)
+  const tabs: { id: PvTab; label: string; short: string; n?: number }[] = [
+    { id: 'arch', label: 'Architecture', short: 'Blocks', n: p.subsystems.length },
+    { id: 'bom', label: 'Parts', short: 'Parts', n: p.components.length },
+    { id: 'reqs', label: 'Requirements', short: 'Reqs', n: p.requirements.length },
+    { id: 'why', label: 'Why?', short: 'Why?', n: gen.explanations.length },
+    { id: 'labs', label: 'Labs', short: 'Labs' },
   ];
   return (
-    <section className="card">
+    <section className="card wz-pv">
       <div className="wz-pv-head">
         <h3>{p.meta.name}</h3>
         <span className="grow" />
         {ev.fresh ? (
-          <Chip tone={nfail ? 'warn' : 'pass'} title="Requirements bound to metrics, evaluated in the background">
-            {nfail ? `${npass} pass · ${nfail} fail` : `✓ ${npass}/${bound.length} pass`}
+          <Chip tone={nfail ? 'fail' : ngoal ? 'warn' : 'pass'} title="Requirements bound to metrics, evaluated in the background">
+            {nfail || ngoal ? `${npass} pass${nfail ? ` · ${nfail} fail` : ''}${ngoal ? ` · ${ngoal} open goal${ngoal === 1 ? '' : 's'}` : ''}` : `✓ ${npass}/${bound.length} pass`}
           </Chip>
         ) : (
           <Chip tone="info"><span className="wz-pulse" aria-hidden="true" /> verifying…</Chip>
@@ -521,8 +528,10 @@ function Preview({ gen, o, ev }: { gen: WizardOut | null | undefined; o: WizardO
       </div>
       <div className="wz-tabs" role="tablist" aria-label="Preview">
         {tabs.map((t) => (
-          <button key={t.id} role="tab" id={`wz-tab-${t.id}`} aria-controls={`wz-panel-${t.id}`} aria-selected={tab === t.id} className="wz-tab" onClick={() => setTab(t.id)}>
-            {t.label}{t.n != null && <span className="cnt">{t.n}</span>}
+          <button key={t.id} role="tab" id={`wz-tab-${t.id}`} aria-controls={`wz-panel-${t.id}`} aria-selected={tab === t.id} aria-label={t.n != null ? `${t.label} (${t.n})` : t.label} title={t.label} className="wz-tab" onClick={() => setTab(t.id)}>
+            <span className={t.short !== t.label ? 'lg' : undefined} aria-hidden="true">{t.label}</span>
+            {t.short !== t.label && <span className="sm" aria-hidden="true">{t.short}</span>}
+            {t.n != null && <span className="cnt" aria-hidden="true">{t.n}</span>}
           </button>
         ))}
       </div>
@@ -625,7 +634,7 @@ function ReqTab({ p, results, fresh, error }: { p: Project; results: Map<string,
           {live ? (
             res ? (
               <>
-                <Chip tone={res.status === 'pass' ? 'pass' : res.status === 'fail' ? 'fail' : undefined}>{res.status === 'pass' ? '✓ pass' : res.status === 'fail' ? '✕ fail' : '○ —'}</Chip>
+                <Chip tone={res.status === 'pass' ? 'pass' : res.status === 'fail' ? (r.kind === 'goal' ? 'warn' : 'fail') : undefined}>{res.status === 'pass' ? '✓ pass' : res.status === 'fail' ? (r.kind === 'goal' ? '! open goal' : '✕ fail') : '○ —'}</Chip>
                 {res.value != null && <span className="val">{fmtNum(res.value)} {res.unit}</span>}
               </>
             ) : <Chip tone="info">…</Chip>

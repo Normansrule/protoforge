@@ -227,6 +227,12 @@ pub const COINS: &[Coin] = &[
     },
 ];
 
+/// The smallest coin-cell class that stores `required_mah`, or `None` when
+/// even the largest is too small.
+pub fn coin_for(required_mah: f64) -> Option<usize> {
+    COINS.iter().position(|c| c.mah >= required_mah)
+}
+
 /// Display module class for a product kind: (name, class, cost, mass, active mW, sleep mW).
 pub fn display_for(kind: &str) -> (&'static str, &'static str, f64, f64, f64, f64) {
     match kind {

@@ -260,8 +260,16 @@ fn coin_cell_sensor_lasts_a_year() {
     assert!(p.design.battery.chemistry.contains("coin"));
     let life = roll_up(p, "life");
     assert!(life >= 8760.0, "{life}");
-    // a camera on a coin cell is flagged and the peak requirement fails
+    // a camera drains more than any coin cell holds over a year: switched to a LiPo, with a warning
     let cam = gen("iot_sensor", Some(&["coin_cell", "ble", "camera"]), &[]);
+    assert!(cam
+        .warnings
+        .iter()
+        .any(|w| w.level == "warn" && w.text.contains("No coin cell is big enough")));
+    assert_eq!(cam.project.design.battery.chemistry, "LiPo");
+    // over a short life the coin cell stores enough energy, but its pulses are flagged and the peak requirement fails
+    let cam = gen("iot_sensor", Some(&["coin_cell", "ble", "camera"]), &[("life_h", 24.0)]);
+    assert!(cam.project.design.battery.chemistry.contains("coin"));
     assert!(cam.warnings.iter().any(|w| w.level == "warn" && w.text.contains("Coin cell")));
     let peak = metric(&cam.project, crate::power::metrics, "power.peak_power_mw");
     assert!(peak > 45.0, "{peak}");
@@ -477,4 +485,47 @@ fn dump() {
             println!("   # {} — {}", e.title, e.result);
         }
     }
+}
+
+#[test]
+fn coin_cell_trade_sizing_and_warnings_agree() {
+    let decision = |o: &WizardOut| o.project.trades[0].decision.clone();
+    // the trade picks the same coin class the sizing picked, for short to long life targets
+    for life in [500.0, 4000.0, 8760.0, 15000.0] {
+        let o = gen("iot_sensor", Some(&["coin_cell", "ble", "env_sensors"]), &[("life_h", life)]);
+        let b = &o.project.design.battery;
+        if b.chemistry.contains("coin") {
+            let coin = parts::COINS.iter().find(|c| c.mah == b.capacity_mah).unwrap();
+            assert_eq!(decision(&o), format!("{} coin cell", coin.name), "life {life}");
+            assert!(!o.warnings.iter().any(|w| w.text.contains("cannot reach")), "life {life}");
+        } else {
+            assert!(decision(&o).ends_with("LiPo"), "life {life}: {}", decision(&o));
+        }
+    }
+    // display + microphones need more than the biggest coin cell holds: a LiPo is sized instead
+    let o = gen(
+        "iot_sensor",
+        Some(&["coin_cell", "ble", "env_sensors", "display", "microphones"]),
+        &[],
+    );
+    let b = &o.project.design.battery;
+    assert_eq!(b.chemistry, "LiPo");
+    assert!(b.capacity_mah > parts::COINS.last().unwrap().mah);
+    assert!(o.capabilities.contains(&"battery".to_string()) && o.capabilities.contains(&"usb_c".to_string()));
+    assert!(!o.capabilities.contains(&"coin_cell".to_string()));
+    assert_eq!(decision(&o), format!("{} mAh LiPo", fmt(b.capacity_mah)));
+    assert!(o
+        .warnings
+        .iter()
+        .any(|w| w.level == "warn" && w.text.starts_with("No coin cell is big enough")));
+    assert!(!o
+        .warnings
+        .iter()
+        .any(|w| w.text.contains("Coin cell +") || w.text.contains("cannot reach")));
+    assert!(!o.project.components.iter().any(|c| c.name.contains("coin")));
+    // a coin cell that suffices is kept
+    let ok = gen("iot_sensor", Some(&["coin_cell", "ble", "env_sensors", "display"]), &[]);
+    assert!(ok.project.design.battery.chemistry.contains("coin"));
+    assert_eq!(decision(&ok), "CR2450-class coin cell");
+    assert!(parts::coin_for(225.0) == Some(0) && parts::coin_for(226.0) == Some(1) && parts::coin_for(621.0).is_none());
 }

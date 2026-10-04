@@ -661,7 +661,7 @@ impl Ctx {
             let usable = 0.85;
             let v = 3.0;
             let req = avg_mw * life * margin / (v * usable);
-            let idx = parts::COINS.iter().position(|c| c.mah >= req).unwrap_or(parts::COINS.len() - 1);
+            let idx = parts::coin_for(req).unwrap_or(parts::COINS.len() - 1);
             let coin = &parts::COINS[idx];
             Battery {
                 source: Source::Coin(idx),
@@ -2008,6 +2008,40 @@ pub fn process_cost(process: &str, volume_cm3: f64, mass_g: f64, longest_mm: f64
 pub fn generate(a: &Answers) -> Result<WizardOut, String> {
     let mut c = Ctx::new(a)?;
     c.size();
+    if c.has("coin_cell") && parts::coin_for(c.battery.required_mah).is_none() {
+        // No primary coin cell stores enough: size a rechargeable cell instead,
+        // so the trade study, the sizing and the warnings all describe one battery.
+        let biggest = &parts::COINS[parts::COINS.len() - 1];
+        let note = format!(
+            "No coin cell is big enough: {} mW for {} h needs {} mAh at 3 V, more than a {} cell's {} mAh (typical). Switched to a rechargeable LiPo cell with USB-C charging — or lower the duty cycles and drop power-hungry capabilities to stay on a coin cell.",
+            fmt(c.avg_mw),
+            fmt(c.tv("life_h")),
+            fmt(c.battery.required_mah),
+            biggest.name,
+            fmt(biggest.mah)
+        );
+        let asked: Vec<String> = match &a.capabilities {
+            Some(v) => v.clone(),
+            None => c.kind.default_caps.iter().map(|s| s.to_string()).collect(),
+        };
+        let caps = asked
+            .into_iter()
+            .map(|x| if x.trim() == "coin_cell" { "battery".to_string() } else { x })
+            .collect();
+        c = Ctx::new(&Answers {
+            capabilities: Some(caps),
+            ..a.clone()
+        })?;
+        // first in the list: it explains why the battery differs from what was asked for
+        c.warnings.insert(
+            0,
+            Warning {
+                level: "warn".into(),
+                text: note,
+            },
+        );
+        c.size();
+    }
     c.explain_power();
     let project = c.assemble();
     let labs = c.finish(&project);

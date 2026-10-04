@@ -1473,11 +1473,12 @@ impl Ctx {
                     .collect(),
             }
         } else if self.has("coin_cell") {
-            let rows: Vec<(String, f64, f64, f64)> = vec![
-                ("CR2032-class coin cell".into(), 225.0 * 3.0 * 0.85, 3.0, 0.3),
-                ("CR2450-class coin cell".into(), 620.0 * 3.0 * 0.85, 6.8, 0.5),
-                ("2 × AAA alkaline cells".into(), 1100.0 * 3.0 * 0.8, 23.0, 0.8),
-            ];
+            // the same coin classes (and usable fraction) the sizing picks from
+            let mut rows: Vec<(String, f64, f64, f64)> = super::parts::COINS
+                .iter()
+                .map(|c| (format!("{} coin cell", c.name), c.mah * 3.0 * 0.85, c.mass_g, c.cost))
+                .collect();
+            rows.push(("2 × AAA alkaline cells".into(), 1100.0 * 3.0 * 0.8, 23.0, 0.8));
             let life_t = self.tv("life_h");
             let lives: Vec<f64> = rows.iter().map(|r| r.1 / self.avg_mw.max(1e-9)).collect();
             let lifescore = |life: f64| {

@@ -58,6 +58,10 @@
 .wz-cap[aria-pressed='true'] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
 .wz-cap[aria-pressed='true'] .tick { background: var(--accent); border-color: var(--accent); color: #fff; }
 .wz-cap.auto { border-style: dashed; }
+.wz-cap.replaced { border-style: dashed; border-color: var(--border-strong); color: var(--muted); background: var(--surface-2); }
+.wz-cap.replaced .nm { text-decoration: line-through; }
+.wz-cap.replaced .tick { background: transparent; border-color: var(--border-strong); color: var(--muted); }
+.wz-cap.replaced .auto-tag { color: var(--warn-text); }
 .wz-cap .auto-tag { font-size: 10.5px; font-weight: 600; color: var(--accent-2); }
 .wz-help { min-height: 64px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 0 9px 9px 0; padding: 9px 12px; font-size: 13px; color: var(--text-2); margin-top: 6px; }
 .wz-help b { color: var(--text); }
@@ -79,8 +83,15 @@
 .wz-stat .v { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wz-stat .v small { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-left: 3px; }
 .wz-stat .n { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wz-tabs { display: flex; flex-wrap: wrap; gap: 0 2px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
-.wz-tab { font: inherit; font-size: 13px; font-weight: 600; color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 7px 8px; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+/* One row at every width: the tabs share the row; a narrow preview column (two-column
+   layout near 1180 px, or a phone) swaps in short labels, then drops the counts. */
+.wz-pv { container-type: inline-size; }
+.wz-tabs { display: flex; flex-wrap: nowrap; gap: 0; box-shadow: inset 0 -1px 0 var(--border); margin-bottom: 12px; overflow-x: auto; scrollbar-width: none; }
+.wz-tabs::-webkit-scrollbar { display: none; }
+.wz-tab { flex: 1 0 auto; justify-content: center; font: inherit; font-size: 13px; font-weight: 600; color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent; padding: 7px 6px; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+.wz-tab .sm { display: none; }
+@container (max-width: 500px) { .wz-tab .lg { display: none; } .wz-tab .sm { display: inline; } }
+@container (max-width: 360px) { .wz-tab { padding: 7px 4px; } .wz-tab .cnt { display: none; } }
 .wz-tab[aria-selected='true'] { color: var(--text); border-bottom-color: var(--accent); }
 .wz-tab .cnt { font-size: 11px; color: var(--muted); background: var(--surface-3); border-radius: 8px; padding: 0 6px; }
 .wz-arch text { pointer-events: none; }
