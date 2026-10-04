@@ -62,7 +62,9 @@ function defaults(): Prefs {
   // A first visit starts in Simple mode; someone who already has a saved
   // project from before this feature existed keeps the full sidebar they know.
   const returning = storageGet(PROJECT_KEY) !== null;
-  return { role: null, mode: returning ? 'expert' : 'simple', welcomeDismissed: false, quests: {}, recent: [], helpSeen: [], allLabsOpen: false };
+  // Until a discipline is chosen, Simple mode has no "Your labs" to show, so "All labs"
+  // starts unfolded; choosing a discipline folds it (see setRole).
+  return { role: null, mode: returning ? 'expert' : 'simple', welcomeDismissed: false, quests: {}, recent: [], helpSeen: [], allLabsOpen: true };
 }
 
 function load(): Prefs {
@@ -78,7 +80,7 @@ function load(): Prefs {
       quests: p.quests && typeof p.quests === 'object' ? p.quests : {},
       recent: Array.isArray(p.recent) ? p.recent.filter((r) => r && typeof r.id === 'string').slice(0, 8) : [],
       helpSeen: Array.isArray(p.helpSeen) ? p.helpSeen.filter((x) => typeof x === 'string') : [],
-      allLabsOpen: !!p.allLabsOpen,
+      allLabsOpen: typeof p.allLabsOpen === 'boolean' ? p.allLabsOpen : base.allLabsOpen,
     };
   } catch {
     return base;
@@ -97,7 +99,7 @@ export const usePrefs = create<PrefsState>((set, get) => {
   };
   return {
     ...load(),
-    setRole: (role) => apply({ role }),
+    setRole: (role) => apply(role && !get().role ? { role, allLabsOpen: false } : { role }),
     setMode: (mode) => apply({ mode }),
     toggleMode: () => apply({ mode: get().mode === 'simple' ? 'expert' : 'simple' }),
     dismissWelcome: () => apply({ welcomeDismissed: true }),
