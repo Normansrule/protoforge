@@ -6,31 +6,50 @@ import type { FluidsDesign } from './types';
 
 // ------------------------------------------------------------------ worker
 
-let worker: Worker | null = null;
+// One worker per "lane": the steady solves share `main`; the long transient gets its
+// own lane so it never queues behind (or blocks) them, and can be cancelled by
+// terminating its worker.
+const workers = new Map<string, Worker>();
 let seq = 0;
-const pending = new Map<number, { resolve: (v: { data: unknown; ms: number }) => void; reject: (e: Error) => void }>();
+const pending = new Map<number, { lane: string; resolve: (v: { data: unknown; ms: number }) => void; reject: (e: Error) => void }>();
 
-function getWorker(): Worker {
-  if (!worker) {
-    worker = new Worker(new URL('./engineWorker.ts', import.meta.url), { type: 'module' });
-    worker.onmessage = (e: MessageEvent<{ id: number; ok: unknown; error: string | null; ms: number }>) => {
+function getWorker(lane: string): Worker {
+  let w = workers.get(lane);
+  if (!w) {
+    w = new Worker(new URL('./engineWorker.ts', import.meta.url), { type: 'module' });
+    w.onmessage = (e: MessageEvent<{ id: number; ok: unknown; error: string | null; ms: number }>) => {
       const p = pending.get(e.data.id);
       if (!p) return;
       pending.delete(e.data.id);
       if (e.data.error) p.reject(new Error(e.data.error));
       else p.resolve({ data: e.data.ok, ms: e.data.ms });
     };
+    workers.set(lane, w);
   }
-  return worker;
+  return w;
 }
 
-/** Call an engine method in the Thermal & Fluids worker. */
-export function workerCall<T>(method: string, input: unknown): Promise<{ data: T; ms: number }> {
+/** Call an engine method in a Thermal & Fluids worker (`lane` picks which one). */
+export function workerCall<T>(method: string, input: unknown, lane = 'main'): Promise<{ data: T; ms: number }> {
   const id = ++seq;
   return new Promise((resolve, reject) => {
-    pending.set(id, { resolve: resolve as (v: { data: unknown; ms: number }) => void, reject });
-    getWorker().postMessage({ id, method, input });
+    pending.set(id, { lane, resolve: resolve as (v: { data: unknown; ms: number }) => void, reject });
+    getWorker(lane).postMessage({ id, method, input });
   });
+}
+
+/** Stop everything running in `lane` now (terminates its worker; the next call starts a fresh one). */
+export function cancelLane(lane: string) {
+  const w = workers.get(lane);
+  if (!w) return;
+  w.terminate();
+  workers.delete(lane);
+  for (const [id, p] of pending) {
+    if (p.lane === lane) {
+      pending.delete(id);
+      p.reject(new Error('cancelled'));
+    }
+  }
 }
 
 export interface WorkerState<T> {
