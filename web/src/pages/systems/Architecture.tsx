@@ -143,9 +143,10 @@ function BlockDiagram({ sel, setSel }: { sel: string | null; setSel: (s: string 
   const connected = (id: string) => project.interfaces.some((i) => (i.from === sel && i.to === id) || (i.to === sel && i.from === id));
   const statusOf = (sid: string) => {
     const reqs = project.requirements.map((r, k) => ({ r, res: ev?.results[k] })).filter(({ r }) => r.allocated_to.includes(sid));
-    const f = reqs.filter((x) => x.res?.status === 'fail').length;
+    const f = reqs.filter((x) => x.res?.status === 'fail' && x.r.kind !== 'goal').length;
+    const g = reqs.filter((x) => x.res?.status === 'fail' && x.r.kind === 'goal').length; // open stretch goals
     const p = reqs.filter((x) => x.res?.status === 'pass').length;
-    return { n: reqs.length, p, f };
+    return { n: reqs.length, p, f, g };
   };
   const kinds = [...new Set(project.interfaces.map((i) => i.kind.toUpperCase()))];
   return (
@@ -187,12 +188,12 @@ function BlockDiagram({ sel, setSel }: { sel: string | null; setSel: (s: string 
                 onClick={() => setSel(sel === p.s.id ? null : p.s.id)} role="button" tabIndex={0} aria-label={`${p.s.name}, ${st.p} of ${st.n} requirements pass`}
                 onKeyDown={(e) => { if (e.key === 'Enter') setSel(sel === p.s.id ? null : p.s.id); }}>
                 <rect className="body" width={BW} height={BH} rx={10} />
-                <rect width={4} height={BH - 16} x={0} y={8} rx={2} fill={st.f > 0 ? 'var(--bad)' : st.n > 0 && st.p === st.n ? 'var(--good)' : 'var(--muted)'} />
+                <rect width={4} height={BH - 16} x={0} y={8} rx={2} fill={st.f > 0 ? 'var(--bad)' : st.g > 0 ? 'var(--warn)' : st.n > 0 && st.p === st.n ? 'var(--good)' : 'var(--muted)'} />
                 <text x={14} y={21} fontSize={13} fontWeight={650} fill="var(--text)">{p.s.name.length > 21 ? p.s.name.slice(0, 20) + '…' : p.s.name}</text>
                 <text x={14} y={38} fontSize={10.5} fill="var(--muted)" fontFamily="var(--mono)">{p.s.id}</text>
                 <text x={14} y={51} fontSize={10.5} fill="var(--text-2)">{lab ? lab.title : 'no lab'}</text>
-                <text x={BW - 10} y={38} fontSize={11} textAnchor="end" fill={st.f > 0 ? 'var(--bad-text)' : 'var(--text-2)'} fontWeight={700}>
-                  {st.n ? `${st.f > 0 ? '✕' : st.p === st.n ? '✓' : '○'} ${st.p}/${st.n}` : '—'}
+                <text x={BW - 10} y={38} fontSize={11} textAnchor="end" fill={st.f > 0 ? 'var(--bad-text)' : st.g > 0 ? 'var(--warn-text)' : 'var(--text-2)'} fontWeight={700}>
+                  {st.n ? `${st.f > 0 ? '✕' : st.g > 0 ? '!' : st.p === st.n ? '✓' : '○'} ${st.p}/${st.n}` : '—'}
                 </text>
               </g>
             );

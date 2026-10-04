@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useCompute } from '../engine/hooks';
 import { useEvaluation, useProject } from '../state/project';
 import { Icon } from '../components/Icon';
+import { plural } from '../components/reqStatus';
 import { StudioContext, recordEvaluation, useStudio, type StudioCtx, type TabId } from './systems/shared';
 import type { Studio } from './systems/types';
 import { Overview } from './systems/Overview';
@@ -117,7 +118,8 @@ export default function Systems() {
 function tabCounts(c: StudioCtx): Partial<Record<TabId, ReactNode>> {
   const s = c.studio;
   const dot = (color: string, title: string) => <span className="ss-dot" style={{ background: color }} title={title} aria-label={title} />;
-  const fail = c.ev?.fail ?? 0;
+  const goals = c.ev?.open_goals ?? 0;
+  const fail = (c.ev?.fail ?? 0) - goals;
   const highRisks = s?.fmea.filter((r) => r.level === 'high').length ?? 0;
   const disagree = s?.trades.filter((t) => !t.decision_agrees).length ?? 0;
   const lintErr = s?.quality.filter((q) => q.severity === 'error').length ?? 0;
@@ -125,7 +127,7 @@ function tabCounts(c: StudioCtx): Partial<Record<TabId, ReactNode>> {
     requirements: (
       <>
         <span className="ss-num">{c.project.requirements.length}</span>
-        {(fail > 0 || lintErr > 0) && dot('var(--bad)', `${fail} failing, ${lintErr} lint errors`)}
+        {(fail > 0 || lintErr > 0) ? dot('var(--bad)', `${fail} failing, ${plural(goals, 'open goal')}, ${lintErr} lint errors`) : goals > 0 && dot('var(--warn)', plural(goals, 'open goal'))}
       </>
     ),
     risks: highRisks > 0 ? <><span className="ss-num">{c.project.risks.length}</span>{dot('var(--warn)', `${highRisks} high risks`)}</> : <span className="ss-num">{c.project.risks.length}</span>,
@@ -137,8 +139,9 @@ function tabCounts(c: StudioCtx): Partial<Record<TabId, ReactNode>> {
 function Hero() {
   const { project, ev, studio, go } = useStudio();
   const m = project.meta;
-  const pass = ev?.pass ?? 0, fail = ev?.fail ?? 0, unv = ev?.unverified ?? 0;
-  const total = pass + fail + unv;
+  const goal = ev?.open_goals ?? 0;
+  const pass = ev?.pass ?? 0, fail = (ev?.fail ?? 0) - goal, unv = ev?.unverified ?? 0;
+  const total = pass + fail + goal + unv;
   return (
     <header className="ss-hero">
       <div style={{ minWidth: 0 }}>
@@ -156,10 +159,11 @@ function Hero() {
         </div>
       </div>
       <div className="ss-hero-right">
-        <MiniRing pass={pass} fail={fail} unv={unv} />
+        <MiniRing pass={pass} fail={fail} goal={goal} unv={unv} />
         <div className="ss-hero-legend" aria-label="Requirement status">
           <span className="k"><span className="ss-sw" style={{ background: 'var(--good)' }} />✓ pass <b>{pass}</b></span>
           <span className="k"><span className="ss-sw" style={{ background: 'var(--bad)' }} />✕ fail <b>{fail}</b></span>
+          {goal > 0 && <span className="k" title="Stretch goals (requirements of kind “goal”) not met yet"><span className="ss-sw" style={{ background: 'var(--warn)' }} />! {goal === 1 ? 'open goal' : 'open goals'} <b>{goal}</b></span>}
           <span className="k"><span className="ss-sw" style={{ background: 'var(--muted)', opacity: 0.5 }} />○ unverified <b>{unv}</b></span>
           <span className="muted small">{total ? `${Math.round((pass / total) * 100)} % verified` : 'no requirements yet'}</span>
         </div>
@@ -168,22 +172,23 @@ function Hero() {
   );
 }
 
-function MiniRing({ pass, fail, unv }: { pass: number; fail: number; unv: number }) {
+function MiniRing({ pass, fail, goal, unv }: { pass: number; fail: number; goal: number; unv: number }) {
   const size = 96, stroke = 10, r = (size - stroke) / 2, C = 2 * Math.PI * r;
-  const total = Math.max(1, pass + fail + unv);
+  const n = pass + fail + goal + unv;
+  const total = Math.max(1, n);
   let acc = 0;
   return (
-    <svg width={size} height={size} role="img" aria-label={`${pass} of ${pass + fail + unv} pass`}>
+    <svg width={size} height={size} role="img" aria-label={`${pass} of ${n} pass`}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--surface-3)" strokeWidth={stroke} />
       <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-        {[{ v: pass, c: 'var(--good)' }, { v: fail, c: 'var(--bad)' }].map((s, i) => {
+        {[{ v: pass, c: 'var(--good)' }, { v: fail, c: 'var(--bad)' }, { v: goal, c: 'var(--warn)' }].map((s, i) => {
           const len = (s.v / total) * C;
           const el = s.v > 0 ? <circle key={i} cx={size / 2} cy={size / 2} r={r} fill="none" stroke={s.c} strokeWidth={stroke} strokeDasharray={`${Math.max(0, len - 2)} ${C}`} strokeDashoffset={-acc} /> : null;
           acc += len;
           return el;
         })}
       </g>
-      <text x={size / 2} y={size / 2 + 7} textAnchor="middle" fontSize={21} fontWeight={800} fill="var(--text)">{pass}<tspan fontSize={12} fill="var(--muted)">/{pass + fail + unv}</tspan></text>
+      <text x={size / 2} y={size / 2 + 7} textAnchor="middle" fontSize={21} fontWeight={800} fill="var(--text)">{pass}<tspan fontSize={12} fill="var(--muted)">/{n}</tspan></text>
     </svg>
   );
 }

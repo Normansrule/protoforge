@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../../components/Icon';
+import { SHOWN } from '../../components/reqStatus';
 import type { Evaluation, Metric, Project } from '../../engine/types';
 import { GROUPS, LABS, fmt, headline, health, healthIcon, healthWord, tallyFor, unitText } from './status';
 
@@ -26,7 +27,7 @@ export function LabGrid({ project, ev, filter }: { project: Project; ev: Evaluat
             <div className="hm-lab-top">
               <span className="hm-lab-icon"><Icon name={l.icon} size={20} /></span>
               <span className="hm-lab-group">{l.group}</span>
-              <span className={`hm-lab-state ${h}`} title={`${t.pass} of ${t.total} requirements verified`}>
+              <span className={`hm-lab-state ${h}`} title={`${t.pass} of ${t.total} requirements verified${t.goal ? ` · ${t.goal === 1 ? 'an open goal' : `${t.goal} open goals`}` : ''}`}>
                 {healthIcon(h)} {t.total ? `${t.pass}/${t.total}` : ''} <span className="hm-sr">{healthWord(h)}</span>
               </span>
             </div>
@@ -55,10 +56,10 @@ export function LabGrid({ project, ev, filter }: { project: Project; ev: Evaluat
             {t.reqs.length > 0 && (
               <div className="hm-lab-reqs">
                 {t.reqs.map((r) => {
-                  const s = r.result?.status;
+                  const s = SHOWN[r.shown];
                   return (
-                    <span key={r.id} className={`chip ${s === 'pass' ? 'pass' : s === 'fail' ? 'fail' : ''}`} title={r.text}>
-                      {s === 'pass' ? '✓' : s === 'fail' ? '✕' : '○'} {r.id}
+                    <span key={r.id} className={`chip ${s.tone ?? ''}`} title={`${r.text} (${s.word})`}>
+                      {s.icon} {r.id}
                     </span>
                   );
                 })}

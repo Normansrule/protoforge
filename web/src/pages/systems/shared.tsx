@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { LABS, type LabInfo } from '../../labs/registry';
 import { fmtNum } from '../../components/Plot';
+import { plural } from '../../components/reqStatus';
 import type { Cmp, Domain, Evaluation, Metric, Project, ReqKind, Status, VerifyMethod } from '../../engine/types';
 import type { Studio } from './types';
 
@@ -103,11 +104,12 @@ export const signedPct = (x: number | null | undefined) => (x == null || !isFini
 
 // ------------------------------------------------------------------ status
 
-export type AnyStatus = Status | 'warn' | 'done' | 'partial' | 'attention' | 'empty' | 'met' | 'unmet' | 'manual' | 'todo' | 'info';
+export type AnyStatus = Status | 'goal' | 'warn' | 'done' | 'partial' | 'attention' | 'empty' | 'met' | 'unmet' | 'manual' | 'todo' | 'info';
 
 const STATUS: Record<AnyStatus, { icon: string; word: string; tone: string }> = {
   pass: { icon: '✓', word: 'pass', tone: 'pass' },
   fail: { icon: '✕', word: 'fail', tone: 'fail' },
+  goal: { icon: '!', word: 'open goal', tone: 'warn' },
   unverified: { icon: '○', word: 'unverified', tone: '' },
   warn: { icon: '!', word: 'check', tone: 'warn' },
   done: { icon: '✓', word: 'done', tone: 'pass' },
@@ -128,48 +130,51 @@ export function Badge({ status, label, title }: { status: AnyStatus; label?: str
 }
 
 export const statusColor = (s: AnyStatus) =>
-  s === 'pass' || s === 'done' || s === 'met' ? 'var(--good)' : s === 'fail' || s === 'attention' || s === 'unmet' ? 'var(--bad)' : s === 'warn' || s === 'manual' ? 'var(--warn)' : s === 'partial' || s === 'info' ? 'var(--accent)' : 'var(--muted)';
+  s === 'pass' || s === 'done' || s === 'met' ? 'var(--good)' : s === 'fail' || s === 'attention' || s === 'unmet' ? 'var(--bad)' : s === 'warn' || s === 'manual' || s === 'goal' ? 'var(--warn)' : s === 'partial' || s === 'info' ? 'var(--accent)' : 'var(--muted)';
 
 // ------------------------------------------------------------------ margin bar
 
 /** Margin against a limit as a centred bar: right/green = inside the limit, left/red = outside. */
-export function MarginBar({ margin, width = 92 }: { margin: number | null | undefined; width?: number }) {
+export function MarginBar({ margin, width = 92, goal = false }: { margin: number | null | undefined; width?: number; /** an open stretch goal: outside the limit reads amber, not red */ goal?: boolean }) {
   if (margin == null || !isFinite(margin)) return <span className="muted small">—</span>;
   const clamped = Math.max(-1, Math.min(1, margin));
   const half = width / 2;
   const w = Math.max(2, Math.abs(clamped) * half);
   const good = margin >= 0;
+  const out = goal ? 'var(--warn)' : 'var(--bad)';
   return (
     <span className="ss-margin" title={`margin ${signedPct(margin)} of the limit`}>
       <svg width={width} height={10} aria-hidden>
         <rect x={0} y={4} width={width} height={2} rx={1} fill="var(--surface-3)" />
-        <rect x={good ? half : half - w} y={1} width={w} height={8} rx={3} fill={good ? 'var(--good)' : 'var(--bad)'} opacity={0.85} />
+        <rect x={good ? half : half - w} y={1} width={w} height={8} rx={3} fill={good ? 'var(--good)' : out} opacity={0.85} />
         <line x1={half} x2={half} y1={0} y2={10} stroke="var(--text-2)" strokeWidth={1.2} />
       </svg>
-      <span className="mono small" style={{ color: good ? 'var(--good-text)' : 'var(--bad-text)' }}>{signedPct(margin)}</span>
+      <span className="mono small" style={{ color: good ? 'var(--good-text)' : goal ? 'var(--warn-text)' : 'var(--bad-text)' }}>{signedPct(margin)}</span>
     </span>
   );
 }
 
 // ------------------------------------------------------------------ ring
 
-/** Donut of pass / fail / unverified with the pass count in the middle. */
-export function Ring({ pass, fail, unverified, size = 168, stroke = 16, label = 'verified', progress = 1 }: {
-  pass: number; fail: number; unverified: number; size?: number; stroke?: number; label?: string; progress?: number;
+/** Donut of pass / fail / open goal / unverified with the pass count in the middle (`fail` = binding failures only). */
+export function Ring({ pass, fail, goal = 0, unverified, size = 168, stroke = 16, label = 'verified', progress = 1 }: {
+  pass: number; fail: number; goal?: number; unverified: number; size?: number; stroke?: number; label?: string; progress?: number;
 }) {
-  const total = Math.max(1, pass + fail + unverified);
+  const n = pass + fail + goal + unverified;
+  const total = Math.max(1, n);
   const r = (size - stroke) / 2;
   const C = 2 * Math.PI * r;
-  const gap = pass + fail + unverified > 1 ? 3 : 0;
+  const gap = n > 1 ? 3 : 0;
   const segs: { v: number; color: string; name: string }[] = [
     { v: pass, color: 'var(--good)', name: 'pass' },
     { v: fail, color: 'var(--bad)', name: 'fail' },
+    { v: goal, color: 'var(--warn)', name: 'goal' },
     { v: unverified, color: 'var(--muted)', name: 'unverified' },
   ];
   let acc = 0;
   const shown = Math.round(pass * progress);
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${pass} of ${pass + fail + unverified} requirements pass, ${fail} fail, ${unverified} unverified`}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label={`${pass} of ${n} requirements pass, ${fail} fail, ${plural(goal, 'open goal')}, ${unverified} unverified`}>
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--surface-3)" strokeWidth={stroke} />
       <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
         {segs.map((s) => {
@@ -182,7 +187,7 @@ export function Ring({ pass, fail, unverified, size = 168, stroke = 16, label = 
           return el;
         })}
       </g>
-      <text x={size / 2} y={size / 2 - 2} textAnchor="middle" fontSize={size * 0.24} fontWeight={800} fill="var(--text)" className="tnum">{shown}<tspan fontSize={size * 0.12} fill="var(--muted)" fontWeight={600}>/{pass + fail + unverified}</tspan></text>
+      <text x={size / 2} y={size / 2 - 2} textAnchor="middle" fontSize={size * 0.24} fontWeight={800} fill="var(--text)" className="tnum">{shown}<tspan fontSize={size * 0.12} fill="var(--muted)" fontWeight={600}>/{n}</tspan></text>
       <text x={size / 2} y={size / 2 + size * 0.13} textAnchor="middle" fontSize={Math.max(10, size * 0.075)} fill="var(--muted)" letterSpacing="0.08em">{label.toUpperCase()}</text>
     </svg>
   );

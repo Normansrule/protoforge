@@ -12,6 +12,7 @@ import { CompareView, type Diff } from './versions/Compare';
 import { MergePanel } from './versions/Merge';
 import { Concepts } from './versions/Concepts';
 import { quickSummary, seedIfEmpty, startAutoVersioning, useHistory, type Version } from './versions/history';
+import { plural } from '../components/reqStatus';
 import './versions/versions.css';
 
 const WORKING = 'HEAD';
@@ -52,7 +53,7 @@ function Detail({ v, onCompare }: { v: Version; onCompare: (a: string, b: string
         <div className="small" style={{ color: 'var(--text-2)', marginBottom: 10 }}>{v.description || <span className="muted">No description.</span>}</div>
       )}
       <div className="row" style={{ gap: 6, marginBottom: 12 }}>
-        {e ? <><Chip tone="pass">✓ {e.pass}</Chip>{e.fail > 0 && <Chip tone="fail">✕ {e.fail}</Chip>}{e.unverified > 0 && <Chip>○ {e.unverified}</Chip>}</> : <Chip>evaluating…</Chip>}
+        {e ? <><Chip tone="pass">✓ {e.pass}</Chip>{e.fail - (e.open_goals ?? 0) > 0 && <Chip tone="fail">✕ {e.fail - (e.open_goals ?? 0)}</Chip>}{(e.open_goals ?? 0) > 0 && <Chip tone="warn" title="stretch goals not yet met">! {plural(e.open_goals ?? 0, 'open goal')}</Chip>}{e.unverified > 0 && <Chip>○ {e.unverified}</Chip>}</> : <Chip>evaluating…</Chip>}
         <Chip>{v.summary.requirements} requirements</Chip>
         <Chip>{v.summary.components} BOM lines · ${v.summary.bom_cost_usd.toFixed(2)}</Chip>
         <Chip>v{v.summary.version}</Chip>
@@ -158,7 +159,7 @@ export default function Versions() {
         <Stat label="Versions" value={h.versions.length} note={`${h.versions.filter((v) => v.baseline).length} baselines · ${h.versions.filter((v) => v.kind === 'merge').length} merges · ${h.versions.filter((v) => v.kind === 'auto').length} automatic · stored in this browser`} />
         <Stat label="Branches" value={h.branches.length} note={h.branches.map((b) => b.name).join(' · ')} />
         <Stat label="Working state" value={working ? `#${working.short}` : '…'} note={modified ? `modified since ${base?.name ?? 'no version'}` : `same as ${base?.name ?? '—'}`} tone={modified ? 'warn' : 'pass'} />
-        <Stat label="Live verification" value={ev.data ? `✓ ${ev.data.pass}` : '…'} note={ev.data ? `${ev.data.fail} failing · ${ev.data.unverified} unverified` : ''} tone={ev.data ? (ev.data.fail > 0 ? 'fail' : 'pass') : undefined} />
+        <Stat label="Live verification" value={ev.data ? `✓ ${ev.data.pass}` : '…'} note={ev.data ? `${ev.data.fail - (ev.data.open_goals ?? 0)} failing${ev.data.open_goals ? ` · ${plural(ev.data.open_goals, 'open goal')}` : ''} · ${ev.data.unverified} unverified` : ''} tone={ev.data ? (ev.data.fail - (ev.data.open_goals ?? 0) > 0 ? 'fail' : ev.data.open_goals ? 'warn' : 'pass') : undefined} />
       </div>
       <div className="grid grid-2 vd-top">
         <Card title="Version graph" subtitle="Newest on top · one lane per branch · dashed = your working state">

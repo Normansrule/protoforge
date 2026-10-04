@@ -16,7 +16,8 @@ const AUTO_DEBOUNCE_MS = 4_000;
 export interface Summary {
   hash: string; short: string; name: string; version: string; needs: number; requirements: number; subsystems: number;
   interfaces: number; components: number; risks: number; trades: number; bom_cost_usd: number; component_mass_g: number;
-  evaluation: { pass: number; fail: number; unverified: number } | null;
+  /** `open_goals` (failing goals, included in `fail`) is missing from versions saved before it existed. */
+  evaluation: { pass: number; fail: number; unverified: number; open_goals?: number } | null;
 }
 
 export interface Version {

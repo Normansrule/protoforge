@@ -1,6 +1,7 @@
 // Traceability: layered need → requirement → subsystem → metric → lab graph
 // with impact highlighting (systems.impact), and a requirements × subsystems
 // allocation matrix with coverage gaps.
+import { SHOWN, goalIds, shownStatus } from '../../components/reqStatus';
 import { useMemo, useState } from 'react';
 import { Card, Explainer } from '../../components/ui';
 import { call } from '../../engine/engine';
@@ -123,7 +124,8 @@ function GraphInner(props: {
 }) {
   const { project, ev } = useStudio();
   const { L, g, impactSet } = props;
-  const status = new Map(project.requirements.map((r, i) => [r.id, ev?.results[i]?.status ?? 'unverified']));
+  const goals = goalIds(project);
+  const status = new Map(project.requirements.map((r, i) => [r.id, shownStatus(ev?.results[i], goals)]));
   const label = (n: TraceNode) => {
     if (n.kind === 'requirement') return `${n.id} ${n.label}`;
     if (n.kind === 'need') return `${n.id} ${n.label}`;
@@ -178,8 +180,8 @@ function GraphInner(props: {
                 <circle cx={9} cy={9} r={4} fill={KIND_COLOR[n.kind]} />
                 <text x={18} y={12.5} fontSize={10.5} fill="var(--text)" fontFamily={n.kind === 'metric' ? 'var(--mono)' : undefined}>{t}</text>
                 {st && (
-                  <text x={NODE_W - 8} y={12.5} fontSize={10.5} textAnchor="end" fontWeight={800} fill={st === 'pass' ? 'var(--good-text)' : st === 'fail' ? 'var(--bad-text)' : 'var(--muted)'}>
-                    {st === 'pass' ? '✓' : st === 'fail' ? '✕' : '○'}
+                  <text x={NODE_W - 8} y={12.5} fontSize={10.5} textAnchor="end" fontWeight={800} fill={st === 'pass' ? 'var(--good-text)' : st === 'fail' ? 'var(--bad-text)' : st === 'goal' ? 'var(--warn-text)' : 'var(--muted)'}>
+                    {SHOWN[st].icon}
                   </text>
                 )}
               </g>

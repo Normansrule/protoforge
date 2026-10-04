@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom';
 import { Card, Chip, DownloadButton, ErrorBox, Explainer, Stat } from '../../components/ui';
 import { useCompute } from '../../engine/hooks';
 import { useEvaluation } from '../../state/project';
+import { plural } from '../../components/reqStatus';
 import type { Evidence, ReadinessOut, Review, SubsystemReadiness } from './types';
 import { downloadName, num, useClock, useProgram } from './util';
 
@@ -39,7 +40,7 @@ export function ReadinessTab() {
           <Stat label="Lowest technology readiness (TRL)" value={d.min_trl} unit="/ 9" tone={d.min_trl >= 6 ? 'pass' : d.min_trl >= 4 ? 'warn' : 'fail'} note={d.summary.min_trl_subsystems.join(', ')} />
           <Stat label="Lowest manufacturing readiness (MRL)" value={d.min_mrl} unit="/ 10" tone={d.min_mrl >= 8 ? 'pass' : d.min_mrl >= 4 ? 'warn' : 'fail'} note="pilot line = MRL 8" />
           <Stat label="Next gate" value={nextGate(d.reviews)?.id ?? '—'} note={nextGate(d.reviews) ? `${nextGate(d.reviews)!.met} of ${nextGate(d.reviews)!.total} criteria met` : 'all gates passed'} />
-          <Stat label="Requirements passing" value={ev.data ? `${ev.data.pass}` : '…'} unit={ev.data ? `of ${ev.data.results.length}` : ''} note={ev.data ? `${ev.data.fail} failing (${ev.data.open_goals ?? 0} open goals)` : ''} />
+          <Stat label="Requirements passing" value={ev.data ? `${ev.data.pass}` : '…'} unit={ev.data ? `of ${ev.data.results.length}` : ''} note={ev.data ? `${ev.data.fail - (ev.data.open_goals ?? 0)} failing · ${plural(ev.data.open_goals ?? 0, 'open goal')}` : ''} />
         </div>
       )}
 

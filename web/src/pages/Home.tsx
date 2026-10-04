@@ -16,6 +16,7 @@ import { useCountUp, useNearViewport } from './home/motion';
 import './home/home.css';
 import { WelcomeCard } from '../ux/start/WelcomeCard';
 import { NextActions } from '../ux/next/NextActions';
+import { plural } from '../components/reqStatus';
 
 const HeroModel = lazy(() => import('./home/HeroModel'));
 
@@ -102,7 +103,7 @@ function Hero({ ev }: { ev: Computed<Evaluation> }) {
           {ev.data && (
             <Link to="/systems" className={`hm-float ${ev.data.fail - (ev.data.open_goals ?? 0) ? 'fail' : 'pass'}`}>
               <b className="tnum">{ev.data.fail - (ev.data.open_goals ?? 0) ? '✕' : '✓'} {ev.data.pass}/{ev.data.results.length}</b>
-              <span>requirements verified{ev.data.fail - (ev.data.open_goals ?? 0) ? ` · ${ev.data.fail - (ev.data.open_goals ?? 0)} failing` : ''}{ev.data.open_goals ? ` · ${ev.data.open_goals} open goal` : ''}</span>
+              <span>requirements verified{ev.data.fail - (ev.data.open_goals ?? 0) ? ` · ${ev.data.fail - (ev.data.open_goals ?? 0)} failing` : ''}{ev.data.open_goals ? ` · ${plural(ev.data.open_goals, 'open goal')}` : ''}</span>
             </Link>
           )}
           {mass && (

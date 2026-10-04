@@ -104,7 +104,8 @@ function HelpPanel({ id, lab, data, focus, onClose }: { id: string; lab: string;
     if (!metric) return null;
     const req = project.requirements.find((r) => r.verification.metric === metric);
     const res = req ? ev.data?.results.find((r) => r.id === req.id) : undefined;
-    return res ? { id: req!.id, status: res.status } : null;
+    // a failing stretch goal reads as an amber open goal, not a red fail
+    return res ? { id: req!.id, status: res.status === 'fail' && req!.kind === 'goal' ? ('goal' as const) : res.status } : null;
   };
 
   return (
@@ -137,8 +138,8 @@ function HelpPanel({ id, lab, data, focus, onClose }: { id: string; lab: string;
                 <div className="ux-help-out-row">
                   <span className="ux-help-out-name">{o.name}</span>
                   {m && (
-                    <span className={`chip ${st?.status === 'pass' ? 'pass' : st?.status === 'fail' ? 'fail' : ''}`} title={st ? `${st.id}: ${st.status}` : 'live value'}>
-                      {st?.status === 'pass' ? '✓ ' : st?.status === 'fail' ? '✕ ' : ''}
+                    <span className={`chip ${st?.status === 'pass' ? 'pass' : st?.status === 'fail' ? 'fail' : st?.status === 'goal' ? 'warn' : ''}`} title={st ? `${st.id}: ${st.status === 'goal' ? 'open goal' : st.status}` : 'live value'}>
+                      {st?.status === 'pass' ? '✓ ' : st?.status === 'fail' ? '✕ ' : st?.status === 'goal' ? '! ' : ''}
                       {fmtNum(m.value)} {m.unit}
                     </span>
                   )}

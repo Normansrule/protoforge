@@ -6,19 +6,23 @@ import { Card, Explainer } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import type { ReqKind, Requirement, Status } from '../../engine/types';
 import { Badge, Drawer, KINDS, MarginBar, REFS, cap, fmtNum, labForMetric, useStudio } from './shared';
+import { plural } from '../../components/reqStatus';
 import { ReqForm, blankRequirement } from './ReqForm';
 import { NeedsEditor } from './Needs';
 
 type SortKey = 'id' | 'kind' | 'status' | 'margin' | 'lab';
 
-const STATUS_RANK: Record<Status, number> = { fail: 0, unverified: 1, pass: 2 };
+type Shown = Status | 'goal';
+const STATUS_RANK: Record<Shown, number> = { fail: 0, goal: 1, unverified: 2, pass: 3 };
+/** A failing requirement of kind "goal" is an open (stretch) goal, not a binding failure. */
+const shownOf = (r: Requirement, res: { status: Status } | undefined): Shown => (res?.status === 'fail' && r.kind === 'goal' ? 'goal' : res?.status ?? 'unverified');
 
 export function RequirementsTab() {
   const { project, ev, studio, update, openReq } = useStudio();
   const [q, setQ] = useState('');
   const dq = useDeferredValue(q.toLowerCase());
   const [kind, setKind] = useState<ReqKind | ''>('');
-  const [status, setStatus] = useState<Status | ''>('');
+  const [status, setStatus] = useState<Shown | ''>('');
   const [sub, setSub] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'id', dir: 1 });
   const [creating, setCreating] = useState<Requirement | null>(null);
@@ -27,14 +31,14 @@ export function RequirementsTab() {
     const out = project.requirements.map((r, i) => ({ r, res: ev?.results[i], lab: labForMetric(r.verification.metric) }));
     const f = out.filter(({ r, res }) =>
       (!kind || r.kind === kind) &&
-      (!status || (res?.status ?? 'unverified') === status) &&
+      (!status || shownOf(r, res) === status) &&
       (!sub || r.allocated_to.includes(sub)) &&
       (!dq || `${r.id} ${r.text} ${r.rationale} ${r.verification.metric ?? ''}`.toLowerCase().includes(dq)));
     const key = (x: (typeof out)[number]): string | number => {
       switch (sort.key) {
         case 'id': return x.r.id;
         case 'kind': return x.r.kind;
-        case 'status': return STATUS_RANK[x.res?.status ?? 'unverified'];
+        case 'status': return STATUS_RANK[shownOf(x.r, x.res)];
         case 'margin': return x.res?.margin ?? Number.POSITIVE_INFINITY;
         case 'lab': return x.lab?.title ?? '~';
       }
@@ -60,7 +64,7 @@ export function RequirementsTab() {
     <>
       <Card
         title="Requirements & verification matrix"
-        subtitle={<>{project.requirements.length} requirements · {ev?.pass ?? 0} pass · {ev?.fail ?? 0} fail · {ev?.unverified ?? 0} unverified. Click a row for the full trace; values update live as you change the design in any lab.</>}
+        subtitle={<>{project.requirements.length} requirements · {ev?.pass ?? 0} pass · {(ev?.fail ?? 0) - (ev?.open_goals ?? 0)} fail{ev?.open_goals ? ` · ${plural(ev.open_goals, 'open goal')}` : ''} · {ev?.unverified ?? 0} unverified. Click a row for the full trace; values update live as you change the design in any lab.</>}
         actions={<button className="btn primary small" onClick={() => setCreating(blankRequirement(project.requirements.map((r) => r.id)))}>+ Requirement</button>}
       >
         <div className="ss-toolbar">
@@ -69,9 +73,9 @@ export function RequirementsTab() {
             <option value="">All kinds</option>
             {KINDS.map((k) => <option key={k} value={k}>{cap(k)}</option>)}
           </select>
-          <select value={status} onChange={(e) => setStatus(e.target.value as Status | '')} aria-label="Filter by status">
+          <select value={status} onChange={(e) => setStatus(e.target.value as Shown | '')} aria-label="Filter by status">
             <option value="">All statuses</option>
-            <option value="pass">✓ Pass</option><option value="fail">✕ Fail</option><option value="unverified">○ Unverified</option>
+            <option value="pass">✓ Pass</option><option value="fail">✕ Fail</option><option value="goal">! Open goal</option><option value="unverified">○ Unverified</option>
           </select>
           <select value={sub} onChange={(e) => setSub(e.target.value)} aria-label="Filter by subsystem">
             <option value="">All subsystems</option>
@@ -104,8 +108,8 @@ export function RequirementsTab() {
                   <td className="small">{r.allocated_to.map((s) => <span key={s} className="ss-tag" title={s}>{subName(s)}</span>)}{r.allocated_to.length === 0 && <span className="muted">—</span>}</td>
                   <td className="mono small" style={{ whiteSpace: 'nowrap' }}>{res?.criterion}</td>
                   <td className="mono small" style={{ whiteSpace: 'nowrap' }}>{res?.value != null ? `${fmtNum(res.value)} ${res.unit}` : '—'}</td>
-                  <td><MarginBar margin={res?.margin} width={64} /></td>
-                  <td><Badge status={res?.status ?? 'unverified'} /></td>
+                  <td><MarginBar margin={res?.margin} width={64} goal={r.kind === 'goal'} /></td>
+                  <td><Badge status={shownOf(r, res)} /></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     {lab ? <Link to={lab.path} className="small" style={{ whiteSpace: 'nowrap' }} title={`Open ${lab.title}`}><Icon name={lab.icon} size={13} /> {lab.title.replace(/ (Lab|Studio|Hub)$/, '')}</Link> : <span className="muted small">{r.verification.method}</span>}
                   </td>

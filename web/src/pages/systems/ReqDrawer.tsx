@@ -32,7 +32,7 @@ export function RequirementDrawer({ id, onClose }: { id: string | null; onClose:
   const next = project.requirements[idx + 1]?.id;
   const needs = r.derives_from.map((n) => project.needs.find((x) => x.id === n) ?? { id: n, text: '(unknown need)', stakeholder: '', priority: 0 });
   const subs = r.allocated_to.map((s) => project.subsystems.find((x) => x.id === s) ?? { id: s, name: '(unknown subsystem)', lab: '', domain: 'electrical' as const, description: '', functions: [] });
-  const status = res?.status ?? 'unverified';
+  const status = res?.status === 'fail' && r.kind === 'goal' ? 'goal' : res?.status ?? 'unverified';
   const limitForSpark = r.verification.cmp === 'le' || r.verification.cmp === 'ge' ? r.verification.target : null;
 
   return (

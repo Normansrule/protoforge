@@ -5,6 +5,7 @@ import { useMemo, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Evaluation, Project } from '../../engine/types';
 import { useElementWidth } from '../../components/useElementWidth';
+import { plural } from '../../components/reqStatus';
 import { GROUPS, LABS, groupPrefixes, health, healthIcon, systemPrefixes, tallyFor, type Health, type Tally } from './status';
 import { reducedMotion } from './motion';
 
@@ -125,7 +126,7 @@ function vertical(width: number): Layout {
   return { W, H, boxes, edges, vertical: true };
 }
 
-const tone = (h: Health) => (h === 'pass' ? 'var(--good)' : h === 'fail' ? 'var(--bad)' : h === 'partial' ? 'var(--warn)' : 'var(--border-strong)');
+const tone = (h: Health) => (h === 'pass' ? 'var(--good)' : h === 'fail' ? 'var(--bad)' : h === 'goal' || h === 'partial' ? 'var(--warn)' : 'var(--border-strong)');
 const series = (i: number) => (i === 0 ? 'var(--accent)' : `var(--series-${i})`);
 
 function onKey(fn: () => void) {
@@ -148,7 +149,8 @@ export function Pipeline({ project, ev }: { project: Project; ev: Evaluation | n
   const groupTally = useMemo(() => Object.fromEntries(GROUPS.map((g) => [g, tallyFor(groupPrefixes(g), project, ev)])), [project, ev]);
   const labTally = useMemo(() => Object.fromEntries(LABS.map((l) => [l.id, tallyFor(l.metrics, project, ev)])), [project, ev]);
   const sysTally = useMemo(() => tallyFor(systemPrefixes(project), project, ev), [project, ev]);
-  const total = ev ? { pass: ev.pass, fail: ev.fail, unverified: ev.unverified, n: ev.results.length } : null;
+  // `fail` = binding failures; open stretch goals are counted (and coloured) apart
+  const total = ev ? { pass: ev.pass, fail: ev.fail - (ev.open_goals ?? 0), goal: ev.open_goals ?? 0, unverified: ev.unverified, n: ev.results.length } : null;
 
   const lit = (e: { from: string; to: string }) => hover != null && (e.from === hover || e.to === hover);
 
@@ -216,7 +218,7 @@ export function Pipeline({ project, ev }: { project: Project; ev: Evaluation | n
               transform={`translate(${cxp} ${b.h - 30})`}
               role="link"
               tabIndex={0}
-              aria-label={`${l.title}: ${lt.total ? `${lt.pass} of ${lt.total} requirements verified` : 'no bound requirements'}`}
+              aria-label={`${l.title}: ${lt.total ? `${lt.pass} of ${lt.total} requirements verified${lt.goal ? `, ${plural(lt.goal, 'open goal')}` : ''}` : 'no bound requirements'}`}
               onClick={go}
               onKeyDown={onKey(go)}
             >
@@ -272,7 +274,8 @@ export function Pipeline({ project, ev }: { project: Project; ev: Evaluation | n
           {stageNode(
             'verify',
             'Verification',
-            total ? `${total.pass}/${total.n} pass${total.fail ? ` · ${total.fail} fail` : ''}` : 'running…',
+            // short enough for the box: "51/54 pass · 2 fail", or "51/54 · 3 open goals" when only goals are open
+            total ? (total.fail ? `${total.pass}/${total.n} pass · ${total.fail} fail` : total.goal ? `${total.pass}/${total.n} · ${plural(total.goal, 'open goal')}` : `${total.pass}/${total.n} pass`) : 'running…',
             '/systems',
             total && (
               <g transform={`translate(${vb.w - 26} 22)`} aria-hidden>
@@ -280,7 +283,7 @@ export function Pipeline({ project, ev }: { project: Project; ev: Evaluation | n
                 <circle
                   r={14}
                   className="pf-ring"
-                  style={{ stroke: total.fail ? 'var(--bad)' : 'var(--good)' }}
+                  style={{ stroke: total.fail ? 'var(--bad)' : total.goal ? 'var(--warn)' : 'var(--good)' }}
                   strokeDasharray={`${(2 * Math.PI * 14 * total.pass) / Math.max(1, total.n)} 999`}
                   transform="rotate(-90)"
                 />

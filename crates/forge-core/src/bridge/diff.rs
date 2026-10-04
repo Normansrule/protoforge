@@ -26,6 +26,8 @@ pub struct EvalCounts {
     pub pass: usize,
     pub fail: usize,
     pub unverified: usize,
+    /// Failing requirements of kind "goal" (included in `fail`).
+    pub open_goals: usize,
 }
 
 /// Short fingerprint and key statistics of one project version.
@@ -70,6 +72,7 @@ pub fn summary(p: &Project, ev: Option<&Evaluation>) -> Summary {
             pass: e.pass,
             fail: e.fail,
             unverified: e.unverified,
+            open_goals: e.open_goals,
         }),
     }
 }

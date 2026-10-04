@@ -11,6 +11,7 @@ import { useEngineReady } from '../../engine/hooks';
 import { looksLikeProject, useEvaluation, useProject } from '../../state/project';
 import { call } from '../../engine/engine';
 import { downloadText } from '../../components/ui';
+import { goalIds, shownStatus } from '../../components/reqStatus';
 import type { Project } from '../../engine/types';
 import { openPalette, usePrefs, useTheme } from '../prefs';
 import { roleById } from '../data/roles';
@@ -24,7 +25,9 @@ function labStatus(prefixes: string[], ev: ReturnType<typeof useEvaluation>, pro
   const ids = project.requirements.filter((r) => r.verification.metric && prefixes.some((p) => r.verification.metric!.startsWith(p))).map((r) => r.id);
   if (ids.length === 0) return null;
   const rs = ev.data.results.filter((r) => ids.includes(r.id));
-  if (rs.some((r) => r.status === 'fail')) return 'fail';
+  const goals = goalIds(project);
+  if (rs.some((r) => shownStatus(r, goals) === 'fail')) return 'fail';
+  if (rs.some((r) => shownStatus(r, goals) === 'goal')) return 'goal';
   if (rs.every((r) => r.status === 'pass')) return 'pass';
   if (rs.every((r) => r.status === 'unverified')) return null;
   return 'partial';
@@ -32,10 +35,10 @@ function labStatus(prefixes: string[], ev: ReturnType<typeof useEvaluation>, pro
 
 function StatusDot({ s }: { s: string | null }) {
   if (!s) return null;
-  const text = s === 'pass' ? 'all requirements pass' : s === 'fail' ? 'a requirement fails' : 'some requirements unverified';
+  const text = s === 'pass' ? 'all requirements pass' : s === 'fail' ? 'a requirement fails' : s === 'goal' ? 'an open goal is not met yet' : 'some requirements unverified';
   return (
     <span className="nav-status" title={text} style={{ color: s === 'pass' ? 'var(--good)' : s === 'fail' ? 'var(--bad)' : 'var(--warn)' }}>
-      {s === 'pass' ? '✓' : s === 'fail' ? '✕' : '!'}
+      {s === 'pass' ? '✓' : s === 'fail' ? '✕' : s === 'goal' ? '!' : '…'}
       <span className="sr-only">{text}</span>
     </span>
   );

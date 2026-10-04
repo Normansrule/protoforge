@@ -7,6 +7,7 @@ import { Card, Explainer } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { callInWorker } from '../../engine/worker';
 import type { Evaluation, ReqResult } from '../../engine/types';
+import { SHOWN, countShown, goalIds, plural, shownStatus } from '../../components/reqStatus';
 import {
   Badge, Eyebrow, REFS, Ring, SWEEP_LABS, fmtNum, labForMetric, metricsOfLab, signedPct, statusColor, useReducedMotion, useStudio,
 } from './shared';
@@ -21,6 +22,7 @@ interface LabRow {
 
 export function Overview() {
   const { project, ev, studio, openReq, go } = useStudio();
+  const goals = useMemo(() => goalIds(project), [project]);
   const reduced = useReducedMotion();
   const [step, setStep] = useState<number | null>(null); // null = idle (show everything)
   const [runMs, setRunMs] = useState<number | null>(null);
@@ -63,22 +65,25 @@ export function Overview() {
   const revealedIds = new Set(revealed.map((r) => r.id));
   const all = ev?.results ?? [];
   const done = step === null || step >= rows.length;
-  const pass = done ? ev?.pass ?? 0 : revealed.filter((r) => r.status === 'pass').length;
-  const fail = done ? ev?.fail ?? 0 : revealed.filter((r) => r.status === 'fail').length;
-  const unv = all.length - pass - fail;
+  const counts = countShown(done ? all : revealed, goals);
+  const { pass, fail, goal } = counts; // fail = binding failures; goal = open stretch goals
+  const unv = all.length - pass - fail - goal;
+  const totals = countShown(all, goals);
 
   const lines = useMemo(() => {
     const out: { text: string; tone: string }[] = [];
     rows.slice(0, revealedLabs).forEach((r) => {
       if (r.metrics === 0 && r.results.length === 0) return;
-      const p = r.results.filter((x) => x.status === 'pass').length;
-      const f = r.results.filter((x) => x.status === 'fail').length;
-      const reqs = r.results.map((x) => `${x.id} ${x.status === 'pass' ? '✓' : x.status === 'fail' ? '✕' : '○'}`).join('  ');
-      out.push({ text: `${f ? '✕' : r.metrics === 0 ? '○' : '✓'} ${r.title.padEnd(18, ' ')} ${String(r.metrics).padStart(2, ' ')} metrics  ${reqs || (p ? '' : '—')}`, tone: f ? 'bad' : 'ok' });
+      const c = countShown(r.results, goals);
+      const reqs = r.results.map((x) => `${x.id} ${SHOWN[shownStatus(x, goals)].icon}`).join('  ');
+      out.push({ text: `${c.fail ? '✕' : c.goal ? '!' : r.metrics === 0 ? '○' : '✓'} ${r.title.padEnd(18, ' ')} ${String(r.metrics).padStart(2, ' ')} metrics  ${reqs || (c.pass ? '' : '—')}`, tone: c.fail ? 'bad' : c.goal ? 'warn' : 'ok' });
     });
-    if (done && step !== null) out.push({ text: `== ${ev?.pass ?? 0} pass · ${ev?.fail ?? 0} fail · ${ev?.unverified ?? 0} unverified${runMs != null ? ` · engine ${runMs.toFixed(0)} ms` : ''}`, tone: (ev?.fail ?? 0) > 0 ? 'bad' : 'ok' });
+    if (done && step !== null) {
+      const t = countShown(ev?.results ?? [], goals);
+      out.push({ text: `== ${t.pass} pass · ${t.fail} fail${t.goal ? ` · ${plural(t.goal, 'open goal')}` : ''} · ${t.unverified} unverified${runMs != null ? ` · engine ${runMs.toFixed(0)} ms` : ''}`, tone: t.fail > 0 ? 'bad' : t.goal > 0 ? 'warn' : 'ok' });
+    }
     return out.slice(-6);
-  }, [rows, revealedLabs, done, step, ev, runMs]);
+  }, [rows, revealedLabs, done, step, ev, runMs, goals]);
 
   if (!ev) return <Card title="Verifying…"><div className="muted small">The Rust engine is running every lab's analyses.</div></Card>;
 
@@ -95,11 +100,12 @@ export function Overview() {
       >
         <div className="ss-grid-hero">
           <div className="row" style={{ alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>
-            <Ring pass={pass} fail={fail} unverified={unv} size={188} stroke={18} label={running ? 'verifying' : 'pass'} />
+            <Ring pass={pass} fail={fail} goal={goal} unverified={unv} size={188} stroke={18} label={running ? 'verifying' : 'pass'} />
             <div className="stack" style={{ gap: 8, minWidth: 200, flex: 1 }}>
               <div className="row" style={{ gap: 6 }}>
                 <Badge status="pass" label={`pass ${pass}`} />
                 <Badge status="fail" label={`fail ${fail}`} />
+                {(goal > 0 || totals.goal > 0) && <Badge status="goal" label={`${goal === 1 ? 'open goal' : 'open goals'} ${goal}`} title="Stretch goals (requirements of kind “goal”) not met yet — not binding" />}
                 <Badge status="unverified" label={`${running ? 'pending' : 'unverified'} ${unv}`} />
               </div>
               <div className="ss-console" aria-live="polite">
@@ -108,10 +114,18 @@ export function Overview() {
               </div>
               <div className="muted small">
                 {ev.metrics.length} metrics from {rows.filter((r) => r.metrics > 0 && r.id !== 'systems').length} labs + system roll-ups · failing: {' '}
-                {all.filter((r) => r.status === 'fail').map((r, i) => (
+                {all.filter((r) => shownStatus(r, goals) === 'fail').map((r, i) => (
                   <span key={r.id}>{i > 0 && ', '}<button className="ss-link" onClick={() => openReq(r.id)}>{r.id}</button></span>
                 ))}
-                {ev.fail === 0 && 'none'}
+                {totals.fail === 0 && 'none'}
+                {totals.goal > 0 && (
+                  <>
+                    {' · '}{totals.goal === 1 ? 'open goal' : 'open goals'}: {' '}
+                    {all.filter((r) => shownStatus(r, goals) === 'goal').map((r, i) => (
+                      <span key={r.id}>{i > 0 && ', '}<button className="ss-link" onClick={() => openReq(r.id)}>{r.id}</button></span>
+                    ))}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -120,10 +134,9 @@ export function Overview() {
             <div className="ss-sweep">
               {rows.map((r, i) => {
                 const state = step === null ? 'lit' : i < revealedLabs ? 'lit' : i === revealedLabs && running ? 'scanning' : 'dim';
-                const p = r.results.filter((x) => x.status === 'pass').length;
-                const f = r.results.filter((x) => x.status === 'fail').length;
-                const u = r.results.length - p - f;
-                const tone = f > 0 ? 'fail' : p > 0 ? 'pass' : '';
+                const { pass: p, fail: f, goal: g } = countShown(r.results, goals);
+                const u = r.results.length - p - f - g;
+                const tone = f > 0 ? 'fail' : g > 0 ? 'goal' : p > 0 ? 'pass' : '';
                 const n = Math.max(1, r.results.length);
                 return (
                   <Link key={r.id} to={r.path} className={`ss-lab ${state} ${state === 'lit' ? tone : ''}`} title={`Open ${r.title}`}>
@@ -131,13 +144,14 @@ export function Overview() {
                     <div className="ss-lab-top"><Icon name={r.icon} size={16} /><span className="ss-lab-title">{r.title}</span></div>
                     <div className="ss-lab-stat">
                       <span>{r.metrics ? `${r.metrics} metrics` : 'no metrics yet'}</span>
-                      <span>{r.results.length ? `${f ? '✕' : p === r.results.length ? '✓' : '○'} ${p}/${r.results.length}` : ''}</span>
+                      <span>{r.results.length ? `${f ? '✕' : g ? '!' : p === r.results.length ? '✓' : '○'} ${p}/${r.results.length}` : ''}</span>
                     </div>
                     <div className="ss-lab-bar" aria-hidden>
                       {state === 'lit' && r.results.length > 0 && (
                         <>
                           {p > 0 && <span style={{ width: `${(p / n) * 100}%`, background: 'var(--good)' }} />}
                           {f > 0 && <span style={{ width: `${(f / n) * 100}%`, background: 'var(--bad)' }} />}
+                          {g > 0 && <span style={{ width: `${(g / n) * 100}%`, background: 'var(--warn)' }} />}
                           {u > 0 && <span style={{ width: `${(u / n) * 100}%`, background: 'var(--muted)', opacity: 0.4 }} />}
                         </>
                       )}
@@ -191,14 +205,15 @@ function SubsystemMultiples() {
   const { project, ev, openReq, go } = useStudio();
   if (!ev) return null;
   const byId = new Map(ev.results.map((r) => [r.id, r]));
+  const goals = goalIds(project);
   return (
     <Card title="Requirement status by subsystem" subtitle="One square per allocated requirement — click one to open it" actions={<button className="btn small" onClick={() => go('traceability')}>Trace →</button>}>
       {project.subsystems.length === 0 && <div className="ss-empty">No subsystems yet — add them in Architecture.</div>}
       <div className="ss-subs">
         {project.subsystems.map((s) => {
           const reqs = project.requirements.filter((r) => r.allocated_to.includes(s.id));
-          const f = reqs.filter((r) => byId.get(r.id)?.status === 'fail').length;
-          const p = reqs.filter((r) => byId.get(r.id)?.status === 'pass').length;
+          const c = countShown(reqs.map((r) => byId.get(r.id) ?? { id: r.id, status: 'unverified' as const }), goals);
+          const { fail: f, pass: p, goal: g } = c;
           return (
             <div key={s.id} className="ss-sub">
               <div className="ss-sub-name"><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span><span className="muted small tnum">{p}/{reqs.length}</span></div>
@@ -206,15 +221,16 @@ function SubsystemMultiples() {
               <div className="ss-cells">
                 {reqs.length === 0 && <span className="muted small">no requirements</span>}
                 {reqs.map((r) => {
-                  const st = byId.get(r.id)?.status ?? 'unverified';
+                  const st = shownStatus(byId.get(r.id), goals);
                   return (
-                    <button key={r.id} className={`ss-cell ${st}`} title={`${r.id} ${st}: ${r.text}`} aria-label={`${r.id} ${st}`} onClick={() => openReq(r.id)} style={{ border: 'none', cursor: 'pointer', padding: 0 }}>
-                      {st === 'pass' ? '✓' : st === 'fail' ? '✕' : '○'}
+                    <button key={r.id} className={`ss-cell ${st}`} title={`${r.id} ${SHOWN[st].word}: ${r.text}`} aria-label={`${r.id} ${SHOWN[st].word}`} onClick={() => openReq(r.id)} style={{ border: 'none', cursor: 'pointer', padding: 0 }}>
+                      {SHOWN[st].icon}
                     </button>
                   );
                 })}
               </div>
               {f > 0 && <div className="small" style={{ color: 'var(--bad-text)', marginTop: 6 }}>✕ {f} failing</div>}
+              {g > 0 && <div className="small" style={{ color: 'var(--warn-text)', marginTop: f > 0 ? 0 : 6 }}>! {plural(g, 'open goal')}</div>}
             </div>
           );
         })}

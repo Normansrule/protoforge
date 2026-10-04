@@ -143,7 +143,7 @@
 .hm-lab-state { margin-left: auto; white-space: nowrap; flex: 0 0 auto; font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--muted); }
 .hm-lab-state.pass { color: var(--good-text); }
 .hm-lab-state.fail { color: var(--bad-text); }
-.hm-lab-state.partial { color: var(--warn); }
+.hm-lab-state.partial, .hm-lab-state.goal { color: var(--warn-text); }
 .hm-lab h3 { font-size: 17px; margin-top: 6px; }
 .hm-lab-blurb { color: var(--text-2); font-size: 13px; line-height: 1.45; margin: 0; flex: 1; }
 .hm-lab-metric { margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }

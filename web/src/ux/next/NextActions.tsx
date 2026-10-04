@@ -173,7 +173,7 @@ function Readiness({ out, compact }: { out: NextActionsOut; compact?: boolean })
   const segs = [
     { key: 'ok', n: s.pass_with_margin, label: 'pass with margin', cls: 'ok' },
     { key: 'thin', n: s.marginal, label: 'marginal', cls: 'thin' },
-    { key: 'goal', n: s.open_goals, label: 'open goals', cls: 'goal' },
+    { key: 'goal', n: s.open_goals, label: s.open_goals === 1 ? 'open goal' : 'open goals', cls: 'goal' },
     { key: 'fail', n: s.failing, label: 'failing', cls: 'fail' },
     { key: 'unv', n: s.unverified, label: 'unverified', cls: 'unv' },
   ];

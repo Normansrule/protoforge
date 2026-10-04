@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useEvaluation, useProject } from '../state/project';
 import { Chip } from './ui';
+import { SHOWN, goalIds, shownStatus } from './reqStatus';
 import { fmtNum } from './Plot';
 import { LabHelp } from '../ux/help/LabHelp';
 import { LAB_HELP } from '../ux/help/labHelp';
@@ -42,15 +43,17 @@ export function RequirementStrip({ prefixes }: { prefixes: string[] }) {
   const ev = useEvaluation();
   const reqs = project.requirements.filter((r) => r.verification.metric && prefixes.some((p) => r.verification.metric!.startsWith(p)));
   if (reqs.length === 0) return null;
+  const goals = goalIds(project);
   return (
     <div className="req-strip">
       {reqs.map((r) => {
         const res = ev.data?.results.find((x) => x.id === r.id);
-        const tone = res?.status === 'pass' ? 'pass' : res?.status === 'fail' ? 'fail' : undefined;
-        const icon = res?.status === 'pass' ? '✓' : res?.status === 'fail' ? '✕' : '○';
+        const shown = SHOWN[shownStatus(res, goals)];
+        const tone = shown.tone;
+        const icon = shown.icon;
         return (
           <Link to={`/systems?req=${r.id}`} key={r.id} style={{ textDecoration: 'none' }}>
-            <Chip tone={tone} title={r.text}>
+            <Chip tone={tone} title={res ? `${r.text} (${shown.word})` : r.text}>
               {icon} {r.id} · {res?.value != null ? `${fmtNum(res.value)} ${res.unit}` : '—'} ({res?.criterion ?? ''})
             </Chip>
           </Link>
