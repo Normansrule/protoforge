@@ -1057,7 +1057,14 @@ pub fn solve(i: &SolveIn) -> Result<Solve, String> {
     };
     let mut aimed = want;
     let mut hit = pick(want);
-    if hit.is_none() && want > 0.0 {
+    if hit.is_none() && want > SOLVE_MARGIN {
+        // A marginal pass aims for the marginal band (10 %); when the range cannot give
+        // that, try the 2 % margin the lever estimate promises before anything else.
+        aimed = SOLVE_MARGIN;
+        hit = pick(SOLVE_MARGIN);
+    }
+    if hit.is_none() && want > 0.0 && !base.is_some_and(|b| b.1 >= 0.0) {
+        // A failing requirement: just meeting the target is still worth showing.
         aimed = 0.0;
         hit = pick(0.0);
     }
@@ -1073,11 +1080,17 @@ pub fn solve(i: &SolveIn) -> Result<Solve, String> {
                 .max_by(|a, b| a.1 .1.partial_cmp(&b.1 .1).unwrap_or(std::cmp::Ordering::Equal));
             let msg = match best {
                 Some((bx, (bv, _))) => format!(
-                    "No value of {} between {} and {} {} meets {} {}: the best in range is {} {} at {} {}.",
+                    "No value of {} between {} and {} {} {} {} {}: the best in range is {} {} at {} {}.",
                     unit_of.0,
                     fmt_num(lo),
                     fmt_num(hi),
                     unit_of.1,
+                    // a pass that wants more margin already meets the criterion
+                    if base.is_some_and(|b| b.1 >= 0.0) {
+                        "adds margin on"
+                    } else {
+                        "meets"
+                    },
                     metric,
                     criterion,
                     fmt_num(bv),
@@ -1133,7 +1146,16 @@ pub fn solve(i: &SolveIn) -> Result<Solve, String> {
                         }
                     }
                 }
-                let msg = if aimed < want {
+                let msg = if aimed < want && aimed > 0.0 {
+                    format!(
+                        "{} = {} {} meets {criterion} with about {:.0} % margin; the {:.0} % margin the solver aims for is out of range.",
+                        unit_of.0,
+                        fmt_num(pass),
+                        unit_of.1,
+                        aimed * 100.0,
+                        want * 100.0
+                    )
+                } else if aimed < want {
                     format!(
                         "{} = {} {} just meets {criterion}; the {:.0} % margin the solver aims for is out of range.",
                         unit_of.0,

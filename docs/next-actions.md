@@ -110,8 +110,10 @@ lab module, the engine measures which design parameters move it:
 4. **Report.** For each lever: the metric change per step, the percentage
    effect, which way to move the parameter to gain margin (relative to the
    requirement's criterion, so "≤" and "≥" and ranges all read correctly), and
-   a straight-line estimate of the value that reaches the target (shown only
-   when it lies within ÷4…×4 of today's value). Levers that move the margin by
+   a straight-line estimate of the value that reaches the target with 2 % margin
+   (shown only when today's margin is below that and the estimate lies within
+   ÷4…×4 of today's value). "Try fixing this" on a *marginal* pass aims instead
+   for the 10 % margin band, so its answer goes further than the estimate. Levers that move the margin by
    less than 0.01 % of the target per step are dropped; the six strongest are kept.
 
 Probes are memoised per module and project, and each module is re-run once on

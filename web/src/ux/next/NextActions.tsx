@@ -74,6 +74,13 @@ const KIND: Record<ActionKind, string> = {
   quality_info: 'Wording',
 };
 
+/** Banner wording after Apply: a failing requirement "now passes"; a marginal pass gains margin. */
+function verdictWord(before: number | null, after: number | null): string {
+  if (after == null) return 'moves';
+  if (before != null && before >= 0) return after >= 0 ? `now has ${Math.round(after * 100)} % margin` : 'now fails';
+  return after >= 0 ? 'now passes' : 'moves';
+}
+
 type Filter = 'all' | 'failing' | 'goals' | 'marginal' | 'gaps';
 const FILTERS: { id: Filter; label: string; kinds: ActionKind[] | null }[] = [
   { id: 'all', label: 'All', kinds: null },
@@ -214,7 +221,7 @@ function LeverRow({ lever, action, onTry, busy }: { lever: Lever; action: Action
           <div className="small muted">
             Measured: {stepTxt} moves {action.metric_label ? action.metric_label.toLowerCase() : action.metric} by {signed(lever.delta)}{action.unit ? ` ${action.unit}` : ''} ({signed(lever.effect_pct)} %)
             {lever.estimate != null && (
-              <> · about <b className="na-num">{fmtV(lever.estimate, lever.unit)}</b> reaches the target (straight-line estimate)</>
+              <> · about <b className="na-num">{fmtV(lever.estimate, lever.unit)}</b> reaches the target with 2 % margin (straight-line estimate)</>
             )}
           </div>
         </div>
@@ -500,7 +507,7 @@ export function NextActions({ limit = 8, compact = false }: { limit?: number; co
             {undone ? 'Undone: ' : 'Applied: '}
             <b>{applied.solve.label}</b> {fmtV(applied.solve.before_param, applied.solve.unit)} → {fmtV(applied.solve.after_param, applied.solve.unit)}
             {applied.changes.length > 1 && <> and {applied.changes.length - 1} coupled change{applied.changes.length > 2 ? 's' : ''}</>}
-            {undone ? ' — back to the previous design.' : ` — ${applied.solve.requirement_id} ${applied.solve.after_margin != null && applied.solve.after_margin >= 0 ? 'now passes' : 'moves'}; the engine re-verifies everything.`}
+            {undone ? ' — back to the previous design.' : ` — ${applied.solve.requirement_id} ${verdictWord(applied.solve.before_margin, applied.solve.after_margin)}; the engine re-verifies everything.`}
           </span>
           <span className="row">
             {!undone && <button className="btn small" onClick={undo}>Undo</button>}

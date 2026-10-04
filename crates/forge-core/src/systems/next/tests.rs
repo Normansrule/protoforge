@@ -409,3 +409,24 @@ fn reflectance_fix_for_contrast_trips_see_through() {
     // hand check: see-through = 1 − R, so R ≈ 0.49 leaves about 51 %
     assert!((r54.after_value.unwrap() - (1.0 - s.after_param) * 100.0).abs() < 1e-6);
 }
+
+#[test]
+fn marginal_solve_falls_back_to_the_estimate_margin() {
+    // R-048 passes by 0.4 %; "Try fixing this" on a marginal pass asks for the 10 % band,
+    // which battery capacity alone cannot give. The solver must still offer more margin
+    // (the 2 % the lever estimate promises), not report "already meets" with nothing to apply.
+    let s = levers::solve(&SolveIn {
+        project: Project::iris(),
+        requirement_id: "R-048".into(),
+        param: "battery.capacity_mah".into(),
+        lo: None,
+        hi: None,
+        couple: true,
+        margin: Some(0.10),
+        evaluation: None,
+    })
+    .unwrap();
+    assert!(s.found, "{}", s.message);
+    assert!(s.after_param > s.before_param, "{}", s.message);
+    assert!(s.after_margin.unwrap() >= 0.02 - 1e-9, "{:?} {}", s.after_margin, s.message);
+}

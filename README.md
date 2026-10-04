@@ -514,8 +514,8 @@ Iris Smart Glasses v0.6.0 — what to do next
     Raise ambient contrast ratio, bright scene to ≥ 1.5 :1 (R-047)
     now 1.24 :1 → ≥ 1.5 :1 (margin -17.6 %)
     go to: Human Factors Lab → Legibility & eyebox  (#/ergonomics?tab=display)
-    ↑ Optics · combiner reflectance: +0.015  moves it +0.0173 :1 · ≈ 0.555  reaches the target
-    ↑ Optics · display luminance: +150 cd/m² moves it +0.0118 :1 · ≈ 6721 cd/m² reaches the target
+    ↑ Optics · combiner reflectance: +0.015 moves it +0.0173 :1 · ≈ 0.555 reaches the target with 2 % margin
+    ↑ Optics · display luminance: +150 cd/m² moves it +0.0118 :1 · ≈ 6721 cd/m² reaches the target with 2 % margin
 ```
 
 `protoforge package` writes 98 files for Iris:

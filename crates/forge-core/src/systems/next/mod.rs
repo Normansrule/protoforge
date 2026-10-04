@@ -753,16 +753,16 @@ pub fn render_cli(p: &Project, all: bool, levers: Option<&str>) -> Result<(Strin
         match a.levers_status.as_str() {
             "measured" => {
                 for l in &a.levers {
+                    // "0.015" rather than "0.015 " when the parameter or metric has no unit
+                    let with_unit = |v: String, u: &str| if u.is_empty() { v } else { format!("{v} {u}") };
                     o += &format!(
-                        "    {} {}: +{} {} moves it {:+.4} {}{}\n",
+                        "    {} {}: +{} moves it {}{}\n",
                         if l.direction == "increase" { "↑" } else { "↓" },
                         l.label,
-                        levers::fmt_num(l.step),
-                        l.unit,
-                        l.delta,
-                        a.unit,
+                        with_unit(levers::fmt_num(l.step), &l.unit),
+                        with_unit(format!("{:+.4}", l.delta), &a.unit),
                         l.estimate
-                            .map(|e| format!(" · ≈ {} {} reaches the target", levers::fmt_num(e), l.unit))
+                            .map(|e| format!(" · ≈ {} reaches the target with 2 % margin", with_unit(levers::fmt_num(e), &l.unit)))
                             .unwrap_or_default()
                     );
                 }
