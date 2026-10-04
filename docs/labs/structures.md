@@ -113,19 +113,19 @@ The metric pass uses two voxels through the temple (h = temple width / 2 =
 2 mm) and front (h = 2.5 mm), grid-aligned, multigrid PCG to 1e-3; the finite
 element part is memoised on the frame, optics and PCB parameters (≈ 0.24 s
 native cold, a few milliseconds warm when only components change; the whole
-metric list is memoised too). Values for the Iris defaults (PETG):
+metric list is memoised too). Values for Iris v0.6 (PETG):
 
-| Key | Meaning | Iris |
+| Key | Meaning | Iris (v0.6) |
 |---|---|---|
-| `structures.min_safety_factor` | min SF over temple spread (both) and bridge bend | **2.04×** (left temple, 22 MPa at the battery-pod-to-arm junction; right 2.58×, bridge 8.2×). Hand check: right arm root σ = F L / (h w²/6) = 5 × 70.6 / 21.3 ≈ 16.5 MPa vs 17.5 MPa FEA. Recommend **≥ 2** — a pass with little margin |
-| `structures.pod_fit_worst_mm` | worst-case clearance of the PCB in the pod incl. −10 °C shrink | **0.97 mm** (recommend **≥ 0**) |
+| `structures.min_safety_factor` | min SF over temple spread (both) and bridge bend | **2.04×** (left temple, 22 MPa in the battery-pod wall; right 2.58×, bridge 7.6×). Hand check: right arm root σ = F L / (h w²/6) = 5 × 70.6 / 21.3 ≈ 16.5 MPa vs 17.5 MPa FEA. R-026 (≥ 2) — a marginal pass (1.9 %) |
+| `structures.pod_fit_worst_mm` | worst-case clearance of the PCB in the pod incl. −10 °C shrink | **0.97 mm** — R-027 (≥ 0) |
 | `structures.temple_deflection_mm` | larger tip deflection at 5 N spread | 25.9 mm (left temple) |
 | `structures.temple_stiffness_n_mm` | right temple lateral stiffness | 0.30 N/mm |
-| `structures.drop_safety_factor` | 1.5 m drop on the pod, energy upper bound | 0.30× (294 N peak) — see limitations |
+| `structures.drop_safety_factor` | 1.5 m drop on the pod, energy upper bound | 0.29× (298 N peak) — no requirement bounds it; see limitations |
 | `structures.pod_fit_yield_pct` | Monte Carlo assembly yield | 100 % |
 | `structures.first_mode_hz` | first bending mode of the right temple | ≈ 101 Hz |
 | `structures.hinge_fatigue_cycles` | open/close cycles to predicted failure | ≈ 1.3 × 10⁷ (no notch factor) |
-| `structures.focus_error_worst_d` | worst-case display focus error | 0.60 D vs a ±0.25 D allowance — a focus adjustment (shim or threaded lens cell) or a molded housing is needed |
+| `structures.focus_error_worst_d` | worst-case display focus error | **0.09 D** vs a ±0.25 D allowance — R-028. In v0.5 this lab found the printed optics housing alone gave ±0.60 D, so a threaded focus cell set at assembly was added (0.05 mm adjustment step, ±0.01 mm lock shift) |
 
 The sharp step where each slim temple arm leaves its pod is a stress
 concentration: its nodal peak (≈ 30 MPa at 2 mm voxels, ≈ 60 MPa at 1 mm) is

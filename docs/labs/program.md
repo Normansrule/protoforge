@@ -101,18 +101,18 @@ production; 10 by override only.
 `metrics()` derives the plan, runs CPM, a 2 000-iteration seeded beta-PERT
 Monte Carlo, the business case and the readiness ladders, memoised on the
 whole project (the plan reads milestones, roadmap, compliance, cost model
-and requirements); it runs in the verification worker (≈ 20 ms in WebAssembly with the Manufacturing Hub's caches warm). Values for the Iris
-defaults:
+and requirements); it runs in the verification worker (≈ 20 ms in WebAssembly with the Manufacturing Hub's caches warm). Values for Iris
+v0.6:
 
-| Key | Meaning | Iris |
+| Key | Meaning | Iris (v0.6) |
 |---|---|---|
-| `program.p80_weeks` | 80th-percentile weeks from start to PVT exit (M-5) | **50.9 weeks** (plan 45.5, P50 49.3; only ≈ 3 % of runs meet the most-likely plan; classic PERT P80 49.2) |
+| `program.p80_weeks` | 80th-percentile weeks from start to PVT exit (M-5) | **50.9 weeks** (plan 45.5, P50 49.3; only ≈ 3 % of runs meet the most-likely plan; classic PERT P80 49.2) — R-051 (≤ 52 weeks), a marginal pass |
 | `program.cpm_weeks` | critical-path weeks with most-likely durations | 45.5 weeks |
-| `program.gross_margin_pct` | gross margin at the stated retail price and target quantity | **60.9 %** ($249 retail → $194.84 net; landed $76.25 = Manufacturing Hub $54.20 + logistics $6 + warranty $3.61 + certification $10.68 + fixtures $1.76) |
-| `program.breakeven_units` | units to recover the development budget | **4 322 units** ($440k budget ÷ $101.8 contribution) |
-| `program.npv_usd` | NPV of development + three sales years at 12 % | ≈ $229k (IRR ≈ 36 %, launch at P80, peak cash need ≈ $438k, payback ≈ week 163) |
+| `program.gross_margin_pct` | gross margin at the stated retail price and target quantity | **60.7 %** ($249 retail → $194.84 net; landed $76.65 = Manufacturing Hub $54.58 + logistics $6 + warranty $3.63 + certification $10.68 + fixtures $1.76) — R-052 (≥ 50 %) |
+| `program.breakeven_units` | units to recover the development budget | **4 341 units** ($440k budget ÷ $101.4 contribution) |
+| `program.npv_usd` | NPV of development + three sales years at 12 % | ≈ $226k (IRR ≈ 35 %, launch at P80, peak cash need ≈ $438k, payback ≈ week 163) |
 | `program.bac_usd` | development budget at completion | ≈ $440k |
-| `program.min_trl` | lowest suggested TRL | **3** — optics, sensing, the IRIS-DSP block, PCB, frame, firmware and manufacturing have analysis-only evidence (COTS power, compute and audio sit at 4) |
+| `program.min_trl` | lowest suggested TRL | **3** — optics, sensing, the IRIS-DSP block, PCB, frame, firmware and manufacturing have analysis-only evidence (COTS power, compute and audio sit at 4) — R-053 (≥ 6, a goal) stays open: readiness rises with evidence (builds, tests), not with a design parameter |
 | `program.min_mrl` | lowest suggested MRL | 2 — the optional IRIS-DSP co-processor has no costed fabrication route in the Manufacturing Hub (PCB, frame and manufacturing are at 4, the rest at 3) |
 
 What the plan shows about Iris: the critical path runs through the trade
@@ -123,7 +123,7 @@ supplier documents) at DVT and the **radio certification** package at PVT
 pre-certified module would shorten it). The proof-of-concept stage (13 weeks)
 is longer than the roadmap's typical 4–12. The roadmap plans a hardened steel
 mold at PVT, but the Manufacturing Hub costs the frame by in-house FDM at the
-1 000-unit target (molding pays off above ≈ 10 400 units) — the default plan
+1 000-unit target (molding pays off above ≈ 10 300 units) — the default plan
 follows the cost model and the switch "frame tooling: hard steel mold" plans
 the $60k tool instead.
 

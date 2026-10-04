@@ -125,32 +125,46 @@ stop offset `a = (KNUCKLE_LEN + KNUCKLE_GAP)/2 = 2.7 mm` behind the front,
 the pin on the temple centre line (2 mm to either face of the 4 mm temple),
 the ear contact at the ear bend 108.75 mm behind the pin and the pod ending
 66.7 mm behind it. The temple end face has rounded corners (inner 1.1 mm,
-outer 0.3 mm): it is the detent cam. The wire is 302 stainless (skin
-contact), Ø0.45 mm, D = 2.0 mm (C = 4.4, OD 2.45 mm in a 4 mm temple), six
-active coils, 5.5 mm free length, squared and ground, 0.6 mm preload
-(k = 7.37 N/mm, 4.42 N). **Usage assumed:** 12 uses a day (open, wear,
-close — two passes over the detent), 2 pulls to the 20° over-travel stop a
-day, 3 years = 13 140 uses (the Structures Lab uses the same 12 open/close
-per day for the plastic hinge area).
+outer 0.1 mm): it is the detent cam. The v0.6 spring is 302 stainless (skin
+contact), **shot-peened**, Ø0.6 mm wire, D = 2.4 mm (C = 4.0, outer diameter (OD) 3.0 mm in
+a 4 mm temple with 0.4 mm walls), five active coils, 5.5 mm free length,
+squared and ground, 0.6 mm preload (k = 16.17 N/mm, 9.70 N), with a **10°
+over-travel stop**. **Usage assumed:** 12 uses a day (open, wear, close — two
+passes over the detent), 2 pulls to the over-travel stop a day, 3 years =
+13 140 uses (the Structures Lab uses the same 12 open/close per day for the
+plastic hinge area). All of it is stored in `design.extra.mechanisms.hinge`.
 
-| Metric | Meaning | Iris value |
+| Metric | Meaning | Iris value (v0.6) |
 |---|---|---|
-| `mechanisms.hinge_spring_sf` | Goodman (Zimmerli) fatigue safety factor, worst usage block | **1.40** (pulled to the stop: τ 331 → 587 MPa). Detent passes 1.92, worn on a 146 mm head 2.41. Shot-peened wire gives **1.90** |
-| `mechanisms.hinge_life_cycles` | open/close uses to failure (10⁷ = runout cap) | **10⁷ (runout)** — every block is below the 10⁷-cycle allowable; need 13 140 |
-| `mechanisms.hinge_open_torque_nmm` | torque to push the folded temple over the detent (with pin friction μ = 0.15) | **8.0 N·mm** (contact from 32°, hump at 56° with 0.28 mm slider travel); closing needs 4.4 N·mm |
+| `mechanisms.hinge_spring_sf` | Goodman (Zimmerli) fatigue safety factor, worst usage block | **2.03** (pulled to the stop: τ 380 → 567 MPa; S_se 659 MPa peened). Detent passes 2.08, worn on a 146 mm head 2.33 — R-041 (≥ 1.5) passes |
+| `mechanisms.hinge_life_cycles` | open/close uses to failure (10⁷ = runout cap) | **10⁷ (runout)** — every block is below the 10⁷-cycle allowable; need 13 140 (R-042) |
+| `mechanisms.hinge_open_torque_nmm` | torque to push the folded temple over the detent (with pin friction μ = 0.15) | **17.55 N·mm** (contact from 32°, hump at 56° with 0.28 mm slider travel); closing needs 9.7 N·mm — R-043 (3–30 N·mm) passes |
 
-Other numbers on the page: over-travel starts at 7.6 N·mm and stays almost
-flat (the lever of the outer corner shrinks as the force grows); on a
-146 mm head the hinge takes essentially all of the 12 mm spread per side
-(α ≈ 6.3°) and clamps with only ≈ 0.08 N per side, against ≈ 17 N if the
-hinge were rigid — so the spring hinge buys comfort and robustness, while
-grip must come from temple bend, ear bend and nose pads.
+Other numbers on the page: over-travel starts at 18.6 N·mm and rises about
+0.32 N·mm per degree to the 10° stop; the spring has 0.70 mm of travel left
+before it goes solid (peak travel 0.29 mm) and a static factor of 1.24 at the
+stop (τ_max 567 MPa vs S_sy 704 MPa). On the Mechanisms Lab's single 146 mm
+head the hinge takes 92 % of the 12.6 mm spread per side (≈ 6.7° of
+over-travel, short of the stop) and clamps with ≈ 0.21 N per side, against
+≈ 2.7 N if the hinge were rigid. The frame model behind that number (temple
+plus front bowing, contact point) is the Human Factors Lab's, so the two labs
+agree: on that lab's 162 mm reference head breadth the coupled model gives
+**0.68 N per side** (`ergonomics.clamp_force_n`), inside the 0.19–1.38 N
+comfort band, and one frame size fits 60 % of adults (R-044). The spring hinge
+buys comfort and robustness; grip comes from the spring preload, temple bend,
+ear bend and nose pads.
 
-**What the simulation caught:** with the first-choice unpeened wire, the
-worst block (pulling the temples to the stop) gives n_f = 1.40 — below the
-1.5 that Shigley's spring examples design to, although still infinite-life
-on Zimmerli's line. Shot-peened wire (n_f 1.90), a 15° over-travel stop
-(1.62) or 0.4 mm preload (1.57, but the detent falls to 5.4 N·mm) fixes it.
+**What the simulation caught (v0.5 → v0.6):** v0.5's first-choice spring —
+unpeened Ø0.45 mm wire, D = 2.0 mm, six coils, 20° stop (k = 7.37 N/mm,
+4.42 N preload) — gave n_f = **1.40** in the worst block (pulling the temples
+to the stop), below the 1.5 that Shigley's spring examples design to although
+still infinite-life on Zimmerli's line; it opened at only 8.0 N·mm and clamped
+a 146 mm head with ≈ 0.08 N per side — so loose that, in the Human Factors
+Lab's population model, one frame size fitted **0 %** of adults. Each single fix was measured on that
+spring: shot-peened wire 1.90, a 15° stop 1.62, 0.4 mm preload 1.57 (but the
+detent falls to 5.4 N·mm). v0.6 combines them differently — shot-peened,
+stiffer (Ø0.6 mm, D 2.4 mm, five coils) and a 10° stop — for **2.03**, a
+17.55 N·mm detent and a clamp that fits 60 % of adults.
 
 ## Limitations
 

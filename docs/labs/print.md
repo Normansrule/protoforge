@@ -44,18 +44,18 @@ infill, 4 solid infill, 5 skirt.
 
 ### Metrics
 
-| Key | Meaning | Iris (defaults) |
+| Key | Meaning | Iris (v0.6) |
 |---|---|---|
-| `print.total_time_h` | all six frame parts, print orientation | **1.83 h** (full slice 1.81 h) — R-021 ≤ 8 h ✓ |
-| `print.filament_g` | filament for the set | **26.4 g** (full slice 25.9 g) |
-| `print.cost_usd` | at 20 USD/kg (informational) | 0.53 USD |
+| `print.total_time_h` | all six frame parts, print orientation | **1.80 h** (full slice 1.77 h) — R-021 ≤ 8 h ✓ |
+| `print.filament_g` | filament for the set | **25.8 g** (full slice 25.3 g) |
+| `print.cost_usd` | at 20 USD/kg (informational) | 0.52 USD |
 
 Because `metrics()` runs on every project edit, the metrics use the fast
 analytic estimator (≈ 13 ms in the browser for all parts, cached per
 parameter set). The test `iris_parts_slice_and_estimate_agrees` compares it
 with full slices: every part within 10 % in time and filament (largest
-deviation: right temple +7 % time), totals within 5 % (currently +1.3 %
-time, +2 % filament).
+deviation: right temple +7 % time), totals within 5 % (on Iris v0.6 +1.7 %
+time, +2.2 % filament).
 
 ## The algorithm
 

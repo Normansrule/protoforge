@@ -17,13 +17,16 @@ protoforge/
 │   │   └── src/
 │   │       ├── api.rs       JSON method dispatch: call(method, input) → {ok} | {error}
 │   │       ├── project.rs   the product model (needs, requirements, design parameters…)
-│   │       ├── systems/     verification, traceability, trade studies, failure mode and effects analysis (FMEA), lint, report
+│   │       ├── systems/     verification, traceability, trade studies, failure mode and effects analysis (FMEA), lint, report,
+│   │       │                wizard/ (new-product wizard) and next/ (next actions, levers, solve-for-target)
 │   │       ├── memo.rs      one-entry memo caches for expensive analyses
 │   │       ├── math.rs      complex numbers, dense solve, polynomial roots, seeded random numbers …
-│   │       └── circuit/ power/ dsp/ chip/ control/ robotics/ rl/ optics/
-│   │           cad/ print/ pcb/ molding/ mfg/        one module per lab
+│   │       ├── circuit/ power/ dsp/ chip/ control/ robotics/ rl/ optics/ cad/ print/ pcb/ molding/
+│   │       │   mfg/ structures/ quantum/ firmware/ build/ rf/ fluids/ mechanisms/ ergonomics/
+│   │       │   reliability/ program/                one module per lab (23)
+│   │       └── bridge/      versions: diff, three-way merge, example history, exports to other tools
 │   ├── forge-wasm/      wasm-bindgen bridge: exports call() and version()
-│   ├── forge-cli/       `protoforge` binary: evaluate, metrics, report, package, lint, call, methods, new
+│   ├── forge-cli/       `protoforge` binary: evaluate, next, metrics, report, package, lint, call, methods, new, wizard
 │   └── forge-server/    axum REST server: /api/{method}, /api/package, /api/ngspice, static hosting
 ├── web/                 React 19 + Vite front end
 │   └── src/
@@ -31,7 +34,11 @@ protoforge/
 │       ├── state/       project.ts — zustand store holding the one project JSON + useEvaluation()
 │       ├── components/  Card, Stat, Slider, Plot, Scene3D, LabPage, Explainer …
 │       ├── labs/        one folder per lab + registry.ts (routes, groups, metric prefixes)
-│       └── pages/       Home (overview), Systems (studio), Learn (guide & references)
+│       ├── pages/       Home (overview), Systems (studio), Versions, Learn (guide & references)
+│       └── ux/          ease of use: start/ (Start here, welcome card), wizard/ (new product),
+│                        palette/ (command palette), help/ (lab help, glossary pop-ups),
+│                        nav/ (sidebar and top bar), next/ (What should I do next?),
+│                        data/ (roles, tasks, terms, generated lab-tab index), prefs.ts
 ├── examples/smart-glasses/project.json   Iris, the reference product (embedded in the engine)
 ├── scripts/build-wasm.sh                 Rust → web/src/wasm
 ├── docs/                                 this file, getting started, lab guides, references
@@ -49,8 +56,8 @@ flowchart LR
   end
   subgraph Engine["forge-core (Rust)"]
     API["api::call_value<br/>dispatch by module prefix"]
-    Mods["circuit · power · dsp · chip · control · robotics · rl<br/>optics · cad · print · pcb · molding · mfg"]
-    Sys["systems::evaluate<br/>metrics → requirement checks"]
+    Mods["23 lab modules<br/>circuit · power · dsp · chip · control · robotics · rl · optics<br/>cad · print · pcb · molding · mfg · structures · quantum · firmware<br/>build · rf · fluids · mechanisms · ergonomics · reliability · program"]
+    Sys["systems::evaluate<br/>metrics → requirement checks<br/>wizard · next actions"]
   end
   CLI["protoforge CLI"]
   REST["forge-server<br/>POST /api/{method}"]
@@ -96,7 +103,23 @@ pub fn call(method: &str, input_json: &str) -> String; // {"ok": …} | {"error"
 `dispatch(method, input) -> Option<ApiResult>`; `None` means "unknown
 method". Inputs and outputs are serde structs with `snake_case` fields and
 `#[serde(default)]` so callers may omit fields. `api.methods` lists the
-modules.
+modules and `api.catalog` every method per module. Today there are **26
+modules** — the 23 lab modules plus `project`, `systems` and `bridge` — and
+**302 methods** in the catalog (`./target/debug/protoforge methods` and
+`protoforge call api.catalog '{}'`; the two `api.*` methods themselves are
+not listed).
+
+The ease-of-use features (new-product wizard, next actions) are ordinary `systems.*` methods,
+so the CLI and the REST server get them too:
+
+| Method | What it does |
+|---|---|
+| `systems.wizard` | new-product wizard: plain-language answers (kind, capabilities, targets) → a starter project whose requirements are bound only to metrics the engine computes for it (`systems.wizard_options` lists the 10 kinds, 18 capabilities and targets) |
+| `systems.next_actions` | "What should I do next?": failing, unverified, open-goal, marginal, risk, gate and wording actions ranked, each with the lab tab to open and measured design levers |
+| `systems.next_levers` | the design parameters that measurably move one metric (measured on demand for the expensive modules) |
+| `systems.solve_lever` | one-parameter solve-for-target, then a full re-verification listing every requirement that moves |
+
+See [new-product.md](new-product.md) and [next-actions.md](next-actions.md).
 
 The same call from each front door:
 
@@ -117,7 +140,8 @@ that loads its own copy of the engine.
 Each module exposes `metrics(&Project) -> Vec<Metric>`: named, unit-carrying
 numbers such as `circuit.rail_droop_mv = 7.5 mV` with a human note on how it
 was computed. `systems::all_metrics` collects them from every module and adds
-cross-domain ones (`mass.total_g`, `bom.cost_usd`, `fit.pcb_pod_margin_mm`).
+cross-domain ones (`mass.total_g`, `bom.cost_usd`, `fit.pcb_pod_margin_mm`) —
+107 metrics for Iris v0.6.
 
 A requirement's `verification` names one metric key and a criterion:
 
@@ -128,7 +152,9 @@ A requirement's `verification` names one metric key and a criterion:
 
 `systems::evaluate` looks the metric up and applies `le`, `ge`, `eq` (with
 tolerance) or `between`, producing pass / fail / unverified plus a signed
-margin. The UI groups requirements by lab through the metric **prefixes** in
+margin. A failing requirement of kind `goal` is an **open goal**: reported and
+counted, but not a binding failure (Iris v0.6: 54 requirements, 51 pass, 3 open
+goals — R-030, R-047, R-053). The UI groups requirements by lab through the metric **prefixes** in
 `web/src/labs/registry.ts` (e.g. the Power & Thermal lab owns `power.` and
 `thermal.`), which is how the Overview pipeline and the sidebar know each
 lab's status.
@@ -157,6 +183,9 @@ See [CONTRIBUTING-LABS.md](CONTRIBUTING-LABS.md) for the full conventions. In sh
    graduate to and references; add new citations to
    `web/src/pages/learn/references.ts` and regenerate `docs/references.md`.
 4. Bind Iris requirements to the new metric keys in `examples/smart-glasses/project.json`.
+5. Make the lab findable: help text in `web/src/ux/help/labHelp.ts`, a place in
+   the discipline paths and tasks (`web/src/ux/data/roles.ts`, `tasks.ts`), and
+   regenerate the tab index with `node scripts/gen-lab-index.mjs`.
 
 ## Build pipeline
 
@@ -183,7 +212,7 @@ web/ ──tsc --noEmit && vite build──▶ web/dist/ (static site, base './'
 |---|---|
 | **Rust** | `cargo fmt --all -- --check` · `cargo clippy --workspace --all-targets -- -D warnings` · `cargo test --workspace` |
 | **WebAssembly + web** | install the wasm target and `wasm-bindgen-cli` 0.2.129 · `./scripts/build-wasm.sh` · `npm ci && npm run build` · upload `web/dist` |
-| **Verify Iris** | `protoforge evaluate` (fails the build if any requirement fails) · `lint` · Markdown report into the job summary · `protoforge package` uploaded as the **`iris-fab-package`** artifact |
+| **Verify Iris** | `protoforge evaluate` (fails the build if any binding requirement fails; open goals are reported) · `lint` · Markdown report into the job summary · `protoforge package` uploaded as the **`iris-fab-package`** artifact |
 
 `.github/workflows/pages.yml` builds the same site on pushes to `main` (or
 manually) and publishes it with `actions/upload-pages-artifact` and

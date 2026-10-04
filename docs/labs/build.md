@@ -166,11 +166,11 @@ item is phrased as commonly applicable — confirm with an accredited test lab.
 
 ## Metrics
 
-| Key | Meaning | Iris value |
+| Key | Meaning | Iris value (v0.6) |
 |---|---|---|
 | `build.compliance_items` | applicable compliance items for `design.extra.markets` (default US + EU) | 25 (18 mandatory; indicative $38k–$143k) |
-| `build.pcb_capability_violations` | DFM violations against `design.extra.pcb_tier` (default `standard`) | 0 (1 warning: thermal vias in the SoC exposed pad) |
-| `build.stencil_min_area_ratio` | smallest IPC-7525 area ratio at `design.extra.stencil_thickness_mm` (default 0.12 mm) | 0.667 — the QFN-48 0.8 × 0.2 mm pads just pass; a 0.10 mm stencil gives 0.80 |
+| `build.pcb_capability_violations` | DFM violations against `design.extra.pcb_tier` (default `standard`) | **0** — R-034 (1 warning: thermal vias in the exposed pads) |
+| `build.stencil_min_area_ratio` | smallest IPC-7525 area ratio at `design.extra.stencil_thickness_mm` (default 0.12 mm; Iris stores 0.10 mm) | **0.80** — R-035 (≥ 0.66). At the 0.12 mm default the QFN-48 0.8 × 0.2 mm pads gave 0.667, right on the limit, which is why Iris v0.5 moved to a 0.10 mm stencil |
 
 ## API
 

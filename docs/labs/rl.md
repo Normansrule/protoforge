@@ -42,8 +42,8 @@ Downloads: power policy + Q-table + model (JSON), simulated day (CSV); gridworld
     numbers), run until the battery is empty.
 * **Metric** `rl.policy_life_gain_pct` = (learned life / fixed life − 1) × 100, reported as 0
   if the learned policy serves less utility than the fixed one (0.5 % tolerance).
-  **Iris: 10.46 h → 12.91 h = +23.4 % (goal ≥ 5 % → pass), utility served 99.9 % vs 100 %,
-  96 % of states identical to the DP optimum.** The learned policy switches the display to
+  **Iris v0.6 (240 mAh): 13.73 h → 17.13 h = +24.8 % (R-024, goal ≥ 5 % → pass), utility
+  served 100.0 % vs 100.0 %, 96 % of states identical to the DP optimum.** The learned policy switches the display to
   low-refresh for glances and navigation (UC-1 redraws only on change) and slows BLE while
   idle; it keeps full refresh and fast BLE for captions.
 

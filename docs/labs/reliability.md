@@ -105,44 +105,51 @@ thermal model's 30 °C ambient and 60 % RH, a 20 K daily electronics swing,
 Ea = 0.7 eV for part FITs, both microphones required, and DVT targets
 R = 0.9 at 90 % confidence, 0 failures, life legs at 2 lives with β = 2, 3
 units per qualification check. From the Power & Thermal lab's model it
-derives the battery life per charge (10.3 h → **0.77 charge cycles per
-day**) and the board temperature in use (**34.1 °C**, so thermally
-activated FITs are ×0.61 of their 40 °C values).
+derives the battery life per charge (13.8 h → **0.58 charge cycles per
+day**) and the board temperature in use (**34.1 °C** at the 54.8 mW average
+power, so thermally activated FITs are ×0.61 of their 40 °C values).
 
-| Key | Iris value | Meaning |
+| Key | Iris value (v0.6) | Meaning |
 |---|---|---|
-| `reliability.mtbf_h` | **3.55 × 10⁶ h** | parts-count MTBF of the constant-rate blocks (281 FIT total, operating hours) |
-| `reliability.r_2yr_pct` | **76.3 %** | system reliability over 2 years at the use profile, wear-out included |
-| `reliability.dvt_units` | **37 units** | product units the DVT plan needs (A 22 + B 6 + C 6 + D 3) |
-| `reliability.b10_years` | 1.56 years | informational: age at which 10 % of units have failed |
+| `reliability.mtbf_h` | **3.37 × 10⁶ h** | parts-count MTBF of the constant-rate blocks (296 FIT total, operating hours) — R-049 (≥ 10⁶ h) |
+| `reliability.r_2yr_pct` | **90.38 %** | system reliability over 2 years at the use profile, wear-out included — R-048 (≥ 90 %), a marginal pass (0.4 %) |
+| `reliability.dvt_units` | **37 units** | product units the DVT plan needs (A 22 + B 6 + C 6 + D 3) — R-050 (≤ 40) |
+| `reliability.b10_years` | 2.02 years | informational: age at which 10 % of units have failed |
 
-**What the simulation caught.** The LiPo cell causes about **91 %** of
-failures within two years (criticality, confirmed by the Monte Carlo
-first-failure share): at 0.77 cycles a day it accumulates ≈ 565 cycles, and a
-typical small cell reaches 80 % capacity around a characteristic 800 cycles
-(β = 4, a typical assumption to replace with the cell maker's data). The hinge
-flex cable is next (≈ 5 %), the spring hinge third (≈ 2 %); the electronics are
-negligible. A requirement of R ≥ 90 % over two years therefore **fails**
-(76.3 %). Computed design changes: a 250 mAh cell (fewer cycles per day)
-→ 91.5 %; a cell rated for η = 1 200 cycles → 93.1 %; treating the battery as
-a service item → 97.8 %. Making the microphones 1-of-2 barely changes R
-(they are not the driver) — the importance view says where effort pays.
+**What the simulation caught (v0.5 → v0.6).** In v0.5 the 180 mAh LiPo cell
+caused about **91 %** of failures within two years (criticality, confirmed by
+the Monte Carlo first-failure share): its 10.3 h per charge meant 0.77 cycles a
+day, ≈ 565 cycles in two years, and a typical small cell reaches 80 % capacity
+around a characteristic 800 cycles (β = 4, a typical assumption to replace
+with the cell maker's data). R over two years was **76.3 %** — the 90 %
+requirement (now R-048) would fail. The computed design changes on v0.5 were:
+a 250 mAh cell (fewer cycles per day) → 91.5 %; a cell rated for η = 1 200
+cycles → 93.1 %; treating the battery as a service item → 97.8 %. v0.6 took
+the first route with a **240 mAh** cell (13.8 h per charge, 0.58 cycles a day,
+≈ 424 cycles in two years), paying for its extra 1.3 g with a 4.5 mm rim so
+total mass stays at 49.1 g (R-001): R = **90.38 %**. The cell still dominates
+(77 % of failures), then the hinge flex cable (14 %) and the spring hinge
+(6 %); the electronics are negligible. Making the microphones 1-of-2 barely
+changes R (they are not the driver) — the importance view says where effort
+pays. With only 0.4 % of margin, R-048 is a marginal pass; the next-actions
+list's lever is battery capacity (+12 mAh moves R by +1.27 %; ≈ 253 mAh in a
+straight line for 2 % margin), which costs mass.
 
 The DVT plan's thermal-cycling leg needs 33 cycles of −20 ↔ +60 °C (AF ≈ 45
 by Norris–Landzberg for two lives of daily 20 K swings, about 1.5 days); the
 10-day 40 °C / 93 % RH damp-heat leg covers ≈ 35 % of the worn humidity
 exposure (Peck AF 8.4) — a robustness screen, said so in the plan; the
 hinge leg needs 17 520 open/close cycles (≈ 15 h at 20/min). Product legs
-take ≈ 17 days after a 2.4-day baseline; bare-cell cycling (≈ 118 days) sets
-the schedule and should start in EVT.
+take ≈ 17 days after a 2.4-day baseline; bare-cell cycling (848 equivalent
+full cycles, ≈ 88 days) sets the schedule and should start in EVT.
 
-**Recommended requirements** (ids are placeholders):
+**Iris requirements from this lab** (added in v0.6):
 
-| Id | Text | Kind | Metric | Criterion | Iris now |
-|---|---|---|---|---|---|
-| R-0xx | Iris shall have at least 90 % reliability over 2 years of the reference use profile (8 h/day worn, 12 open/close cycles per day), counting battery capacity below 80 % as a failure. | performance | `reliability.r_2yr_pct` | ≥ 90 % | 76.3 % — **fails** (battery) |
-| R-0xx | The parts-count MTBF of the electronics shall be at least 1 000 000 h (typical failure rates until supplier data replace them). | performance | `reliability.mtbf_h` | ≥ 1 000 000 h | 3.55 × 10⁶ h — passes |
-| R-0xx | The DVT plan shall demonstrate R = 0.9 at 90 % confidence with at most 40 product units. | manufacturing | `reliability.dvt_units` | ≤ 40 units | 37 — passes |
+| Id | Text | Kind | Metric | Criterion | Iris v0.5 | Iris v0.6 |
+|---|---|---|---|---|---|---|
+| R-048 | Reliability over 2 years (8 h a day, 12 hinge cycles a day) shall be at least 90 %, counting a battery below 80 % capacity as a failure. | performance | `reliability.r_2yr_pct` | ≥ 90 % | 76.3 % ✕ (battery) | 90.38 % ✓ |
+| R-049 | The parts-count MTBF of the electronics shall be at least 1,000,000 h (typical failure rates). | performance | `reliability.mtbf_h` | ≥ 1 000 000 h | 3.55 × 10⁶ h ✓ | 3.37 × 10⁶ h ✓ |
+| R-050 | The DVT plan shall demonstrate R = 0.9 at 90 % confidence with no more than 40 product units. | manufacturing | `reliability.dvt_units` | ≤ 40 units | 37 ✓ | 37 ✓ |
 
 ## Verification (unit tests)
 

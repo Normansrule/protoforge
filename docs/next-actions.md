@@ -1,6 +1,6 @@
 # What should I do next?
 
-A project with 53 requirements and 23 labs answers a lot of questions — but
+A project with 54 requirements and 23 labs answers a lot of questions — but
 the first question anyone opening it has is simpler: **what should I work on
 now?** The next-actions engine answers it for any project, the way a senior
 systems engineer would: it points at the most important open issue, says in
@@ -64,8 +64,9 @@ quantity ("≥ 100 % routed").
 
 ### Iris v0.6, as computed
 
-53 requirements: 50 pass, 3 open goals, 0 failing. Nine passes are marginal,
-so **41 of 53 (77 %) pass with margin**. The engine lists 14 actions:
+54 requirements: 51 pass, 3 open goals, 0 failing. Nine passes are marginal,
+so **42 of 54 (78 %) pass with margin**. The engine lists 14 actions
+(`./target/debug/protoforge next --all`):
 
 | # | Score | Kind | Action | Where |
 |---|---|---|---|---|
@@ -81,7 +82,7 @@ so **41 of 53 (77 %) pass with margin**. The engine lists 14 actions:
 | 10 | 54.0 | Marginal | Eyebox coverage 89.6 % vs ≥ 85 % (R-046, 5.4 %) | Human Factors Lab → Legibility & eyebox |
 | 11 | 52.5 | Marginal | Design validation test (DVT) plan 37 units vs ≤ 40 (R-050, 7.5 %) | Reliability & Test Lab → Test plan (DVT) |
 | 12 | 51.7 | Marginal | Angular resolution 27.2 px/deg vs ≥ 25 (R-005, 8.6 %) | Optics Lab → Ray diagram |
-| 13 | 40.7 | Stage gate | Preliminary design (M-2): "all analysis requirements green" — 50/53 | Systems Studio → Roadmap |
+| 13 | 40.7 | Stage gate | Preliminary design (M-2): "all analysis requirements green" — 51/54 | Systems Studio → Roadmap |
 | 14 | 10.7 | Wording | R-037: the text says "50 Ω ± 5 Ω" while the criterion is stored as the range 45…55 (the checker cannot match them) | Systems Studio → Requirements |
 
 Note how R-039 (1.5 %, safety) leads the marginal passes although R-048 has
@@ -142,7 +143,10 @@ R-047, ambient contrast ratio (ACR) against a 5,000 cd/m² sunlit street (now 1.
 
 Hand check: the Human Factors model is ACR = 1 + L·τ·R / (L_bg·(1 − R)) with
 τ = 0.92 lens transmission: 1 + 3000·0.92·0.3 / (5000·0.7) = 1.2366 ✓, and a 5 %
-step in L moves ACR by 0.05 × 0.2366 = 0.0118 ✓ (unit-tested).
+step in L moves ACR by 0.05 × 0.2366 = 0.0118 ✓ (unit-tested). The ↑ reflectance lever is
+measured on the Human Factors model alone; it does not know that see-through is 1 − R, so the
+lever list shows it as a clean gain — the solver's full verification (below) is what reveals that
+it fails R-054.
 
 R-030, lateral colour (now 5.79 arcmin): ↓ lens focal length is the strongest
 lever (−0.71 arcmin per +1 mm), then lens diameter, display-to-lens distance
@@ -185,10 +189,21 @@ scales with its capacity at the same specific energy.
   active and **six requirements flip to fail**: battery life 13.8 → 6.7 h (R-002), average
   power 54.8 → 112.8 mW (R-003), pod skin temperature 39.0 → 49.6 °C (R-008), peak frame
   temperature 40.4 → 52.1 °C (R-039), hotspot rise 8.9 → 19.2 °C (R-040) and 2-year reliability
-  90.4 → 23.7 % (R-048); passing count 50 → 45. Without the coupling only R-047 changes.
-* **R-047 by combiner reflectance**: 0.30 → **0.49** gives ACR 1.530 and **no other requirement
-  moves** (50 → 51 pass). The catch the engine cannot see: see-through transmission falls from
-  70 % to about 51 %, and no Iris requirement bounds it yet (suggested below).
+  90.4 → 23.7 % (R-048); passing count 51 → 46. Without the coupling only R-047 changes.
+* **R-047 by combiner reflectance**: 0.30 → **0.49** gives ACR 1.530, but see-through
+  transmission falls from 70 % to 51 % (1 − R) and **R-054 (see-through ≥ 60 %, safety) flips
+  to fail**; passing count stays 51 → 51 (R-047 gains, R-054 loses), 33 module runs. Before
+  R-054 was added this lever looked free — no other requirement moved — which is exactly
+  why R-054 was added: the solver's side-effect list showed a cost no requirement was watching.
+* **So both R-047 levers break something.** A brighter display trips power, battery life, skin
+  temperature and reliability (six requirements); a more reflective combiner trips see-through
+  (R-054, 70 % → 51 %). With R = 0.40 — the most R-054 allows — the same hand formula gives
+  ACR 1 + 3000·0.92·0.4 / (5000·0.6) = 1.37 :1, still short of 1.5. That is the honest reason
+  R-047 stays an open goal: no single parameter closes it without failing a binding requirement.
+  The way out is architectural — a display with higher luminous efficacy (more nits per milliwatt,
+  so the power coupling does not apply), or a photochromic outer lens that darkens only in
+  sunlight (then R-054 must say under which light it applies) — and is a trade study for Systems
+  Studio, not a slider.
 * **R-030 by lens focal length**: 20 → **24.1 mm** fixes lateral colour (5.79 → 4.38 arcmin)
   but breaks the field of view (R-004, 23.6° → 19.1°), the virtual-image distance (R-006,
   1.34 → 0.14 m) and the spot size (R-029, 19.4 → 27.1 µm) — a one-parameter fix is the wrong

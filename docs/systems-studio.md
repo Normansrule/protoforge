@@ -8,8 +8,14 @@ the Power lab, the frame in CAD Studio or the filter in the DSP Lab and the
 verification matrix, budgets, traceability and V-model update immediately.
 
 The worked example is **Iris**, a pair of monocular heads-up-display smart
-glasses (`examples/smart-glasses/project.json`). Two smaller starter products
-ship as templates: the **Pebble sensor tag** and the **Pip desk robot**.
+glasses (`examples/smart-glasses/project.json`). At v0.6 it has 54
+requirements: 51 pass and 3 are open goals — R-030 (lateral colour), R-047
+(outdoor contrast) and R-053 (technology readiness); none fails and none is
+unverified. Three smaller starter products ship as templates: the **Pebble
+sensor tag**, the **Pip desk robot** and **Q-Link**, a two-node fiber quantum
+key distribution (QKD) testbed. For a product of your own, the
+[new-product wizard](new-product.md) (`#/new`) builds a starter project from a
+plain-language description.
 
 ## How verification works
 
@@ -17,13 +23,14 @@ Every requirement carries a verification record: a method (analysis, test,
 inspection or demonstration), optionally a **metric key** such as
 `power.battery_life_h`, a comparator (≤, ≥, between, equals ± tolerance) and
 target values. On every project edit the Rust engine (compiled to
-WebAssembly) runs every lab's `metrics()` function, collects about 35 metrics
-and checks each requirement:
+WebAssembly) runs every lab's `metrics()` function, collects the metrics
+(107 for Iris v0.6 — `./target/debug/protoforge metrics`) and checks each
+requirement:
 
 | Status | Meaning |
 |---|---|
 | ✓ pass | the bound metric meets the criterion |
-| ✕ fail | the bound metric violates the criterion |
+| ✕ fail | the bound metric violates the criterion; for a requirement of kind *goal* ("should") this is an **open goal** — reported, counted separately, never a binding failure |
 | ○ unverified | no metric bound (verify by test, inspection or demonstration), or no lab produces it yet |
 
 The **margin** is the distance to the limit as a fraction of the target:
@@ -33,7 +40,10 @@ by colour alone.
 
 ## The tabs
 
-1. **Mission control** — the verification ring (pass / fail / unverified), a
+1. **Mission control** — **"What should I do next?"** at the top (the eight
+   highest-ranked actions, with the lab tab to open, the design levers that
+   move each metric and a *Try fixing this* solver; see
+   [What should I do next?](next-actions.md)), the verification ring (pass / fail / unverified), a
    *Run full verification* button that re-runs the engine and then reveals
    the results lab by lab in V-model order (each lab tile lights up as its
    requirements are checked, with a console log), requirement status as small
@@ -119,13 +129,17 @@ by colour alone.
     architecture, trades, FMEA, gates, all metrics) with downloads
     (`*-systems-report.md`, the verification-only report, `project.json`), and
     the template gallery: *Blank*, *Iris smart glasses*, *Pebble sensor tag*,
-    *Pip desk robot*. Loading a template asks for confirmation and replaces
-    the current project.
+    *Pip desk robot*, *Q-Link*. Loading a template asks for confirmation and
+    replaces the current project; to describe a new product in plain words,
+    use the new-product wizard (`#/new`) instead.
 
 ## Building a new product
 
-1. **Report & templates → New product**: start from *Blank* (or a template
-   close to your idea). Save the old project first if you need it.
+1. **Start**: open the new-product wizard (`#/new`, or *New product* in the
+   command palette, Ctrl/⌘ + K) and describe the product — kind, capabilities,
+   targets — to get a starter project whose requirements are bound only to
+   metrics the engine computes for it; or start from *Blank* or a template in
+   **Report & templates**. Save the old project first if you need it.
 2. **Concept**: write the problem and vision, list users and use cases, note
    constraints, and write the stakeholder needs in the users' own words.
 3. **Requirements**: for each need, add measurable "shall" requirements.
@@ -137,7 +151,10 @@ by colour alone.
 5. **Trade studies and risks**: decide the big choices with weighted
    matrices; run the FMEA and turn mitigations into requirements.
 6. **Design in the labs**: every change re-verifies the requirements. Watch
-   the budgets and the V-model fill in; use the what-if sweep to find margins.
+   the budgets and the V-model fill in; let **What should I do next?** pick
+   the next issue and its levers, and use the what-if sweep to find margins.
+   Check the solver's side effects before applying a fix: on Iris, raising
+   combiner reflectance closes R-047 but fails R-054 (see-through 70 % → 51 %).
 7. **Roadmap**: pass each gate; export the report, then the fabrication
    package from the Manufacturing Hub.
 
@@ -160,8 +177,12 @@ reuse the caller's evaluation when given.
 | `systems.trade_detail` | a trade study's scores, normalised weights, contributions, ranking, lead, decision agreement and tornado |
 | `systems.parameters` | every numeric design parameter (`battery.capacity_mah`, …) |
 | `systems.sensitivity` | sweep one parameter (`{project, param, lo?, hi?, steps?, values?}`, ≤ 15 points) and report per-requirement values, margins, statuses and flips |
-| `systems.templates` / `systems.template` | starter projects (`blank`, `iris`, `pebble`, `pip`) |
+| `systems.templates` / `systems.template` | starter projects (`blank`, `iris`, `pebble`, `pip`, `qlink`) |
 | `systems.report_full` *(+ev)* | the full Markdown systems-engineering report |
+| `systems.next_actions` | ranked "what should I do next?" actions with lab routes and measured levers (`{project, evaluation?, levers?, limit?}`) |
+| `systems.next_levers` | the design parameters that measurably move one metric (on demand for the expensive labs) |
+| `systems.solve_lever` | one-parameter "solve for target" with a full re-verification and every side effect |
+| `systems.wizard` / `systems.wizard_options` | the new-product wizard: answers → starter project (10 kinds, 18 capabilities) / the option lists |
 
 The verification roll-ups also add three metrics that any project can bind
 requirements to: `mass.components_g` (always emitted now),

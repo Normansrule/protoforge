@@ -6,7 +6,7 @@ radio-frequency (RF) side of the **Iris** Bluetooth Low Energy (BLE) link at
 with a perfectly matched layer (PML) shows waves leaving an antenna, soaking
 into a head and reflecting from metal; analytic antenna patterns and an array
 factor give directivity and efficiency; an interactive Smith chart synthesises
-the matching network the Iris board is missing, snapped to standard values
+the matching network the Iris board lacked until v0.6, snapped to standard values
 with real component Q; transmission-line calculators size the 50 Ω antenna
 feed as a grounded coplanar waveguide (CPWG) on the real 0.8 mm board; and a
 link budget checks the margin to a phone with head and body loss. The field
@@ -94,16 +94,27 @@ margin `P_rx − S − F`; range solves `margin = 0`.
 
 The lab reads the board from `design.pcb` (58 × 10 mm, 2 layers, 0.8 mm →
 0.73 mm of FR-4 between 35 µm copper layers) and its RF choices from
-`design.extra.rf` (absent on Iris v0.5; defaults below). Every value is
-computed; the metric pass takes well under a millisecond and is memoised.
+`design.extra.rf` (absent on Iris v0.5; Iris v0.6 stores the lab's
+recommended `network` and `feed`). Every value is computed; the metric pass
+takes well under a millisecond and is memoised.
 
-| Key | Meaning | Iris v0.5 | With the lab's recommendations |
+| Key | Meaning | Iris v0.5 (lab defaults) | Iris v0.6 |
 |---|---|---|---|
-| `rf.match_return_loss_db` | worst return loss over 2.400–2.4835 GHz at the 50 Ω port | **3.9 dB** (no matching network — the BOM gap PCB Studio also flags; VSWR 4.5) | **14.1 dB** with series 1.8 nH + shunt 4.3 nH (E24, Q_L 40) |
-| `rf.feed_z0_ohm` | Z₀ of the antenna feed on the Iris stack-up | **94.8 Ω** — PCB Studio routes the RF net at the 0.15 mm minimum width with 0.20 mm pour clearance | **49.9 Ω** — CPWG 0.91 mm wide, 0.20 mm gaps |
-| `rf.link_margin_db` | LE 1M margin to a phone at 5 m, n = 2.5, head 6 dB + body 4 dB, 90 % Rayleigh fade margin, worse direction | **7.1 dB** (2.2 dB match loss) | **8.9 dB** |
-| `rf.range_m` | distance at 0 dB margin | 9.6 m | 11.4 m |
-| `rf.antenna_efficiency_pct` | radiation efficiency × worst in-band transducer gain | 30 % | 46 % |
+| `rf.match_return_loss_db` | worst return loss over 2.400–2.4835 GHz at the 50 Ω port | 3.9 dB (no matching network — the BOM gap PCB Studio also flagged; VSWR 4.5) | **14.1 dB** with series 1.8 nH (L2) + shunt 4.3 nH (L3), E24, Q_L 40; worst VSWR 1.49 — R-036 (≥ 10 dB) |
+| `rf.feed_z0_ohm` | Z₀ of the antenna feed on the Iris stack-up | 99.7 Ω — PCB Studio routes the RF net at the 0.127 mm minimum width with 0.20 mm pour clearance | **49.9 Ω** — CPWG 0.91 mm wide, 0.20 mm gaps — R-037 (45–55 Ω) |
+| `rf.link_margin_db` | LE 1M margin to a phone at 5 m, n = 2.5, head 6 dB + body 4 dB, 90 % Rayleigh fade margin, worse direction | 7.1 dB (2.2 dB match loss) | **8.9 dB** (0.4 dB match loss) — R-038 (≥ 0 dB) |
+| `rf.range_m` | distance at 0 dB margin | 9.6 m | **11.4 m** |
+| `rf.antenna_efficiency_pct` | radiation efficiency × worst in-band transducer gain | 30 % | **46 %** |
+
+**What the simulation caught (v0.5 → v0.6).** v0.5's BOM went straight from
+the radio to the chip antenna: with the assumed antenna impedance the port saw
+a return loss of only 3.9 dB, and the feed, routed as an ordinary signal at
+minimum width, was a ≈ 100 Ω line. Both would have passed every v0.5
+requirement — none looked at the antenna. v0.6 adds the two-inductor match
+(L2, L3 on the board) and a 50 Ω CPWG feed, and R-036…R-038 keep them there.
+R-037's wording ("50 Ω ± 5 Ω") and its stored range (45…55 Ω) say the same
+thing, but the requirement-quality checker cannot match them and lists it as a
+wording action on [What should I do next?](../next-actions.md).
 
 The antenna impedance is an **assumption** — R = 18 Ω, X = −30 Ω at
 2.442 GHz, Q = 12 — typical of a chip antenna detuned by a ground plane
@@ -128,7 +139,8 @@ Default `design.extra.rf` (what the lab assumes when it is absent):
 }
 ```
 
-The recommended values to store (`suggested_extra` from `rf.iris`) add
+The recommended values to store (`suggested_extra` from `rf.iris`, already in
+Iris v0.6) add
 `"network": [{"kind":"series_l","value":1.8e-9,"q":40},{"kind":"shunt_l","value":4.3e-9,"q":40}]`
 (listed from the radio toward the antenna) and
 `"feed": {"kind":"cpwg","width_mm":0.91,"gap_mm":0.2,"length_mm":6}`.

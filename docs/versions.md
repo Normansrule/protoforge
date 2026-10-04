@@ -80,10 +80,11 @@ The history is stored in the browser (`localStorage`, key
 one configuration, the history is the list of baselines around it. Export it to
 keep it or to share it with a teammate.
 
-## The built-in example: Iris v0.3 → v0.4, and an experiment
+## The built-in example: Iris v0.3 → v0.6, and an experiment
 
-The first visit seeds the history with three versions — two that tell what the
-simulations caught, and one experiment on its own branch:
+The first visit seeds the history with five versions
+(`protoforge call bridge.example_history '{}'`) — four on `main` that each
+tell what the simulations caught, and one experiment on its own branch:
 
 * **Iris v0.3** — the combiner 8 mm after the collimating lens, the
   battery-sense divider at 1 MΩ / 1.2 MΩ, no combiner-clearance requirement.
@@ -102,15 +103,65 @@ simulations caught, and one experiment on its own branch:
   change; comparing it with v0.4 shows what the labs say: battery life rises
   from about 10.3 h to 14.4 h (R-002 still passes, with more margin — a unit
   test checks the ratio is within 8 % of 250/180), and total mass grows by
-  1.56 g, which takes R-001 (≤ 50 g) to within a fraction of a gram of its
-  limit. That trade — hours of battery life against the last of the mass
-  margin — is the decision to make before merging it into `main` on the
-  **Merge branches** tab.
+  1.56 g (48.16 g → 49.72 g), which takes R-001 (≤ 50 g) to within a fraction
+  of a gram of its limit. That trade — hours of battery life against the last
+  of the mass margin — is the decision to make before merging it into `main`
+  on the **Merge branches** tab. (The branch was never merged; v0.6 later
+  chose a 240 mAh cell for a different reason, below.)
+* **Iris v0.5 — strength, firmware and factory checks** (from v0.4, flagged
+  as the *design baseline*) — ten requirements added (R-026 to R-035, 35 in
+  all) from the Structures, Prototype & Firmware, Build and Optics Pro
+  analyses. The Structures Lab found the printed optics housing alone gives a
+  ±0.60 D focus error against a ±0.25 D allowance, so a threaded focus cell set
+  at assembly was added (0.09 D, R-028); the Build Guide found the 0.12 mm
+  stencil's area ratio at 0.667, right on the IPC-7525 limit, so the stencil
+  became 0.10 mm (0.80, R-035). One goal stays open: lateral colour of the
+  moulded achromat (R-030, 5.79′ against 4.5′). 34 of 35 pass.
+* **Iris v0.6 — radio frequency (RF), thermal, hinge, fit, reliability and program** (from
+  v0.5, flagged as the *product baseline (candidate)*) — six new labs (RF &
+  Antenna, Thermal & Fluids, Mechanisms, Human Factors,
+  Reliability & Test, Program & Business) brought eighteen requirements
+  (R-036 to R-053), and the next-actions solver a nineteenth, **R-054**:
+  see-through transmission ≥ 60 %. Evaluated against them, v0.5's design fails
+  **nine binding requirements**; v0.6 fixes every one:
 
-Comparing them shows the parameter change, the two BOM lines, R-025 added and
-passing, R-014's value moving from 1.91 µA to 1.68 µA, the combiner clearance
-crossing zero, and the Circuit Lab's ADC check going from ✕ to ✓. The
-descriptions quote numbers computed by the labs when the history is seeded.
+  | What the labs caught in v0.5 | v0.5 | v0.6 fix | v0.6 |
+  |---|---|---|---|
+  | Antenna port return loss (R-036) — no matching network | 3.9 dB | L2 1.8 nH + L3 4.3 nH | 14.1 dB |
+  | Antenna feed impedance (R-037) — routed at minimum width | 99.7 Ω | 0.91 mm grounded coplanar waveguide (CPWG) | 49.9 Ω |
+  | Hottest frame surface, 3-D model (R-039) | 62.9 °C | 25 µm graphite sheet behind the display (TH1) | 40.4 °C |
+  | Hotspot above the frame mean (R-040) | 31.6 °C | same sheet | 8.9 °C |
+  | Hinge-spring fatigue factor (R-041) | 1.40 | shot-peened, stiffer spring (Ø0.6 mm, D 2.4 mm, 5 coils), 10° stop | 2.03 |
+  | One-size fit (R-044) — Mechanisms hinge coupled into the Human Factors clamp model | 0 % | v0.5's hinge spring opened at 0.08 N, so every head was too loose; the stiffer v0.6 spring brings the clamp into the comfort band | 59.6 % |
+  | Nose-pad pressure (R-045) | 19.3 kPa | 100 mm² silicone pads (NP1) | 3.8 kPa |
+  | Eyebox coverage (R-046) | 59.8 % | display axis 2.6 mm towards the nose | 89.6 % |
+  | 2-year reliability (R-048) | 76.3 % | 240 mAh cell (fewer cycles a day) | 90.4 % |
+
+  The cell's extra 1.3 g was paid for with a 4.5 mm rim instead of 5 mm, so
+  total mass is 49.1 g (R-001). The crystal (Y1 with C7/C8), the matching
+  network and the USB-C configuration-channel (CC) resistors (R6/R7) that the
+  printed circuit board (PCB) Studio had flagged since v0.3 are on the board, which still routes 100 %
+  with 0 design-rule-check (DRC) violations. **Result: 54 requirements, 51
+  pass, 3 open goals** — lateral colour (R-030), outdoor contrast (R-047) and
+  technology readiness (R-053); none binding fails.
+
+  **Why R-054 exists.** The next-actions solver's "Try fixing this" on R-047
+  found that raising the combiner reflectance from 0.30 to 0.49 reaches
+  1.53 : 1 outdoor contrast with *no other requirement moving* — because none
+  watched the see-through transmission, which falls from 70 % to 51 % (1 − R).
+  R-054 (≥ 60 %, a proposed value pending stakeholder agreement) now makes
+  that cost visible: the same fix fails R-054, and the other lever, display
+  luminance, fails six requirements through power and heat. That is why R-047
+  stays an open goal; see [What should I do next?](next-actions.md).
+
+Comparing v0.3 with v0.4 shows the parameter change, the two BOM lines, R-025
+added and passing, R-014's value moving from 1.91 µA to 1.68 µA, the combiner
+clearance crossing zero, and the Circuit Lab's ADC check going from ✕ to ✓.
+Comparing v0.5 with v0.6 lists 30 changed design parameters (battery,
+`design.extra.rf`, `fluids`, `mechanisms.hinge`, `ergonomics`, rim width), 11
+BOM lines (BT1 and HW1 changed; R6, R7, L2, L3, Y1, C7, C8, TH1 and NP1 added)
+and the nineteen new requirements with their verdicts. The descriptions quote
+numbers computed by the labs when the history was seeded.
 
 ## What a comparison contains
 
@@ -144,7 +195,7 @@ h ← (h ⊕ byte) · 1099511628211  (mod 2⁶⁴)   for every byte of project.j
 | `bridge.diff` | `{a: Project, b: Project}` | structured differences + verdict changes |
 | `bridge.summary` | `{project, evaluate?: bool}` | `{hash, short, counts, bom_cost_usd, component_mass_g, evaluation?}` |
 | `bridge.merge` | `{base, ours, theirs: Project, choices?: {path: "ours" \| "theirs"}}` | `{project, error, decisions: [{path, base, ours, theirs, kind: "ours" \| "theirs" \| "conflict", default, chosen}], conflicts, from_theirs, summary}` |
-| `bridge.example_history` | — | `[{name, description, branch, parent, baseline, project}]` (Iris v0.3, v0.4, the 250 mAh experiment) |
+| `bridge.example_history` | — | `[{name, description, branch, parent, baseline, project}]` (Iris v0.3, v0.4, the 250 mAh experiment, v0.5, v0.6) |
 
 ### How the merge walks the file
 

@@ -3,7 +3,8 @@
 First-order design of the Iris heads-up display (HUD): a micro-display, a thin collimating
 lens and a 45° partially reflective combiner in front of the right eye (a
 "birdbath / beam-splitter" layout). The engine (`crates/forge-core/src/optics/`)
-works from `design.optics` and verifies requirements R-004 to R-007 and R-025.
+works from `design.optics` and verifies requirements R-004 to R-007, R-025, R-029, the
+open goal R-030 (lateral colour) and R-054 (see-through ≥ 60 %).
 
 **Optics Pro** extends the lab from first-order optics to real lens design — a
 sequential ray tracer ("Zemax-lite") with real glasses, exact Snell refraction on
@@ -52,7 +53,7 @@ A `System` is `{name, surfaces: [{label, radius, thickness, material, conic, asp
 
 ### Metrics
 
-| Key | Meaning | Iris (defaults) | Requirement |
+| Key | Meaning | Iris (v0.6) | Requirement |
 |---|---|---|---|
 | `optics.hfov_deg` | horizontal FOV at the eye | **23.6°** | R-004 ≥ 20° ✓ |
 | `optics.ppd` | 640 px / HFOV | **27.2 px/°** | R-005 ≥ 25 ✓ |
@@ -61,27 +62,35 @@ A `System` is `{name, surfaces: [{label, radius, thickness, material, conic, asp
 | `optics.combiner_clearance_mm` | lens-to-combiner minus the minimum for the 45° combiner to clear the lens | **+0.78 mm** (11 mm vs 10.2 mm) | R-025 ≥ 0 ✓ |
 | `optics.vfov_deg`, `optics.dfov_deg` | vertical / diagonal FOV | 14.9°, 27.6° | – |
 | `optics.image_nits` | 3000 × 0.92 × 0.30 | 828 nits | – |
-| `optics.see_through_pct` | 1 − R | 70 % | – |
-| `optics.rms_spot_um` | Optics Pro: polychromatic RMS spot radius on the display, worst field, real rays, 4 mm eye pupil, display at best focus | **19.4 µm** (1.5 pixels; COP + PC achromat) | informational |
+| `optics.see_through_pct` | 1 − R (combiner reflectance R = 0.30) | **70 %** | R-054 ≥ 60 % ✓ |
+| `optics.rms_spot_um` | Optics Pro: polychromatic RMS spot radius on the display, worst field, real rays, 4 mm eye pupil, display at best focus | **19.4 µm** (1.5 pixels; COP + PC achromat) | R-029 ≤ 26 µm ✓ |
 | `optics.rms_spot_arcmin` | the same as an angle at the eye (spot / EFL) | 3.33′ (one pixel = 2.26′) | informational |
 | `optics.mtf_at_nyquist` | geometric × diffraction MTF at the display Nyquist (38.1 cycles/mm), worst field, min of T/S | **0.03** (on-axis 0.44; diffraction limit 0.86) | informational |
-| `optics.lateral_color_arcmin` | chief-ray height F − C, worst field, as an angle | 5.79′ | informational |
+| `optics.lateral_color_arcmin` | chief-ray height F − C, worst field, as an angle | **5.79′** | R-030 ≤ 4.5′ ✕ (open goal) |
 
 The Optics Pro metrics use the lens selected in the Lens designer
 (`design.extra.optics_lens`, a preset id, or `"custom"` with the prescription in
 `design.extra.optics_lens_rx`); the default is the COP + PC achromat. They are
 memoised, so they are recomputed only when the optics parameters or the lens change (a lighter 4-ring trace; the unit test bounds one evaluation at 400 ms in an unoptimised debug build).
 
-**Suggested requirements (not added — `examples/` belongs to the integrator).** With the
-default lens, the corner of the field is 1.5 pixels RMS and the MTF at Nyquist is only
-0.03 at the corner (0.44 on axis): alternating single-pixel lines are not resolved in the
-corners by any simple lens here. Realistic first targets for Iris:
-`optics.rms_spot_um ≤ 26` (two pixels, worst field; passes at 19.4 µm) and
-`optics.lateral_color_arcmin ≤ 2 × pixel ≈ 4.5′` (fails at 5.8′ — a real finding: the
+**Image-quality requirements (added in Iris v0.5).** With the default lens, the corner
+of the field is 1.5 pixels RMS and the MTF at Nyquist is only 0.03 at the corner (0.44 on
+axis): alternating single-pixel lines are not resolved in the corners by any simple lens
+here. Iris therefore carries two realistic first targets: R-029,
+`optics.rms_spot_um ≤ 26` (two pixels, worst field; passes at 19.4 µm), and the goal R-030,
+`optics.lateral_color_arcmin ≤ 2 × pixel ≈ 4.5′` (open at 5.8′ — a real finding: the
 optimiser traded colour for spot size, so a colour-weighted merit or a third element is
-needed). An MTF requirement should be written on axis or at half field, e.g.
-`MTF ≥ 0.3 at Nyquist/2`, rather than at full Nyquist in the corner; that needs a new
-metric key.
+needed; a one-parameter fix such as a 24.1 mm focal length breaks the field of view,
+image distance and spot size, see [What should I do next?](../next-actions.md)). An MTF
+requirement should be written on axis or at half field, e.g. `MTF ≥ 0.3 at Nyquist/2`,
+rather than at full Nyquist in the corner; that needs a new metric key.
+
+**See-through and image brightness are one trade.** The combiner reflects R of the
+display light to the eye (`optics.image_nits` = 3000 × 0.92 × R) and passes 1 − R of the
+street (`optics.see_through_pct`). Raising R from 0.30 to 0.49 would lift outdoor contrast
+(the Human Factors Lab's R-047) to 1.53 : 1 but drop see-through to 51 %; R-054
+(see-through ≥ 60 %, added in v0.6 after the next-actions solver exposed exactly this)
+caps R at 0.40.
 
 ### Lens presets (Iris: f = 20 mm, 18 mm aperture, 4 mm eye pupil, ±13.8° diagonal, 29 mm eye-to-lens)
 

@@ -48,6 +48,13 @@ The **live preview** beside the steps updates as you type:
 
 The draft is kept in this browser (local storage) so a reload does not lose it.
 
+After **Create project**, the Overview and Systems Studio → Mission control
+show [What should I do next?](next-actions.md) for the new project: the
+failing and unverified requirements first, each with the lab tab to open and
+the design levers that move it. The wizard is also reachable from
+[Start here](start-here.md) (*Describe your own product*) and the command
+palette (Ctrl K / ⌘ K → *New product*).
+
 ### From the command line
 
 ```bash

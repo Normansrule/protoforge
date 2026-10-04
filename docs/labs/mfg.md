@@ -116,18 +116,20 @@ Metrics (feed R-022):
 
 | Key | Iris value |
 |---|---|
-| `mfg.unit_cost_usd` | ≈ 54 USD at 1 000 units (≤ 120 required) — frame by FDM |
-| `mfg.bom_cost_usd` | ≈ 33 USD of parts at 1 000 units |
-| `mfg.crossover_qty` | ≈ 1 730 units (molding beats printing above) |
+| `mfg.unit_cost_usd` | **54.58 USD** at 1 000 units (R-022 ≤ 120 USD ✓) — frame by FDM |
+| `mfg.bom_cost_usd` | 34.11 USD of parts at 1 000 units (64.12 USD at quantity 1) |
+| `mfg.crossover_qty` | ≈ 10 300 units (molding beats printing above) |
 
 ## How Iris uses it
 
-At the 1 000-unit target the Iris estimate is ≈ 54 USD per unit, dominated by
-the off-board parts (display module, battery, optics ≈ 27 USD) and on-board
-electronics (≈ 6 USD); FDM frames (≈ 7.5 USD) are still cheaper than a
-≈ 11.5 k USD P20 tool. Molding wins above ≈ 1 730 units — with today's
-placeholder 5 mm-wall CAD part. Thinner, drafted walls shorten the molding
-cycle, lower the piece price and move the crossover down.
+At the 1 000-unit target the Iris v0.6 estimate is ≈ 54.6 USD per unit,
+dominated by the off-board parts (display module, battery, optics and
+hardware ≈ 27.5 USD), final assembly and test (7.5 USD), the FDM frame set
+(≈ 7.0 USD) and on-board electronics (≈ 6.6 USD). The drafted CAD frame molds
+with ≈ 60 k USD of P20 tooling for its six parts (the temples need side
+actions for their undercuts), so molding wins only above ≈ 10 300 units. The
+Program & Business Lab adds logistics, warranty, certification and fixtures
+to this figure for a landed cost of ≈ 76.7 USD.
 
 ## Limitations
 

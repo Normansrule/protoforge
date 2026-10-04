@@ -6,7 +6,30 @@ web app, the command-line interface (CLI) and the local representational
 state transfer (REST) server, and deploys the site to GitHub Pages.
 
 Just want to use it? Open the published site — everything runs in the
-browser, nothing to install.
+browser, nothing to install. The first minute in the app:
+
+* **Start here** (`#/start`) — pick your discipline (electrical, mechanical,
+  firmware, optical, radio frequency (RF), controls, manufacturing, test,
+  systems, quantum or student) and get an ordered path through the labs, a
+  five-minute first win and an "I want to…" task finder. See
+  [Start here](start-here.md).
+* **New product** (`#/new`) — the new-product wizard turns a plain-words
+  description into a starter project whose requirements are bound only to
+  metrics the engine really computes for it. See
+  [New-product wizard](new-product.md).
+* **Command palette** — **Ctrl K** (⌘ K on a Mac) or **/** finds any lab, tab,
+  requirement, metric, term, guide or task, and runs actions (theme,
+  Simple/Expert, save, new product).
+* **Simple / Expert mode** — the switch in the top bar. Simple (the default on
+  a first visit) shows *Start here*, *New product* and your discipline's labs
+  first, with every lab under *All labs (23)*; Expert shows the full grouped
+  list.
+* **"What should I do next?"** — on the Overview and in Systems Studio →
+  Mission control: the open issues ranked, each with the lab tab to open, the
+  design levers that measurably move it and a *Try fixing this* solver that
+  shows every side effect. For Iris v0.6 it reads 42 of 54 requirements
+  passing with margin (78 %), nine marginal passes and three open goals. See
+  [What should I do next?](next-actions.md).
 
 ## 1. Prerequisites
 
@@ -82,13 +105,15 @@ The `protoforge` CLI runs the same analyses natively. Without a project path it
 uses the built-in Iris smart-glasses project.
 
 ```bash
-cargo run --release -p forge-cli -- evaluate          # verify every requirement (exit 1 on any FAIL)
+cargo run --release -p forge-cli -- evaluate          # verify every requirement (exit 1 on a binding failure; open goals are reported, not failed)
+cargo run --release -p forge-cli -- next              # "what should I do next?": ranked actions and levers
 cargo run --release -p forge-cli -- metrics           # every computed metric with its note
 cargo run --release -p forge-cli -- report > report.md
 cargo run --release -p forge-cli -- package --out out/iris   # the complete fabrication package
 cargo run --release -p forge-cli -- call pcb.ipc2221 '{"current_a":0.5,"temp_rise_c":10,"copper_oz":1,"external":true}'
 cargo run --release -p forge-cli -- new "Robot lamp" > robot-lamp.json
 cargo run --release -p forge-cli -- evaluate robot-lamp.json
+cargo run --release -p forge-cli -- wizard --options  # the new-product wizard's kinds, capabilities and targets
 ```
 
 Install it on your `PATH` with `cargo install --path crates/forge-cli`, then
@@ -145,5 +170,6 @@ package from the run's **Artifacts → iris-fab-package**.
 | `npm ci` is very slow on WSL2 | Move the checkout from `/mnt/c/…` into your Linux home directory. |
 | `POST /api/ngspice` returns 501 | Install ngspice (`sudo apt install ngspice`) and restart the server. |
 
-Next: read [architecture.md](architecture.md), then a lab guide in
-[docs/labs/](labs/), and the in-app **Guide & references** page.
+Next: read [start-here.md](start-here.md) and [architecture.md](architecture.md),
+then a lab guide in [docs/labs/](labs/), and the in-app **Guide & references**
+page.

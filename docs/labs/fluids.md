@@ -131,32 +131,41 @@ Metrics run on every project edit, memoised on every input they read
 (frame, optics, PCB, thermal, power rails, battery, components, subsystems,
 `design.extra.fluids`), on 1.5 mm voxels, display always on (the R-008 case).
 
-| Metric | Iris v0.5 | Meaning |
+| Metric | Iris v0.6 | Meaning |
 |---|---|---|
-| `fluids.peak_skin_c` | **≈ 63 °C** (optics housing) | hottest exposed frame surface |
-| `fluids.hotspot_over_mean_c` | **≈ 31.6 °C** | peak − area-mean frame surface |
-| `fluids.spreader_gain_c` | **≈ 23 °C** | a 25 µm graphite sheet behind the display (no spreader in the design yet) |
-| `fluids.pod_peak_c` | ≈ 31.5 °C | pod shell and lid only (the surfaces R-008 describes) |
+| `fluids.peak_skin_c` | **40.37 °C** (optics housing) | hottest exposed frame surface — R-039 (≤ 41 °C), a marginal pass (1.5 %) |
+| `fluids.hotspot_over_mean_c` | **8.92 °C** | peak − area-mean frame surface (31.5 °C over 100 cm²) — R-040 (≤ 10 °C) |
+| `fluids.spreader_gain_c` | **21.6 °C** | what the design's 25 µm graphite sheet behind the display (TH1) gains against no spreader |
+| `fluids.pod_peak_c` | 31.37 °C | pod shell and lid only (the surfaces R-008 describes) |
 
-**What the simulation caught.** The lumped model passes R-008 (39.0 °C ≤ 41 °C)
-because it smears all 164 mW over one shell node with R = 55 °C/W. The BOM,
-however, puts the display and its driver (140 mW with the display always on)
-in the small plastic optics housing at the front, not in the pod. There the
-heat enters a 1.2 mm PETG wall over the display's 8.4 × 5.3 mm footprint and
-cannot spread — the spreading length √(k t / h) is only ≈ 4.3 mm — so the end
-wall of the optics housing reaches ≈ 63 °C while the pod itself stays near
-31 °C. Even like for like (all heat in the pod, as the lumped model assumes)
-the 3-D mean is ≈ 31 °C but the hotspot over the board's warm parts reaches
-≈ 40 °C — close to the lumped value only by coincidence of the chosen R.
-Fixes, from the trade tab (1.5 mm voxels): a 25 µm graphite sheet behind the
-display brings the peak to ≈ 40.1 °C (0.014 g), 70 µm graphite or a 0.5 mm
-aluminium bracket to ≈ 39.6 °C, a 1 mm bracket to ≈ 39.4 °C — all under 41 °C
-but with only 1–1.5 °C of margin. Sheets inside the pod do nothing for this
-hotspot (≈ 0 °C gain). Wrapping the sheet further round the housing, lowering
-the display's duty or power, or moving the display driver onto the main board
-would add margin.
+**What the simulation caught (v0.5 → v0.6).** The lumped model passes R-008
+(39.0 °C ≤ 41 °C) because it smears all 164 mW over one shell node with
+R = 55 °C/W. The BOM, however, puts the display and its driver (140 mW with the
+display always on) in the small plastic optics housing at the front, not in
+the pod. There the heat enters a 1.2 mm PETG wall over the display's
+8.4 × 5.3 mm footprint and cannot spread — the spreading length √(k t / h) is
+only ≈ 4.6 mm — so in v0.5, which had no spreader, the end wall of the optics
+housing reached **62.9 °C** (31.6 °C above the frame mean) while the pod itself
+stayed near 31.5 °C. Even like for like (all heat in the pod, as the lumped
+model assumes) the 3-D mean is ≈ 31.4 °C and the hotspot over the board's warm
+parts reaches ≈ 38.9 °C — close to the lumped value only by coincidence of the
+chosen R (the 3-D mean corresponds to ≈ 8 °C/W at h ≈ 12 W/m² K; the lumped
+55 °C/W would need h ≈ 1.8 W/m² K).
 
-Recommended defaults at `design.extra.fluids`:
+v0.6 adds a 25 µm synthetic graphite sheet behind the display on the
+optics-housing end wall (BOM line TH1, `design.extra.fluids` =
+`{ "spreader": "graphite", "spreader_um": 25, "spreader_location": "optics" }`):
+the spreading length grows to ≈ 58 mm and the peak falls to **40.37 °C**
+(R-039 passes with 0.6 °C of margin) for 0.014 g. The trade tab on the v0.6
+design (1.5 mm voxels, baseline without a sheet 62.0 °C): 70 µm graphite or a
+0.5 mm aluminium bracket ≈ 39.8 °C, a 1 mm bracket ≈ 39.6 °C, 70 µm copper
+40.6 °C. Sheets inside the pod do nothing for this hotspot (≈ 0 °C gain).
+Wrapping the sheet further round the housing, lowering the display's duty or
+power, or moving the display driver onto the main board would add the margin
+R-039 still lacks — it is one of the marginal passes on
+[What should I do next?](../next-actions.md).
+
+Lab defaults when a project has no `design.extra.fluids`:
 `{ "spreader": "none", "spreader_um": 25, "spreader_location": "floor", "display_heat_in": "optics", "air_speed_m_s": 0 }`.
 
 ## Limitations

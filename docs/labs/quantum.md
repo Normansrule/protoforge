@@ -246,8 +246,9 @@ failure, the standard milestones and 12 requirements. With the default values
 keeping 4 LSBs) the lab computes ≈ 28 kbit/s at 25 km, 1.5 % QBER, ≈ 175 km
 maximum distance, 8 dB loss, ≈ 3.8 bits of min-entropy per sample,
 ≈ 67 Mbit/s of conditioned random bits (2.2 × what the transmitter needs), all
-NIST tests passed and ≈ 109 W: every requirement passes **except R-005**, the
-goal of reaching 1 % of the PLOB bound (≈ 0.5 %). It is left open on purpose:
+NIST tests passed and ≈ 109 W: eight requirements pass, three (R-010 to R-012,
+verified by test or demonstration) stay unverified until a result is recorded,
+and **R-005** — the goal of reaching 1 % of the PLOB bound — is open (≈ 0.52 %). It is left open on purpose:
 switching the detector efficiency to an SNSPD-class 0.8 (trade T-1) meets it —
 the decision the template leaves for the next design review. Component prices
 are planning placeholders, not quotes; device numbers are typical published

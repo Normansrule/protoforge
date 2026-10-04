@@ -96,43 +96,66 @@ API methods; three sizes beat one.
 
 ## Iris tie-in and metrics
 
-| Metric | Iris value | Meaning |
+Values for Iris v0.6 (`./target/debug/protoforge metrics`); Iris stores
+`pad_area_mm2 100` and `display_offset_mm 2.6` in `design.extra.ergonomics`,
+and the temple clamp includes the Mechanisms Lab's spring hinge
+(`design.extra.mechanisms.hinge`).
+
+| Metric | Iris value (v0.6) | Meaning |
 |---|---|---|
-| `ergonomics.fit_coverage_pct` | **0.0 %** (1 of 4,000) | one size fits all three rules; PD rule 79 %, temple 71 %, clamp band 0 % — **100 % too tight** |
-| `ergonomics.nose_load_g` | **38.3 gf** | 48.5 g total, CoM 30 mm behind the front, nose carries 79 % |
-| `ergonomics.clamp_force_n` | **4.55 N** per side | at the P95 combined head breadth (162 mm); band 0.18–1.38 N |
-| `ergonomics.eyebox_coverage_pct` | **59.8 %** | 6.0 mm eyebox centred 34 mm from the mid-line accepts IPD 62–74 mm |
-| `ergonomics.outdoor_contrast` | **1.24 : 1** | 828 nits of image over a 5,000 cd/m² sunlit street at 70 % see-through |
-| `ergonomics.nose_pad_pressure_kpa` | 19.3 kPa | 0.38 N on 20 mm² pads vs ≈ 4.3 kPa |
+| `ergonomics.fit_coverage_pct` | **59.65 %** of 4,000 | one size fits all three rules; PD rule 79 %, temple 71 %, clamp band 99.7 % (0.3 % too tight, 0 % too loose) — R-044 (≥ 30 %) |
+| `ergonomics.nose_load_g` | **38.6 gf** | 49.1 g total, CoM 30 mm behind the front, nose carries 79 % |
+| `ergonomics.clamp_force_n` | **0.68 N** per side | at the P95 combined head breadth (162 mm), where the hinge reaches its stop; ≈ 0.22 N at the median head; band 0.19–1.38 N |
+| `ergonomics.eyebox_coverage_pct` | **89.6 %** | 6.0 mm eyebox centred 31.4 mm from the mid-line accepts IPD 56.8–68.8 mm — R-046 (≥ 85 %) |
+| `ergonomics.outdoor_contrast` | **1.24 : 1** | 828 nits of image over a 5,000 cd/m² sunlit street at 70 % see-through — R-047 (≥ 1.5 : 1), an open goal |
+| `ergonomics.nose_pad_pressure_kpa` | **3.83 kPa** | 0.38 N on 100 mm² silicone pads (NP1) vs ≈ 4.3 kPa — R-045 |
 | `ergonomics.caption_arcmin` | 22.4′ | 10 px caption × 2.24′/px — comfortable |
 
-**What the simulations caught.** The Iris CAD temples run straight back from
-hinges 122 mm apart, so every adult head pushes each temple out ≈ 9–20 mm
-(P5–P95): the clamp is 2–5 N per side, far above the sustained-pressure limit. A 6.4° splay
-centres the comfort band on the median head (58 % inside the band, 35 % fit on
-all rules), but the band is only ≈ 10 mm of head breadth wide: one size covering
-P5–P95 would need the frame to be ≈ 17 mm/N compliant, twice Iris's 8.7 mm/N
-(spring hinges, a thinner front). Three
-sizes with their own splay cover 77.5 % of adults on all rules. The nose
-carries 38 gf on 20 mm² pads — 4.5 × the capillary limit; pads of ≈ 90 mm²
-each fix the pressure, and moving the battery behind the ear trims the load.
-The display axis sits at the lens-box centre (34 mm) while the median
-monocular PD is ≈ 31.4 mm: shifting it 2.6 mm towards the nose raises eyebox
-coverage from 60 % to 90 %. In sunlight the caption washes out (1.24 : 1);
-reaching 1.5 : 1 needs a tint transmitting ≤ 47 % or ≈ 6,300 nits of display
-luminance.
+**What the simulations caught (v0.5 → v0.6).** The Iris CAD temples run
+straight back from hinges 122 mm apart, so every adult head pushes each temple
+out by many millimetres. With a rigid hinge that spread becomes a clamp far
+above the comfort band (≈ 2.7 N per side even on a 146 mm head in the
+Mechanisms Lab's coupled model, against a 1.38 N limit), and one size fitted
+nobody. Coupling in v0.5's spring hinge flipped the failure: its spring opened
+at 0.08 N, every wearer fell **below** the band (100 % too loose) and fit
+coverage was still **0 %**. v0.6's stiffer, shot-peened spring opens past
+0.19 N, so the clamp sits at ≈ 0.22 N for most heads and reaches 0.68 N at P95
+when the hinge meets its 10° stop: 99.7 % of adults are inside the band and
+**59.65 %** fit on every rule (PD and temple length are now the limits). Most
+of the compliance is the front bowing (7.75 of 9.44 mm/N, 82 %), not the
+temples. Note that the band's lower end (0.19 N, from friction at a 40°
+look-down) sits only ≈ 0.03 N under the median clamp — the friction μ and
+look-down angle are typical values that a wear test should confirm.
 
-**Recommended Iris requirements** (shown live on the How it works scorecard;
-not yet in `project.json`):
+The nose carries 38.6 gf; on v0.5's 20 mm² CAD pads that was **19.3 kPa**,
+4.5 × the capillary limit. Pads of ≥ 89 mm² each meet 4.3 kPa, so v0.6 adds
+≈ 10 × 10 mm silicone pads (100 mm², 3.83 kPa). The display axis sat at the
+lens-box centre (34 mm) while the median monocular PD is ≈ 31.4 mm: v0.6
+shifts it 2.6 mm towards the nose and eyebox coverage rises from **59.8 %** to
+**89.6 %**. In sunlight the caption still washes out (1.24 : 1). Reaching
+1.5 : 1 needs a tint transmitting ≤ 47 % or ≈ 6,300 nits of display luminance
+(6,730 with the solver's 2 % margin) — and the third lever, combiner
+reflectance, now fails R-054 (see-through ≥ 60 %): 0.49 reflectance gives
+1.53 : 1 but 51 % see-through. A 47 % tint passes R-054 as worded (it bounds
+the combiner only) but leaves ≈ 33 % of the street light reaching the eye, the
+very concern R-054 was written for; see
+[What should I do next?](../next-actions.md) for why R-047 stays an open goal.
 
-| Metric | Target | Iris v0.5 | Fix found |
-|---|---|---|---|
-| `ergonomics.fit_coverage_pct` | ≥ 30 % | 0.03 % ✕ | 6.4° temple splay → 35 %; S/M/L → 78 % |
-| `ergonomics.nose_pad_pressure_kpa` | ≤ 4.3 kPa | 19.3 kPa ✕ | ≥ 89 mm² pads → 4.2 kPa |
-| `ergonomics.eyebox_coverage_pct` | ≥ 85 % | 59.8 % ✕ | display axis 2.6 mm towards the nose → 89.6 % |
-| `ergonomics.outdoor_contrast` | ≥ 1.5 : 1 | 1.24 : 1 ✕ | tint ≤ 47 % transmission, or ≈ 6,300 nits |
-| `ergonomics.clamp_force_n` (optional) | ≤ 1.4 N | 4.55 N ✕ | sizes, or ≈ 2 × frame compliance |
-| `ergonomics.caption_arcmin` (optional) | ≥ 16′ | 22.4′ ✓ | — |
+Three sizes (S 46 □ 14 – 135 and M 50 □ 14 – 140 with 4° splay, L 52 □ 14 – 155)
+cover 97 % of a 2,000-person sample on all rules, against 59 % for Iris's one
+size in the same sample (`ergonomics.sizes`).
+
+**Iris requirements from this lab** (added in v0.6; shown live on the How it
+works scorecard):
+
+| Requirement | Metric | Target | Iris v0.5 | Iris v0.6 | Fix |
+|---|---|---|---|---|---|
+| R-044 | `ergonomics.fit_coverage_pct` | ≥ 30 % | 0 % ✕ | 59.65 % ✓ | stiffer spring hinge (Mechanisms Lab); S/M/L → 97 % |
+| R-045 | `ergonomics.nose_pad_pressure_kpa` | ≤ 4.3 kPa | 19.3 kPa ✕ | 3.83 kPa ✓ | 100 mm² silicone pads (≥ 89 mm² needed) |
+| R-046 | `ergonomics.eyebox_coverage_pct` | ≥ 85 % | 59.8 % ✕ | 89.6 % ✓ | display axis 2.6 mm towards the nose |
+| R-047 (goal) | `ergonomics.outdoor_contrast` | ≥ 1.5 : 1 | 1.24 : 1 ✕ | 1.24 : 1 ✕ | open: tint ≤ 47 %, ≈ 6,300 nits, or reflectance (fails R-054) |
+| — (optional) | `ergonomics.clamp_force_n` | ≤ 1.4 N | 0.09 N | 0.68 N ✓ | — |
+| — (optional) | `ergonomics.caption_arcmin` | ≥ 16′ | 22.4′ ✓ | 22.4′ ✓ | — |
 
 The lab's settings live in `design.extra.ergonomics` (defaults:
 `female_fraction 0.5, temple_splay_deg 0, display_offset_mm 0,
@@ -149,8 +172,9 @@ contact_before_bend_mm 10, bright_scene_nits 5000, samples 4000, seed 7`).
 * **Hinge-to-ear distance and nose bridge width are engineering assumptions**,
   labelled as such; replace them with measured data (`overrides`).
 * Head breadth (maximum breadth, above the ears) stands in for the width the
-  temples span — clamp forces are upper bounds. Beams are linear; bonded
-  lenses, spring hinges and hinge play are not modelled.
+  temples span — clamp forces are upper bounds. Beams are linear; the spring
+  hinge comes from the Mechanisms Lab's torque–angle model, but bonded
+  lenses and hinge play are not modelled.
 * The comfort band's ends (friction μ, look-down angle, pressure limit,
   contact area) are typical values; only a wear test settles them.
 * The support model is quasi-static with equally stiff tissue; the moment of

@@ -42,8 +42,8 @@ summed over nets it is the standard fast estimate of routed length.
 **Simulated annealing.** Random moves / rotations / swaps; accept a worse
 layout with probability `exp(−ΔC / T)`, `T ← αT`. The cost is
 `HPWL + λ · overlap`, with λ ramped up so parts can pass through each other
-early and must be legal at the end. On Iris it takes the constructive
-placement from ≈ 339 mm to ≈ 328 mm HPWL with zero overlap.
+early and must be legal at the end. On Iris v0.6 it takes the constructive
+placement from ≈ 387 mm to ≈ 373 mm HPWL with zero overlap.
 
 **Maze routing.** The board is a grid (default 0.25 mm, routed on a half
 grid of 0.125 mm) on two layers. Each cell and each grid edge carries an
@@ -105,13 +105,13 @@ adds stitching vias or short bridges until ground is one island.
 
 Metrics (feed requirements R-017, R-018):
 
-| Key | Iris value |
+| Key | Iris value (v0.6) |
 |---|---|
-| `pcb.routed_pct` | 100 % (93/93 connections) |
-| `pcb.drc_violations` | 0 |
-| `pcb.via_count` | 87 |
-| `pcb.track_length_mm` | 461 mm (322 top / 140 bottom) |
-| `pcb.hpwl_mm` | 331 mm |
+| `pcb.routed_pct` | **100 %** (108/108 connections, 34 nets, 32 parts) |
+| `pcb.drc_violations` | **0** |
+| `pcb.via_count` | 105 |
+| `pcb.track_length_mm` | 578 mm (398 top / 180 bottom) |
+| `pcb.hpwl_mm` | 384 mm |
 
 ## How Iris uses it
 
@@ -121,9 +121,19 @@ violations); its outline feeds the pod length check in CAD (R-019, ≥ 1 mm
 clearance); the robotics lab plans pick-and-place from `pcb.placement`; the
 Manufacturing Hub zips these files with the BOM/CPL and costs the board.
 
-The engine also reports **BOM gaps** it notices while routing: the USB-C
-sink needs 5.1 kΩ Rd resistors on CC1/CC2; a BLE SoC needs a crystal and an
-RF matching network; CHG_STAT is open-drain and needs a pull-up.
+The engine also reports **BOM gaps** it notices while routing. Up to v0.5 it
+flagged three that no requirement covered: the USB-C sink needed 5.1 kΩ Rd
+resistors on CC1/CC2, the BLE SoC needed a crystal, and the antenna needed a
+radio-frequency (RF) matching network. **All three are on the v0.6 board** — R6/R7
+(5.1 kΩ configuration-channel (CC) pull-downs), Y1 (32 MHz crystal) with C7/C8 (12 pF load capacitors), and L2/L3
+(the 1.8 nH + 4.3 nH match the [RF & Antenna Lab](rf.md) synthesised) — and the
+board still routes 100 % with 0 DRC violations. The remaining notes: CHG_STAT
+is open-drain (enable the SoC's internal pull-up on that GPIO), and the
+autorouter uses the minimum trace width everywhere, so the RF feed must be
+re-routed by hand as the 0.91 mm grounded coplanar waveguide the RF & Antenna
+Lab specifies (the KiCad export carries it as the RF net class). Note that
+`rf.feed_z0_ohm` (R-037) checks the feed stored in `design.extra.rf.feed`, not
+the track this router draws.
 
 ## Limitations
 

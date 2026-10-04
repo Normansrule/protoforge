@@ -39,10 +39,12 @@ timeline (CSV) and plan (JSON), pure-pursuit trajectory (CSV).
 
 ## How Iris uses it
 **R-023: pick-and-place ≤ 60 s per board.** With the default desktop-SCARA cell the Iris
-board (25 placements, 21 feeders) takes **28.6 s** (travel 12.5 s, Z 7.3 s, vision 3.5 s,
-dwell 2.3 s, handling 3.0 s; ≈ 3 500 CPH) → pass. Because placement comes from the PCB
-module, the cycle time updates when the PCB Studio moves parts (today `placement()` returns
-a placeholder row, so the sequencing gain is small).
+v0.6 board (32 placements, 26 feeders — the crystal, its load capacitors, the radio-frequency (RF)
+matching inductors and the USB-C configuration-channel (CC) resistors added in v0.6 are among them) takes **38.1 s** (travel
+18.5 s, Z 9.3 s, vision 4.3 s, dwell 2.9 s, handling 3.0 s; ≈ 3 300 CPH) → pass, up from
+29.8 s for v0.5's board. Because placement comes from the PCB module, the cycle time
+updates when the PCB Studio moves parts; the sequencing gain over the naïve BOM order is
+small on this board (38.7 s → 38.1 s).
 
 ## Limitations
 * Generic desktop-SCARA speeds and dwell times (editable) — not a vendor specification.

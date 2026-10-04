@@ -37,32 +37,33 @@ part whose name contains "display").
 
 ### Metrics
 
-| Key | Meaning | Iris (defaults) | Requirement |
+| Key | Meaning | Iris (v0.6) | Requirement |
 |---|---|---|---|
-| `power.battery_life_h` | usable energy ÷ average battery power, reference profile | **10.34 h** | R-002 ≥ 8 h ✓ |
+| `power.battery_life_h` | usable energy ÷ average battery power, reference profile | **13.78 h** | R-002 ≥ 8 h ✓ |
 | `power.avg_power_mw` | average battery power, reference profile | **54.76 mW** | R-003 ≤ 80 mW ✓ |
 | `thermal.max_skin_c` | steady shell temperature, display always on, at `thermal.ambient_c` | **39.0 °C** (30 °C + 164 mW × 55 °C/W) | R-008 ≤ 41 °C ✓ |
 | `power.peak_power_mw` | every load active | 202 mW | – |
-| `power.energy_mwh` | 180 mAh × 3.7 V × 85 % | 566 mWh | – |
+| `power.energy_mwh` | 240 mAh × 3.7 V × 85 % | 755 mWh | – |
 | `thermal.board_max_c` | steady board temperature, display always on | 42.3 °C | – |
 | `thermal.time_constant_s` | dominant (slow) time constant | 419 s (fast mode 23.6 s) | – |
 
 All metrics are closed-form (microseconds), so no memoisation is needed.
-The budget is the same definition as the RL Lab's fixed policy (tested:
-10.34 h vs 10.34 h).
+The budget is the same definition as the RL Lab's fixed policy (tested to
+agree; on Iris v0.6 the RL Lab's simulated days give 13.73 h against the
+budget's 13.78 h).
 
 ## The maths
 
 **Energy budget.** `P̄ᵢ = qtyᵢ (P_active dᵢ + P_sleep (1 − dᵢ))`;
 `P_battery = ΣP̄ᵢ / η + I_q V_nom`; `E = C V_nom f_usable`; `life = E / P_battery`.
-Iris: 49.27 mW of loads ÷ 0.9 + 18.5 µW = 54.76 mW; 566 mWh → 10.34 h. The display is
+Iris v0.6: 49.27 mW of loads ÷ 0.9 + 18.5 µW = 54.76 mW; 755 mWh → 13.78 h. The display is
 85 % of the load, so life vs display duty is the key curve: ≥ 8 h allows the display on
 up to 40 % of the time.
 
-Scenarios (multipliers are stated assumptions): reference 10.3 h · navigation walk
-(display ×2, system-on-chip ×1.6, microphones ×0.4) 5.4 h · all-day captions (display
-×2.67, microphones ×4, system-on-chip ×2.8) 3.9 h · notifications 27.6 h · standby
-(display and microphones off) 333 h · display always on 3.5 h.
+Scenarios (multipliers are stated assumptions; Iris v0.6, 240 mAh): reference 13.8 h ·
+navigation walk (display ×2, system-on-chip ×1.6, microphones ×0.4) 7.2 h · all-day
+captions (display ×2.67, microphones ×4, system-on-chip ×2.8) 5.2 h · notifications
+36.8 h · standby (display and microphones off) 444 h · display always on 4.6 h.
 
 **Discharge.** Rint model `V = OCV(s) − I R`; constant-power load
 `R I² − OCV I + P = 0 → I = (OCV − √(OCV² − 4RP)) / 2R` (collapse when
@@ -71,8 +72,8 @@ to the exact cutoff crossing. The OCV table is a *typical* 4.2 V lithium-cobalt-
 graphite pouch-cell curve at low rate and 25 °C (the shape in Linden & Reddy and in cell
 datasheets), shifted to `full_v` — not a specific cell. Temperature factors (capacity
 0.83 and resistance ×1.9 at 0 °C; 0.60 and ×4 at −20 °C) are illustrative trends.
-Iris, fresh cell at 25 °C: 12.6 h (delivers 104 % of C·V_nom because the mean OCV
-≈ 3.8 V exceeds the 3.7 V nominal); 0 °C 10.5 h; −20 °C 7.5 h. The budget's 85 % usable
+Iris v0.6, fresh 240 mAh cell at 25 °C: 16.8 h (delivers 104 % of C·V_nom because the
+mean OCV ≈ 3.8 V exceeds the 3.7 V nominal); 0 °C 13.9 h; −20 °C 10.0 h. The budget's 85 % usable
 fraction therefore designs for an aged, cool cell — the requirement must hold at end of
 life. Tests: at small current with no resistance the run integrates to exactly the rated
 capacity and `∫OCV dQ`; derating scales it; resistance and cold shorten runtime; Peukert
@@ -93,9 +94,13 @@ eigenvalues vs trace/determinant and `det A = 1/(R_bp R_pa C_b C_p)`; `e^{Ah}` v
 series; exact vs RK4; pulsed load averages out; sweep consistent with the metric.
 
 **Trade.** `life(C) = C V_nom f_usable / P̄ ≥ 8 h ⇒ C ≥ 139 mAh`;
-`mass(C) = m_rest + C (m_cell/C_cell) ≤ 50 g ⇒ C ≤ 263 mAh` (with the CAD frame mass,
-total 48.2 g today). The T-3 options: 120 mAh misses 8 h; 180 mAh meets both; 300 mAh
-breaks 50 g — the analysis agrees with the chosen option.
+`mass(C) = m_rest + C (m_cell/C_cell) ≤ 50 g ⇒ C ≤ 281 mAh` (with the CAD frame mass
+and v0.6's 4.5 mm rim; total 49.1 g today). The T-3 options: 120 mAh misses 8 h (6.9 h);
+180 mAh meets both (10.3 h, 47.8 g); 300 mAh breaks 50 g (50.4 g). v0.6 chose 240 mAh —
+inside the 139–281 mAh feasible interval but not one of T-3's listed options — because
+the Reliability & Test Lab showed the 180 mAh cell wearing out too fast for R-048 (2-year
+reliability 76 % → 90 %); the trade study's recorded decision in `project.json` still
+says 180 mAh.
 
 ## Iris tie-in
 

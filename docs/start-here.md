@@ -65,11 +65,13 @@ letters or more) or filter by discipline.
 
 Three steps, shown as one flow on the start page below your path:
 
-1. **Describe** — the [new-product wizard](#/new) or the
-   [Systems Studio](#/systems) turns what the product must do into
-   requirements bound to metrics.
+1. **Describe** — the [new-product wizard](#/new) (guide:
+   [New-product wizard](new-product.md)) or the [Systems Studio](#/systems)
+   turns what the product must do into requirements bound to metrics.
 2. **Design & simulate** — change the design in the labs; every edit
-   re-checks every requirement in the Rust engine.
+   re-checks every requirement in the Rust engine, and
+   [What should I do next?](next-actions.md) on the Overview ranks what to
+   work on (for Iris v0.6: 51 of 54 requirements pass, 3 open goals).
 3. **Build & ship** — the [Build Guide](#/build), the
    [Manufacturing Hub](#/mfg) and the [Web toolchain](#/toolchain) give
    settings, vendors, files and hand-off to real tools.

@@ -45,19 +45,22 @@ pull direction** — every side wall is drafted relative to it.
 
 ### Metrics
 
-| Key | Meaning | Iris (defaults) |
+| Key | Meaning | Iris (v0.6) |
 |---|---|---|
-| `cad.frame_mass_g` | all six printed/molded parts, divergence-theorem volume × density | **31.4 g** (PETG 1.27 g/cm³) |
+| `cad.frame_mass_g` | all six printed/molded parts, divergence-theorem volume × density | **30.3 g** (PETG 1.27 g/cm³) |
 | `cad.pod_inner_length_mm` | longest board of `pcb.height_mm` that lies flat on the electronics-pod floor (draft and corner radii included) | **59.5 mm** → PCB margin 1.52 mm (R-019 ≥ 1 mm ✓) |
 | `cad.pod_inner_width_mm` | pod depth, floor to lid | 9.8 mm |
 | `cad.pod_inner_height_mm` | cavity height at the floor | 10.5 mm |
-| `cad.frame_volume_cm3` | material volume | 24.7 cm³ |
+| `cad.frame_volume_cm3` | material volume | 23.8 cm³ |
 
-With 16.7 g of components the wearable total is **48.2 g** (R-001 ≤ 50 g ✓,
-1.8 g margin). The frame is slightly above the 15–28 g band typical of
-printed frames: the 5 mm × 5 mm rim front (11.5 g) and the housing for the
-18 mm collimating lens (4.2 g) dominate. A 4 mm rim or a 4 mm front, or ABS /
-PA12, each bring it back into the band.
+With 18.8 g of components the wearable total is **49.1 g** (R-001 ≤ 50 g ✓,
+0.9 g margin — a marginal pass). The frame is slightly above the 15–28 g band
+typical of printed frames: the rim front (10.4 g) and the housing for the
+18 mm collimating lens (4.2 g) dominate. v0.6 narrowed the rim from 5 mm to
+4.5 mm (front 11.5 g → 10.4 g) to pay for the 240 mAh cell (+1.3 g) and the
+other parts v0.6 added (graphite sheet, nose pads, crystal, radio-frequency (RF) match, USB-C
+configuration-channel (CC) resistors); v0.5 was 31.4 g of frame + 17.0 g of components = 48.5 g. A 4 mm
+rim or a 4 mm front, or ABS / PA12, would bring the frame into the band.
 
 ## The maths
 

@@ -178,17 +178,17 @@ check with the DWT cycle counter; Iris ≈ 8 %.
 
 ## Iris values
 
-| Metric | Iris value | Suggested requirement |
+| Metric | Iris value (v0.6) | Requirement (R-id when Iris carries it) |
 |---|---|---|
-| `firmware.ram_kb` | 92.8 KB | ≤ 192 KB (75 % of 256 KB) |
-| `firmware.ram_margin_pct` | 63.7 % | ≥ 25 % |
-| `firmware.flash_kb` | 206 KB | ≤ 472 KB (fits one over-the-air update slot) |
-| `firmware.flash_margin_pct` | 56.4 % | ≥ 20 % |
-| `firmware.cpu_load_pct` | 8.1 % | ≤ 50 % in the busiest context |
-| `firmware.ble_throughput_kbps` | 390 kbit/s | ≥ 128 kbit/s (2× the ADPCM audio uplink) |
-| `firmware.ble_audio_util_pct` | 17.0 % | ≤ 50 % |
-| `firmware.caption_latency_ms` | 52.8 ms | ≤ 100 ms link latency (≤ 500 ms speech → caption with the recogniser) |
-| `firmware.hud_frame_ms` | 32.05 ms | ≤ 100 ms (≥ 10 full frames/s) |
+| `firmware.ram_kb` | 92.8 KB | suggested ≤ 192 KB (75 % of 256 KB) |
+| `firmware.ram_margin_pct` | 63.7 % | **R-031** ≥ 25 % ✓ |
+| `firmware.flash_kb` | 206 KB | suggested ≤ 472 KB (fits one over-the-air update slot) |
+| `firmware.flash_margin_pct` | 56.4 % | **R-032** ≥ 20 % ✓ |
+| `firmware.cpu_load_pct` | 8.1 % | suggested ≤ 50 % in the busiest context |
+| `firmware.ble_throughput_kbps` | 390 kbit/s | suggested ≥ 128 kbit/s (2× the ADPCM audio uplink) |
+| `firmware.ble_audio_util_pct` | 17.0 % | suggested ≤ 50 % |
+| `firmware.caption_latency_ms` | 52.8 ms | **R-033** ≤ 100 ms link latency ✓ (≤ 500 ms speech → caption with the recogniser, suggested) |
+| `firmware.hud_frame_ms` | 32.05 ms | suggested ≤ 100 ms (≥ 10 full frames/s) |
 
 ## References
 

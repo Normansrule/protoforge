@@ -218,11 +218,11 @@ the probe branch carries 0 A and every top-rail piece carries the full 250 µA.
 
 ## How Iris uses it
 
-| Metric | Preset | Iris value | Requirement |
+| Metric | Preset | Iris value (v0.6) | Requirement |
 |---|---|---|---|
 | `circuit.rail_droop_mv` | `rail_load_step` | **7.5 mV** | R-012 ≤ 50 mV |
 | `circuit.buck_ripple_mv` | `buck_converter` | **1.5 mV** p-p | R-013 ≤ 30 mV |
-| `circuit.vbat_divider_ua` | `vbat_divider` | **1.91 µA** | R-014 ≤ 2 µA |
+| `circuit.vbat_divider_ua` | `vbat_divider` | **1.68 µA** | R-014 ≤ 2 µA |
 
 * **1.8 V rail load step.** The buck is modelled by its closed-loop output
   impedance (`Rreg + Lloop‖Rdamp`, with `Lloop = 1/((2π·fc)²·Cout)` so |Zout|
@@ -238,13 +238,16 @@ the probe branch carries 0 A and every top-rail piece carries the full 250 µA.
   take ~1.6 ms to settle open-loop. Ripple is the worst single-cycle
   peak-to-peak of the last four cycles; the inductor ripple (212 mA) matches
   (Vin − Vout)·D/(L·f) within a few percent.
-* **Battery-sense divider.** 1 MΩ / 1.2 MΩ (BOM R1/R2) at a full 4.2 V cell:
-  1.909 µA (≈ 17 mAh per year of storage). The preset also simulates C6
-  feeding the ADC's sample-and-hold (kick-back ≈ 114 µV per sample) and the
-  54.5 ms settling after power-up.
-  **Finding:** at 4.2 V the ADC pin sits at 2.29 V, above the 1.8 V rail the
-  SoC runs from, so the measurement is flagged. A ratio such as R1 = 1.5 MΩ,
-  R2 = 1.0 MΩ keeps the pin at 1.68 V and the current at 1.68 µA.
+* **Battery-sense divider.** 1.5 MΩ / 1 MΩ (BOM R1/R2) at a full 4.2 V cell:
+  1.68 µA (≈ 14.7 mAh per year of storage) and 1.68 V at the analog-to-digital
+  converter (ADC) pin. The
+  preset also simulates C6 feeding the ADC's sample-and-hold (kick-back
+  ≈ 84 µV per sample, theory 84 µV) and the power-up settling (τ = 60 ms,
+  ≈ 0.56 s to 1 least significant bit (LSB)).
+  **Finding (v0.3 → v0.4):** Iris v0.3 used 1 MΩ / 1.2 MΩ (1.91 µA); at 4.2 V
+  that put the ADC pin at 2.29 V, above the 1.8 V rail the SoC runs from, so
+  the measurement was flagged although R-014 passed. v0.4 changed the ratio to
+  R1 = 1.5 MΩ, R2 = 1.0 MΩ: 1.68 V at the pin and 1.68 µA.
 * **IR LED driver** (wear detection): 1.8 V GPIO → logic-level NMOS → IR LED
   → 33 Ω from the 3.3 V rail: ≈ 59 mA pulses, 5.9 mA average at 10 % duty.
 * **Capacitive touch:** a finger adds Cf‖Cbody ≈ 9.4 pF → the pad crosses

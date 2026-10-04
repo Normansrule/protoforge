@@ -75,6 +75,55 @@ CAD, ...) and consists of:
 * No new npm dependencies (available: react 19, react-router 7, three,
   @react-three/fiber, @react-three/drei, zustand, jszip).
 
+## Make the lab easy to find (ease-of-use layer)
+
+Protoforge has 23 labs, so a new lab is only useful if an engineer who has
+never seen it can find it, know what to change and know what the numbers
+mean. Before you finish, add your lab to the ease-of-use layer in `web/src/ux/`:
+
+1. **Lab help** — add an entry keyed by your lab id to `LAB_HELP` in
+   `web/src/ux/help/labHelp.ts`: the question the lab answers in plain words,
+   what you change (`inputs`), what you read (`outputs`, each with its
+   good/bad range and, where the engine computes it, the `metric` key so the
+   panel shows the live value and pass/fail), three steps to try (`try3`,
+   with tab ids), the disciplines it serves (`roles`), an honest `scope`
+   (`project` — works on the user's own product, `iris` — analyses the Iris
+   example geometry, `general`, or `mixed`) with a `scopeNote`, and the key
+   `terms`. The **Help** button in every lab header (`<LabHelp/>`, rendered by
+   `LabPage`) reads it.
+2. **Discipline paths** — add the lab to the role(s) it serves in
+   `web/src/ux/data/roles.ts`: the `labs` list (pinned first in the
+   Simple-mode sidebar) and, where it fits, a `path` step (lab, tab, a plain
+   action, the Iris requirement or metric the step moves, minutes) or a
+   five-minute `quest` step.
+3. **Tasks** — add the everyday jobs your lab does to `TASKS` in
+   `web/src/ux/data/tasks.ts` ("I want to …" + role + lab + tab + a one-line
+   how + search keywords); the start page's task finder and the command
+   palette search them.
+4. **Tab index** — regenerate `web/src/ux/data/labTabs.ts` (never edit it by
+   hand) so the start page, palette and help can deep-link to
+   `#/<lab>?tab=<id>`:
+   ```bash
+   node scripts/gen-lab-index.mjs
+   ```
+   It finds your tabs from a `const TABS … = [{ id, label }, …]` array or the
+   first `tabs={[…]}` passed to `<Tabs>`; reading `?tab=` in your page makes
+   the deep link native (otherwise the navigation chrome clicks the tab).
+5. **Next actions** (if your module emits metrics that requirements bind to) —
+   map your metric prefix to the lab tab in `METRIC_TABS`
+   (`crates/forge-core/src/systems/next/routes.rs`) and list the design
+   parameters your `metrics()` reads in `SHORTLIST`
+   (`crates/forge-core/src/systems/next/levers.rs`), so "What should I do
+   next?" can open the right tab and measure real levers. Put the module in
+   `LAZY_MODULES` if its metrics take more than a few tens of milliseconds.
+6. **Terms** — new acronyms go in the glossary
+   (`web/src/pages/learn/glossary.ts`) or the supplement
+   (`web/src/ux/data/terms.ts`); write them out in full on first use, with
+   the acronym in parentheses, in the lab, its help and its guide.
+
+See [Start here](start-here.md) and [What should I do next?](next-actions.md)
+for what these files drive.
+
 ## Build & check
 
 ```bash
