@@ -431,6 +431,8 @@ pub struct PodModel {
     pub pcb_box: Aabb,
     pub display_box: Aabb,
     pub spreader_box: Option<Aabb>,
+    /// Sheet volume the conducting elements carry, mm³ (Σ fraction × voxel volume).
+    pub spreader_volume_mm3: f64,
     pub shell: ThermalMaterial,
     pub pcb_mat: ThermalMaterial,
     pub spreader_mat: Option<ThermalMaterial>,
@@ -651,6 +653,7 @@ pub fn build(p: &Project, cfg: &Resolved) -> Result<PodModel, String> {
     };
     let spr = spreader_mat.clone();
     let mut elems = Vec::new();
+    let mut spreader_volume_mm3 = 0.0;
     let mut part_of = vec![255u8; n];
     let mut cavity_cells = 0usize;
     for e in 0..n {
@@ -666,12 +669,21 @@ pub fn build(p: &Project, cfg: &Resolved) -> Result<PodModel, String> {
         let mut fu = f_usb[e] as f64;
         let s = fsh + fp + fd + fsp + fu;
         if s > 1.0 {
-            fsh /= s;
-            fp /= s;
-            fd /= s;
-            fsp /= s;
-            fu /= s;
+            // Over-full voxel (boxes overlap the voxelised shell, e.g. the sheet
+            // behind the display shares voxels with the housing wall and the
+            // display module). The sheet keeps its volume — its conductance k·t
+            // is what spreads heat — and the other solids share what is left;
+            // scaling it down with them would remove more of a thicker sheet.
+            let fsp_keep = fsp.min(1.0);
+            let rest = s - fsp;
+            let r = if rest > 1e-12 { (1.0 - fsp_keep) / rest } else { 0.0 };
+            fsh *= r;
+            fp *= r;
+            fd *= r;
+            fu *= r;
+            fsp = fsp_keep;
         }
+        spreader_volume_mm3 += fsp * h * h * h;
         let s = fsh + fp + fd + fsp + fu;
         let cavity = (s as f32) < THR;
         if cavity {
@@ -993,6 +1005,7 @@ pub fn build(p: &Project, cfg: &Resolved) -> Result<PodModel, String> {
         pcb_box,
         display_box,
         spreader_box,
+        spreader_volume_mm3,
         shell,
         pcb_mat,
         spreader_mat,

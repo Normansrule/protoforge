@@ -133,9 +133,9 @@ Metrics run on every project edit, memoised on every input they read
 
 | Metric | Iris v0.6 | Meaning |
 |---|---|---|
-| `fluids.peak_skin_c` | **40.37 °C** (optics housing) | hottest exposed frame surface — R-039 (≤ 41 °C), a marginal pass (1.5 %) |
-| `fluids.hotspot_over_mean_c` | **8.92 °C** | peak − area-mean frame surface (31.5 °C over 100 cm²) — R-040 (≤ 10 °C) |
-| `fluids.spreader_gain_c` | **21.6 °C** | what the design's 25 µm graphite sheet behind the display (TH1) gains against no spreader |
+| `fluids.peak_skin_c` | **40.32 °C** (optics housing) | hottest exposed frame surface — R-039 (≤ 41 °C), a marginal pass (1.6 %) |
+| `fluids.hotspot_over_mean_c` | **8.87 °C** | peak − area-mean frame surface (31.5 °C over 100 cm²) — R-040 (≤ 10 °C) |
+| `fluids.spreader_gain_c` | **21.7 °C** | what the design's 25 µm graphite sheet behind the display (TH1) gains against no spreader |
 | `fluids.pod_peak_c` | 31.37 °C | pod shell and lid only (the surfaces R-008 describes) |
 
 **What the simulation caught (v0.5 → v0.6).** The lumped model passes R-008
@@ -155,11 +155,15 @@ chosen R (the 3-D mean corresponds to ≈ 8 °C/W at h ≈ 12 W/m² K; the lumpe
 v0.6 adds a 25 µm synthetic graphite sheet behind the display on the
 optics-housing end wall (BOM line TH1, `design.extra.fluids` =
 `{ "spreader": "graphite", "spreader_um": 25, "spreader_location": "optics" }`):
-the spreading length grows to ≈ 58 mm and the peak falls to **40.37 °C**
-(R-039 passes with 0.6 °C of margin) for 0.014 g. The trade tab on the v0.6
-design (1.5 mm voxels, baseline without a sheet 62.0 °C): 70 µm graphite or a
-0.5 mm aluminium bracket ≈ 39.8 °C, a 1 mm bracket ≈ 39.6 °C, 70 µm copper
-40.6 °C. Sheets inside the pod do nothing for this hotspot (≈ 0 °C gain).
+the spreading length grows to ≈ 58 mm and the peak falls to **40.32 °C**
+(R-039 passes with 0.7 °C of margin) for 0.014 g. The trade tab on the v0.6
+design (1.5 mm voxels, baseline without a sheet 62.0 °C): 70 µm graphite
+(105 mW/K of sheet conductance k·t) 39.79 °C, a 0.5 mm aluminium bracket
+(115 mW/K, and far better through its thickness) 39.72 °C, a 1 mm bracket
+39.49 °C, 70 µm copper 40.57 °C. The sheet keeps its full volume in voxels it
+shares with the housing wall and the display module (an earlier version scaled
+it down with them, removing more of a thicker sheet, so 70 µm graphite and the
+0.5 mm bracket came out identical). Sheets inside the pod do nothing for this hotspot (≈ 0 °C gain).
 Wrapping the sheet further round the housing, lowering the display's duty or
 power, or moving the display driver onto the main board would add the margin
 R-039 still lacks — it is one of the marginal passes on

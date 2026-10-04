@@ -493,6 +493,35 @@ mod tests {
         assert_eq!(o.hotspot_location, "floor");
     }
 
+    /// Over-full voxels (sheet + housing wall + display module) used to scale
+    /// every fraction down by the overfill, which removed 8 % of a 70 µm
+    /// graphite sheet but 20 % of a 0.5 mm aluminium plate — the two then gave
+    /// the same peak although their sheet conductances k·t differ (105 vs
+    /// 115 mW/K). The sheet now keeps its whole volume.
+    #[test]
+    fn sheet_keeps_its_volume_in_over_full_voxels() {
+        let p = Project::iris();
+        for (kind, t) in [("graphite", 70.0), ("aluminium", 500.0), ("copper", 35.0)] {
+            let c = pod::PodConfig {
+                voxel_mm: Some(1.5),
+                spreader: Some(kind.into()),
+                spreader_um: Some(t),
+                spreader_location: Some("optics".into()),
+                ..Default::default()
+            }
+            .resolve(&p);
+            let m = pod::build(&p, &c).unwrap();
+            let b = m.spreader_box.unwrap();
+            let vol: f64 = (0..3).map(|d| b.hi[d] - b.lo[d]).product();
+            // f32 voxel fractions: agreement to 0.1 % (the old scaling lost 8–20 %)
+            assert!(
+                (m.spreader_volume_mm3 - vol).abs() < 1e-3 * vol,
+                "{kind} {t}: {} vs {vol}",
+                m.spreader_volume_mm3
+            );
+        }
+    }
+
     #[test]
     fn trade_with_brackets_that_change_the_mesh() {
         // Page settings: display heat in the optics housing, 1.5 mm voxels. The 0.5 / 1 mm
@@ -540,5 +569,11 @@ mod tests {
             assert!(r.gain_c > 5.0, "{} {}", r.label, r.gain_c);
         }
         assert!(opt[4].peak_skin_c <= opt[3].peak_skin_c + 0.05);
+        // 70 µm graphite (105 mW/K) and a 0.5 mm aluminium plate (115 mW/K) are
+        // different sheets and give different peaks; the more conductive one is cooler
+        let g70 = o.rows.iter().find(|r| r.id == "graphite_70_optics").unwrap();
+        let al = o.rows.iter().find(|r| r.id == "aluminium_500_optics").unwrap();
+        assert!(al.sheet_conductance_mw_k > g70.sheet_conductance_mw_k);
+        assert!(al.peak_skin_c < g70.peak_skin_c - 0.02, "{} vs {}", al.peak_skin_c, g70.peak_skin_c);
     }
 }
