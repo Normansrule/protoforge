@@ -58,9 +58,13 @@ export function usePlaying(initial = true): [boolean, (p: boolean) => void] {
 export function useClock(playing: boolean, resetKey: unknown = 0): number {
   const [t, setT] = useState(0);
   const last = useRef<number | null>(null);
-  useEffect(() => {
+  // Reset during render (not in an effect), so the render that sees the new key already has
+  // t = 0 — an effect would let a caller's "stop at the end" check see the old, finished t first.
+  const [key, setKey] = useState(resetKey);
+  if (!Object.is(key, resetKey)) {
+    setKey(resetKey);
     setT(0);
-  }, [resetKey]);
+  }
   useEffect(() => {
     if (!playing) {
       last.current = null;
