@@ -665,9 +665,17 @@ pub fn iris_v05() -> Project {
         }
     }
     p.design.frame.rim_width_mm = 5.0;
-    // the battery trade's decision was still the 180 mAh cell
+    // the battery trade was still the original judgement-scored study, decided at 180 mAh
     if let Some(t) = p.trades.iter_mut().find(|t| t.id == "T-3") {
         t.decision = "180 mAh".into();
+        t.criteria = serde_json::from_str(
+            r#"[{"name":"Battery life","weight":0.45},{"name":"Mass","weight":0.35},{"name":"Fits temple","weight":0.2}]"#,
+        )
+        .expect("v0.5 T-3 criteria");
+        t.options = serde_json::from_str(
+            r#"[{"name":"120 mAh","scores":[5,9,10],"notes":""},{"name":"180 mAh","scores":[8,7,8],"notes":""},{"name":"300 mAh","scores":[10,4,4],"notes":""}]"#,
+        )
+        .expect("v0.5 T-3 options");
     }
     // The board keeps v0.6's design rules (0.127 mm on a 0.254 mm grid). v0.5
     // shipped with 0.15 mm on a 0.25 mm grid, which today's placer and router
@@ -936,6 +944,9 @@ mod tests {
             t3.decision
         );
         assert_eq!(v6.design.frame.rim_width_mm, 4.5);
+        // the metric-scored trade's weighted winner is the recorded decision
+        let r = crate::systems::score_trade(t3);
+        assert_eq!(t3.options[r.winner].name, "240 mAh");
         let v5 = iris_v05();
         let t3 = v5.trades.iter().find(|t| t.id == "T-3").unwrap();
         assert_eq!(t3.decision, "180 mAh");

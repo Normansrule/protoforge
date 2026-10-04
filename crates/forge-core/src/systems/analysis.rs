@@ -1003,7 +1003,7 @@ fn auto_criterion(p: &Project, ev: &Evaluation, text: &str) -> Option<(bool, Str
             .iter()
             .filter(|t| {
                 let r = score_trade(t);
-                !t.decision.trim().is_empty() && t.options.get(r.winner).is_some_and(|o| o.name != t.decision)
+                !t.decision.trim().is_empty() && t.options.get(r.winner).is_some_and(|o| !decision_names(&t.decision, &o.name))
             })
             .map(|t| t.id.clone())
             .collect();
@@ -1352,8 +1352,25 @@ pub fn studio(p: &Project, ev: &Evaluation) -> Studio {
     }
 }
 
+/// A recorded decision names an option when it is that option's name, or starts
+/// with it followed by a non-alphanumeric character ("240 mAh — chosen because …").
+fn decision_names(decision: &str, option: &str) -> bool {
+    let d = decision.trim();
+    d == option
+        || d.strip_prefix(option)
+            .is_some_and(|rest| rest.chars().next().is_some_and(|c| !c.is_alphanumeric()))
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn decision_text_may_explain_itself() {
+        assert!(super::decision_names("240 mAh", "240 mAh"));
+        assert!(super::decision_names("240 mAh — chosen for reliability", "240 mAh"));
+        assert!(!super::decision_names("2400 mAh", "240"));
+        assert!(!super::decision_names("180 mAh", "240 mAh"));
+    }
+
     use super::*;
     use crate::project::{Criterion, Interface, TradeOption};
     use crate::systems::evaluate;
