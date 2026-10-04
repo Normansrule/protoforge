@@ -7,7 +7,7 @@ import { Icon } from '../../components/Icon';
 import { fmtNum } from '../../components/Plot';
 import { REPOS } from '../../pages/learn/repos';
 import { DOCS } from '../../pages/docs/sources';
-import { useEvaluation, useMetricMap, useProject } from '../../state/project';
+import { IRIS, useEvaluation, useMetricMap, useProject } from '../../state/project';
 import { usePrefs } from '../prefs';
 import { ROLES, roleById, type Role, type PathStep } from '../data/roles';
 import { TASKS } from '../data/tasks';
@@ -197,7 +197,17 @@ function useReqStatus() {
 
 function PathRow({ step, n }: { step: PathStep; n: number }) {
   const { ev, project, metrics } = useReqStatus();
-  const req = step.req ? project.requirements.find((r) => r.id === step.req) : undefined;
+  // Path steps name Iris requirement ids. Match the loaded project by the metric that
+  // requirement is bound to, so another product's R-001 (which may be something else
+  // entirely) never shows up as the Iris step's live value.
+  const irisMetric = step.req ? IRIS.requirements.find((r) => r.id === step.req)?.verification.metric : undefined;
+  const req = step.req
+    ? project.meta.id === IRIS.meta.id
+      ? project.requirements.find((r) => r.id === step.req)
+      : irisMetric
+        ? project.requirements.find((r) => r.verification.metric === irisMetric)
+        : undefined
+    : undefined;
   const res = req ? ev.data?.results.find((r) => r.id === req.id) : undefined;
   const metric = step.metric ? metrics.get(step.metric) : undefined;
   const where = tabLabel(step.lab, step.tab);
