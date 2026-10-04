@@ -47,6 +47,57 @@ function Grid({ admittance }: { admittance: boolean }) {
   );
 }
 
+type Box = [number, number, number, number]; // x, y, w, h in SVG units
+
+const overlaps = (a: Box, b: Box, pad = 2) => a[0] < b[0] + b[2] + pad && b[0] < a[0] + a[2] + pad && a[1] < b[1] + b[3] + pad && b[1] < a[1] + a[3] + pad;
+
+/**
+ * Put each element label beside its arc without overlapping another label, the load
+ * label, the arc end points or the chart edge (near the centre the arcs are short and
+ * their midpoints crowd together). Candidates step along the arc and out along its
+ * normal on both sides; the first free one wins, with a leader line when it sits away.
+ */
+function placeArcLabels(arcs: [number, number][][], texts: string[], avoid: Box[]) {
+  const placed: Box[] = [...avoid];
+  return arcs.map((arc, k) => {
+    const text = texts[k] ?? '';
+    const w = text.length * 6.6 + 4;
+    const h = 14;
+    const pts = arc.map(([re, im]) => [X(re), Y(im)] as [number, number]);
+    let best: { cx: number; cy: number; px: number; py: number; box: Box; d: number } | null = null;
+    outer: for (const f of [0.5, 0.35, 0.65, 0.2, 0.8, 0.05, 0.95]) {
+      const i = Math.min(pts.length - 1, Math.max(0, Math.round(f * (pts.length - 1))));
+      const a = pts[Math.max(0, i - 1)];
+      const b = pts[Math.min(pts.length - 1, i + 1)];
+      let tx = b[0] - a[0], ty = b[1] - a[1];
+      const tl = Math.hypot(tx, ty) || 1;
+      tx /= tl; ty /= tl;
+      const [px, py] = pts[i];
+      // try the side facing away from the chart centre first
+      const out = (px - C) * -ty + (py - C) * tx >= 0 ? 1 : -1;
+      for (const d of [8, 20, 34, 50]) {
+        for (const side of [out, -out]) {
+          const nx = -ty * side, ny = tx * side;
+          const reach = d + 0.5 * (Math.abs(nx) * w + Math.abs(ny) * h);
+          const cx = px + nx * reach, cy = py + ny * reach;
+          const box: Box = [cx - w / 2, cy - h / 2, w, h];
+          const inside = box[0] >= 2 && box[1] >= 2 && box[0] + w <= S - 2 && box[1] + h <= S - 2;
+          if (!inside || placed.some((q) => overlaps(q, box))) continue;
+          best = { cx, cy, px, py, box, d };
+          break outer;
+        }
+      }
+    }
+    if (!best) {
+      const [px, py] = pts[Math.floor(pts.length / 2)] ?? [C, C];
+      const box: Box = [px + 6, py - 6 - h, w, h];
+      best = { cx: px + 6 + w / 2, cy: py - 6 - h / 2, px, py, box, d: 8 };
+    }
+    placed.push(best.box);
+    return { text, ...best };
+  });
+}
+
 function Labels() {
   const rs = [0.2, 0.5, 1, 2, 5];
   return (
@@ -151,21 +202,38 @@ export function SmithChart(props: {
         ))}
         {props.path &&
           props.path.arcs.map((arc, k) => {
-            const el = props.path!.elements[props.path!.elements.length - 1 - k];
-            const mid = arc[Math.floor(arc.length / 2)];
             const end = arc[arc.length - 1];
             return (
               <g key={k}>
                 <path d={arc.map(([re, im], i) => `${i ? 'L' : 'M'}${X(re).toFixed(1)},${Y(im).toFixed(1)}`).join('')} fill="none" stroke={props.path!.color} strokeWidth={2.5} />
                 <circle cx={X(end[0])} cy={Y(end[1])} r={4} fill={props.path!.color} stroke="var(--surface-1)" strokeWidth={2} />
-                {el && (
-                  <text x={X(mid[0]) + 6} y={Y(mid[1]) - 6} className="rf-smith-elabel">
-                    {k + 1}. {elLabel(el)}
-                  </text>
-                )}
               </g>
             );
           })}
+        {props.path &&
+          (() => {
+            const path = props.path;
+            const texts = path.arcs.map((_, k) => {
+              const el = path.elements[path.elements.length - 1 - k];
+              return el ? `${k + 1}. ${elLabel(el)}` : '';
+            });
+            const lx = X(g.re), ly = Y(g.im);
+            const avoid: Box[] = [
+              [lx - 8, ly - 8, 16, 16], // load point
+              [lx + 9, ly - 21, 26, 14], // "Z_L"
+              [C - 5, C - 5, 10, 10], // centre
+              [C + rlR * R * 0.71 + 2, C + rlR * R * 0.71, 36, 15], // return-loss circle label
+              ...path.arcs.map((arc) => { const e = arc[arc.length - 1]; return [X(e[0]) - 5, Y(e[1]) - 5, 10, 10] as Box; }),
+            ];
+            return placeArcLabels(path.arcs, texts, avoid).map((l, k) =>
+              l.text ? (
+                <g key={`l${k}`}>
+                  {l.d > 8 && <line x1={l.px} y1={l.py} x2={Math.max(l.box[0], Math.min(l.box[0] + l.box[2], l.px))} y2={Math.max(l.box[1], Math.min(l.box[1] + l.box[3], l.py))} stroke={path.color} strokeWidth={1} opacity={0.7} />}
+                  <text x={l.cx} y={l.cy + 4} textAnchor="middle" className="rf-smith-elabel">{l.text}</text>
+                </g>
+              ) : null,
+            );
+          })()}
         <circle cx={C} cy={C} r={3} className="rf-smith-centre" />
         <g transform={`translate(${X(g.re)},${Y(g.im)})`} style={{ cursor: props.onDrag ? 'grab' : 'default' }}>
           <circle r={14} fill="transparent" />
